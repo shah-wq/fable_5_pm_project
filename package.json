@@ -1,0 +1,20 @@
+{
+  "name": "fable_5_pm_project",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "db:verify": "scripts/verify-local.sh",
+    "db:gen-types": "node scripts/gen-types.mjs"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.49.0"
+  },
+  "devDependencies": {
+    "@supabase/postgres-meta": "^0.91.0",
+    "@types/node": "^24.0.0",
+    "supabase": "^2.111.0",
+    "typescript": "^5.7.0"
+  }
+}

@@ -1,0 +1,42 @@
+# Supabase local development configuration.
+# Reference: https://supabase.com/docs/guides/local-development/cli/config
+
+project_id = "fable_5_pm_project"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 17
+
+[studio]
+enabled = true
+port = 54323
+
+[auth]
+enabled = true
+site_url = "http://127.0.0.1:3000"
+additional_redirect_urls = ["https://127.0.0.1:3000"]
+jwt_expiry = 3600
+enable_refresh_token_rotation = true
+
+[auth.email]
+enable_signup = true
+enable_confirmations = false
+
+# Stamps profiles.role into every access token as the `user_role` claim so RLS
+# never queries profiles on the hot path. On hosted projects, enable the same
+# hook under Authentication → Hooks → Customize Access Token.
+[auth.hook.custom_access_token]
+enabled = true
+uri = "pg-functions://postgres/public/custom_access_token_hook"
+
+[storage]
+enabled = true
+file_size_limit = "100MiB"
