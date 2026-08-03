@@ -46,7 +46,10 @@ export function StaffLoginForm({ door, next }: { door: DoorId; next?: string }) 
         return;
       }
 
-      setError(json?.error ?? 'Sign-in failed. Try again.');
+      setError(
+        json?.error ??
+          `Server error (${res.status}) — the site may not be connected to its database yet. Open /api/health for diagnostics.`
+      );
     } finally {
       setBusy(false);
     }
