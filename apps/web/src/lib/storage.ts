@@ -1,4 +1,4 @@
-import type { TypedClient } from './supabase/client';
+import type { TypedClient } from './supabase/types';
 
 /**
  * Storage helpers for the three private project buckets. All downloads go

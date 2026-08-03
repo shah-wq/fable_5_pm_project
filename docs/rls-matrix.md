@@ -7,7 +7,7 @@ and `20260803000700_storage.sql` (storage). Executable proof:
 ## How a request is authorized
 
 1. Every user has exactly one §2 role on `public.profiles.role`
-   (`admin | designer | customer | dealer | finance`).
+   (`admin | ops | designer | customer | dealer | finance`).
 2. `public.custom_access_token_hook` stamps that role into the JWT as the
    `user_role` claim at token mint time; `app.current_user_role()` reads the
    claim (falling back to a profiles lookup for pre-hook sessions).
@@ -36,10 +36,31 @@ Excluded on purpose: `site_address`, `metadata`, `assigned_designer_id`,
 `priority`, and all client PII (finance also has zero rows on `clients`).
 The view is read-only (writes revoked + not auto-updatable).
 
+## Ops (PM) — added by migration 000900
+
+Ops runs the pipeline: `app.can_access_project()` and `app.is_project_staff()`
+treat `ops` like `admin`, so ops reads and writes **all project data** (and,
+at launch, enters designer/finance data manually). What ops is *not*:
+
+- no `audit_log` reads, no `project_financials` view (those stay admin/finance)
+- no user, dealer, or reference-data management (admin-only writes)
+- reads `dealers`, `clients`, `designers`, `price_book`, `adder_rules`,
+  `vendors` for pipeline work
+
+## Upload grants (REQ-SEC-01, migration 000900)
+
+`upload_grants` backs the no-login links (`/u/<token>`): staff-of-project
+mint via `create_upload_grant` (TTL clamped to 7 days, token stored as
+sha-256), anyone with the token resolves it via `validate_upload_grant`
+(anon-callable; returns nothing for unknown/expired/revoked), staff revoke
+via `revoke_upload_grant`. Table reads are staff-of-project only; direct DML
+is revoked — the three functions are the whole API. Mint/revoke are audited.
+
 ## Table matrix
 
 Legend: ✅ full · rows/cols noted otherwise · — no access.
-Admin has full access to every table and is omitted from the notes.
+Admin has full access to every table and is omitted from the notes; ops
+matches admin on all project-data tables per the section above.
 
 | Table | designer | dealer | customer | finance |
 |---|---|---|---|---|
@@ -68,6 +89,7 @@ Admin has full access to every table and is omitted from the notes.
 | `permit_events` | queue (R; insert as staff) | book (R) | own project (R) | — |
 | `stage_feedback` | queue (R); insert as self | own rows (R); insert as self | own rows (R); insert as self | — |
 | `exceptions` | queue + assigned-to-me (R/I/U) | — | — | — |
+| `upload_grants` | queue (R; mint/revoke via functions) | — | — | — |
 | `audit_log` | — | — | — | — (admin read-only; see below) |
 
 Write escalations everywhere else are admin-only (deletes of business records,

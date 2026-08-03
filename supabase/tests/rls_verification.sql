@@ -9,11 +9,13 @@
 -- ON_ERROR_STOP so any failure aborts the run.
 --
 --   admin    → sees all projects
+--   ops      → sees all projects (runs the pipeline; no admin surfaces)
 --   designer → sees only their queue
 --   customer → sees only their project
 --   dealer   → sees only their book
 --   finance  → zero direct project rows; whitelisted columns via view
--- plus storage policies, audit-log behavior, and write denials.
+-- plus storage policies, audit-log behavior, write denials, and the
+-- REQ-SEC-01 upload grants (single-project no-login links, 7-day cap).
 
 \set ON_ERROR_STOP on
 
@@ -36,7 +38,7 @@ $$;
 grant execute on function public.t_login(uuid, text) to authenticated;
 
 create table public.t_fix (key text primary key, id uuid not null);
-grant select on public.t_fix to authenticated;
+grant select on public.t_fix to authenticated, anon;
 
 insert into public.t_fix (key, id) values
   ('u_admin',     'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'),
@@ -47,6 +49,7 @@ insert into public.t_fix (key, id) values
   ('u_customer1', 'ffffffff-ffff-4fff-8fff-ffffffffffff'),
   ('u_customer2', '99999999-9999-4999-8999-999999999999'),
   ('u_finance',   '12121212-1212-4121-8121-121212121212'),
+  ('u_ops',       '13131313-1313-4131-8131-131313131313'),
   ('dealer1',     '11111111-1111-4111-8111-111111111111'),
   ('dealer2',     '22222222-2222-4222-8222-222222222222'),
   ('designer1',   '33333333-3333-4333-8333-333333333333'),
@@ -65,7 +68,7 @@ language sql
 stable
 as $$ select id from public.t_fix where key = p_key $$;
 
-grant execute on function public.t_id(text) to authenticated;
+grant execute on function public.t_id(text) to authenticated, anon;
 
 -- Users: the auth.users trigger creates profiles with the role taken from
 -- raw_app_meta_data.user_role.
@@ -80,20 +83,24 @@ from (values
   ('u_dealer2',   'dealer'),
   ('u_customer1', 'customer'),
   ('u_customer2', 'customer'),
-  ('u_finance',   'finance')
+  ('u_finance',   'finance'),
+  ('u_ops',       'ops')
 ) as k (key, role);
 
 do $t$
 declare n int;
 begin
   select count(*) into n from public.profiles;
-  if n <> 8 then
-    raise exception 'FAIL: expected 8 auto-created profiles, got %', n;
+  if n <> 9 then
+    raise exception 'FAIL: expected 9 auto-created profiles, got %', n;
   end if;
   if (select role from public.profiles where id = t_id('u_finance')) <> 'finance' then
     raise exception 'FAIL: profile bootstrap did not honor app-metadata role';
   end if;
-  raise notice 'PASS: auth.users trigger created 8 profiles with §2 roles';
+  if (select role from public.profiles where id = t_id('u_ops')) <> 'ops' then
+    raise exception 'FAIL: profile bootstrap did not honor the ops role';
+  end if;
+  raise notice 'PASS: auth.users trigger created 9 profiles with §2 roles';
 end
 $t$;
 
@@ -176,6 +183,30 @@ begin
   select count(*) into n from public.projects;
   if n <> 2 then raise exception 'FAIL: admin expected 2 projects, got %', n; end if;
   raise notice 'PASS: admin sees all projects (%)', n;
+end
+$t$;
+reset role;
+
+select t_login(t_id('u_ops'), 'ops');
+set role authenticated;
+do $t$
+declare n int;
+begin
+  select count(*) into n from public.projects;
+  if n <> 2 then raise exception 'FAIL: ops expected all projects (2), got %', n; end if;
+  update public.projects set priority = 5 where id = t_id('project2');
+  if not exists (select 1 from public.projects where id = t_id('project2') and priority = 5) then
+    raise exception 'FAIL: ops could not update a project';
+  end if;
+  select count(*) into n from public.clients;
+  if n <> 2 then raise exception 'FAIL: ops expected all clients (2), got %', n; end if;
+  select count(*) into n from public.price_book;
+  if n < 1 then raise exception 'FAIL: ops should read price_book'; end if;
+  select count(*) into n from public.project_financials;
+  if n <> 0 then raise exception 'FAIL: ops must not read the finance view, got %', n; end if;
+  select count(*) into n from public.audit_log;
+  if n <> 0 then raise exception 'FAIL: ops must not read audit_log, got %', n; end if;
+  raise notice 'PASS: ops runs the pipeline (all projects, writes) without admin surfaces';
 end
 $t$;
 reset role;
@@ -694,11 +725,153 @@ end
 $t$;
 
 -- =============================================================================
+-- 7. Upload grants (REQ-SEC-01): single-project no-login links, 7-day cap
+-- =============================================================================
+
+create table public.t_tokens (key text primary key, token text not null, grant_id uuid not null);
+grant select on public.t_tokens to authenticated, anon;
+grant insert on public.t_tokens to authenticated;
+
+-- Staff mint grants; TTL is clamped to 7 days even when more is requested.
+select t_login(t_id('u_designer1'), 'designer');
+set role authenticated;
+do $t$
+declare g record;
+begin
+  select * into g from public.create_upload_grant(t_id('project1'), 'survey_photos', interval '30 days');
+  if g.expires_at > now() + interval '7 days' + interval '1 minute' then
+    raise exception 'FAIL: upload grant TTL not clamped to 7 days (%)', g.expires_at;
+  end if;
+  insert into public.t_tokens values ('good', g.token, g.grant_id);
+
+  select * into g from public.create_upload_grant(t_id('project1'), 'customer_delivery');
+  insert into public.t_tokens values ('revokeme', g.token, g.grant_id);
+
+  raise notice 'PASS: staff mint upload grants, expiry capped at 7 days';
+end
+$t$;
+reset role;
+
+-- Dealers are not project staff: no minting.
+select t_login(t_id('u_dealer1'), 'dealer');
+set role authenticated;
+do $t$
+declare g record;
+begin
+  begin
+    select * into g from public.create_upload_grant(t_id('project1'), 'survey_photos');
+    raise exception 'FAIL: dealer minted an upload grant';
+  exception when insufficient_privilege then
+    raise notice 'PASS: only project staff mint upload grants';
+  end;
+end
+$t$;
+reset role;
+
+-- A grant past its expiry, as if minted 8 days ago.
+insert into public.upload_grants (project_id, purpose, token_hash, expires_at)
+values (t_id('project1'), 'survey_photos',
+        encode(extensions.digest('expired-token-fixture', 'sha256'), 'hex'),
+        now() - interval '1 hour');
+
+-- The surveyor path: no session at all (anon), only the token.
+select set_config('request.jwt.claims', '', false);
+set role anon;
+do $t$
+declare r record; n int;
+begin
+  select * into r from public.validate_upload_grant((select token from public.t_tokens where key = 'good'));
+  if r.project_id is distinct from t_id('project1') or r.project_name <> 'Homeowner One PV' then
+    raise exception 'FAIL: valid token did not resolve to exactly its project';
+  end if;
+
+  select count(*) into n from public.validate_upload_grant('expired-token-fixture');
+  if n <> 0 then raise exception 'FAIL: expired upload link still works'; end if;
+
+  select count(*) into n from public.validate_upload_grant('not-a-real-token');
+  if n <> 0 then raise exception 'FAIL: unknown token resolved'; end if;
+
+  begin
+    select count(*) into n from public.upload_grants;
+    raise exception 'FAIL: anon can read upload_grants';
+  exception when insufficient_privilege then
+    null;
+  end;
+
+  begin
+    perform app.write_audit('forged', 'projects');
+    raise exception 'FAIL: anon can call the audit writer';
+  exception when insufficient_privilege then
+    null;
+  end;
+
+  raise notice 'PASS: token opens exactly one project, expired/unknown tokens dead, anon sealed off';
+end
+$t$;
+reset role;
+
+-- Revocation kills a link immediately.
+select t_login(t_id('u_designer1'), 'designer');
+set role authenticated;
+do $t$
+declare n int;
+begin
+  perform public.revoke_upload_grant((select grant_id from public.t_tokens where key = 'revokeme'));
+  select count(*) into n from public.upload_grants;
+  if n < 3 then raise exception 'FAIL: staff should see their project''s grants, got %', n; end if;
+  raise notice 'PASS: staff revoke and see their project''s grants';
+end
+$t$;
+reset role;
+
+select set_config('request.jwt.claims', '', false);
+set role anon;
+do $t$
+declare n int;
+begin
+  select count(*) into n
+  from public.validate_upload_grant((select token from public.t_tokens where key = 'revokeme'));
+  if n <> 0 then raise exception 'FAIL: revoked upload link still works'; end if;
+  raise notice 'PASS: revoked link stops working immediately';
+end
+$t$;
+reset role;
+
+-- Dealers see no grants; grant lifecycle is in the audit trail; usage counted.
+select t_login(t_id('u_dealer1'), 'dealer');
+set role authenticated;
+do $t$
+declare n int;
+begin
+  select count(*) into n from public.upload_grants;
+  if n <> 0 then raise exception 'FAIL: dealer sees upload grants (%)', n; end if;
+  raise notice 'PASS: grants invisible outside project staff';
+end
+$t$;
+reset role;
+
+do $t$
+declare n int;
+begin
+  select count(*) into n from public.audit_log where action = 'upload_grant.created';
+  if n < 2 then raise exception 'FAIL: grant creation not audited'; end if;
+  select count(*) into n from public.audit_log where action = 'upload_grant.revoked';
+  if n <> 1 then raise exception 'FAIL: grant revocation not audited'; end if;
+  if (select use_count from public.upload_grants g
+      join public.t_tokens t on t.grant_id = g.id and t.key = 'good') < 1 then
+    raise exception 'FAIL: grant usage not counted';
+  end if;
+  raise notice 'PASS: grant lifecycle audited and usage counted';
+end
+$t$;
+
+-- =============================================================================
 -- Cleanup of test-only helpers
 -- =============================================================================
 
 drop function public.t_login(uuid, text);
 drop function public.t_id(text);
 drop table public.t_fix;
+drop table public.t_tokens;
 
 select 'ALL RLS VERIFICATION CHECKS PASSED' as result;

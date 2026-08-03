@@ -1346,6 +1346,67 @@ export type Database = {
           },
         ]
       }
+      upload_grants: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          expires_at: string
+          id: string
+          last_used_at: string | null
+          project_id: string
+          purpose: Database["public"]["Enums"]["upload_grant_purpose"]
+          revoked_at: string | null
+          token_hash: string
+          use_count: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          expires_at: string
+          id?: string
+          last_used_at?: string | null
+          project_id: string
+          purpose: Database["public"]["Enums"]["upload_grant_purpose"]
+          revoked_at?: string | null
+          token_hash: string
+          use_count?: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string
+          id?: string
+          last_used_at?: string | null
+          project_id?: string
+          purpose?: Database["public"]["Enums"]["upload_grant_purpose"]
+          revoked_at?: string | null
+          token_hash?: string
+          use_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "upload_grants_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "upload_grants_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "project_financials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "upload_grants_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       utilities: {
         Row: {
           created_at: string
@@ -1563,7 +1624,22 @@ export type Database = {
       }
     }
     Functions: {
-      custom_access_token_hook: { Args: { event: Json }; Returns: Json }
+      create_upload_grant: {
+        Args: {
+          p_project_id: string
+          p_purpose: Database["public"]["Enums"]["upload_grant_purpose"]
+          p_ttl?: unknown
+        }
+        Returns: {
+          expires_at: string
+          grant_id: string
+          token: string
+        }[]
+      }
+      custom_access_token_hook: {
+        Args: { event: Json }
+        Returns: Json
+      }
       log_audit_event: {
         Args: {
           p_action: string
@@ -1573,6 +1649,20 @@ export type Database = {
           p_project_id?: string
         }
         Returns: number
+      }
+      revoke_upload_grant: {
+        Args: { p_grant_id: string }
+        Returns: undefined
+      }
+      validate_upload_grant: {
+        Args: { p_token: string }
+        Returns: {
+          expires_at: string
+          grant_id: string
+          project_id: string
+          project_name: string
+          purpose: Database["public"]["Enums"]["upload_grant_purpose"]
+        }[]
       }
     }
     Enums: {
@@ -1608,7 +1698,10 @@ export type Database = {
         | "complete"
       project_status: "active" | "on_hold" | "cancelled" | "complete"
       slot_status: "open" | "held" | "booked" | "cancelled"
-      user_role: "admin" | "designer" | "customer" | "dealer" | "finance"
+      upload_grant_purpose:
+        "survey_photos" | "crew_workorder" | "customer_delivery"
+      user_role:
+        "admin" | "ops" | "designer" | "customer" | "dealer" | "finance"
       vendor_quote_status:
         "requested" | "received" | "accepted" | "declined" | "expired"
     }
@@ -1783,7 +1876,12 @@ export const Constants = {
       ],
       project_status: ["active", "on_hold", "cancelled", "complete"],
       slot_status: ["open", "held", "booked", "cancelled"],
-      user_role: ["admin", "designer", "customer", "dealer", "finance"],
+      upload_grant_purpose: [
+        "survey_photos",
+        "crew_workorder",
+        "customer_delivery",
+      ],
+      user_role: ["admin", "ops", "designer", "customer", "dealer", "finance"],
       vendor_quote_status: [
         "requested",
         "received",

@@ -25,6 +25,10 @@ begin
 end
 $$;
 
+-- extensions schema (hosted Supabase installs extensions here) -----------------
+create schema if not exists extensions;
+grant usage on schema extensions to anon, authenticated, service_role;
+
 -- auth schema ------------------------------------------------------------------
 create schema if not exists auth;
 

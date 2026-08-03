@@ -1,0 +1,398 @@
+/* SolarFlow AI — global styles. Brand tokens from the Blueprint:
+   navy (surface of authority), amber (the "AI acting" accent — used
+   sparingly), warm paper for everything calm. No animation; visible focus. */
+
+:root {
+  --navy: #0b1b33;
+  --navy-soft: #16294a;
+  --navy-line: #24395f;
+  --amber: #f59e0b;
+  --paper: #f7f6f3;
+  --ink: #1a2233;
+  --ink-soft: #5b6474;
+  --line: #e3e0d8;
+  --card: #ffffff;
+  --danger: #b3261e;
+  --ok: #1a7f4b;
+  --radius: 10px;
+  --font:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+    sans-serif;
+  --mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font);
+  color: var(--ink);
+  background: var(--paper);
+  -webkit-font-smoothing: antialiased;
+  line-height: 1.5;
+}
+
+a {
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ---------------------------------------------------------------- auth shell */
+
+.auth-shell {
+  display: grid;
+  grid-template-columns: minmax(320px, 42%) 1fr;
+  min-height: 100dvh;
+}
+
+.auth-brand {
+  background: var(--navy);
+  color: #eef2f9;
+  padding: 48px 44px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.auth-brand-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+  font-size: 18px;
+  letter-spacing: 0.01em;
+}
+
+.logo-mark {
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  background: var(--amber);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--navy);
+  font-weight: 800;
+  font-size: 15px;
+}
+
+.auth-brand-tagline {
+  margin: 18px 0 0;
+  font-size: 15px;
+  color: #b9c4d8;
+  max-width: 34ch;
+}
+
+/* The six-stage rail: the same pipeline every surface shows after login. */
+.stage-rail {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.stage-rail li {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 9px 0;
+  font-size: 14px;
+  color: #cfd8e6;
+}
+
+.stage-rail .dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid var(--amber);
+  background: transparent;
+  flex: none;
+  position: relative;
+}
+
+.stage-rail li:first-child .dot {
+  background: var(--amber);
+}
+
+.stage-rail .stage-num {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: #7f8ca3;
+  width: 2ch;
+  flex: none;
+}
+
+.auth-brand-foot {
+  font-size: 12px;
+  color: #7f8ca3;
+}
+
+.auth-main {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 24px;
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 400px;
+}
+
+.auth-inline-logo {
+  display: none;
+}
+
+.auth-card h1 {
+  font-size: 22px;
+  margin: 0 0 6px;
+}
+
+.auth-card .sub {
+  margin: 0 0 26px;
+  color: var(--ink-soft);
+  font-size: 14px;
+}
+
+.field {
+  display: block;
+  margin-bottom: 16px;
+}
+
+.field span {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.field input {
+  width: 100%;
+  padding: 10px 12px;
+  font: inherit;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--card);
+  color: var(--ink);
+}
+
+.field input:focus {
+  border-color: var(--navy);
+  outline: 2px solid var(--amber);
+  outline-offset: 1px;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 11px 16px;
+  font: inherit;
+  font-weight: 600;
+  border-radius: var(--radius);
+  border: 1px solid var(--navy);
+  background: var(--navy);
+  color: #fff;
+  cursor: pointer;
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.btn.secondary {
+  background: transparent;
+  color: var(--navy);
+}
+
+.auth-links {
+  margin-top: 18px;
+  font-size: 13px;
+  color: var(--ink-soft);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.auth-links a {
+  color: var(--navy);
+}
+
+.notice {
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  font-size: 13.5px;
+  margin-bottom: 16px;
+  border: 1px solid;
+}
+
+.notice.error {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 35%, white);
+  background: color-mix(in srgb, var(--danger) 7%, white);
+}
+
+.notice.ok {
+  color: var(--ok);
+  border-color: color-mix(in srgb, var(--ok) 35%, white);
+  background: color-mix(in srgb, var(--ok) 7%, white);
+}
+
+@media (max-width: 820px) {
+  .auth-shell {
+    grid-template-columns: 1fr;
+  }
+  .auth-brand {
+    display: none;
+  }
+  .auth-inline-logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 700;
+    margin-bottom: 28px;
+    color: var(--navy);
+  }
+}
+
+/* ------------------------------------------------------------ app placeholder */
+
+.app-header {
+  background: var(--navy);
+  color: #eef2f9;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 24px;
+}
+
+.app-header .spacer {
+  flex: 1;
+}
+
+.role-chip {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--navy-soft);
+  border: 1px solid var(--navy-line);
+  color: #cfd8e6;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.app-header .who {
+  font-size: 13px;
+  color: #b9c4d8;
+}
+
+.btn-signout {
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: #eef2f9;
+  background: transparent;
+  border: 1px solid var(--navy-line);
+  border-radius: 8px;
+  padding: 6px 14px;
+  cursor: pointer;
+}
+
+.surface {
+  max-width: 860px;
+  margin: 48px auto;
+  padding: 0 24px;
+}
+
+.surface h1 {
+  font-size: 26px;
+  margin: 0 0 8px;
+}
+
+.surface .placeholder {
+  margin-top: 24px;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius);
+  background: var(--card);
+  padding: 28px;
+  color: var(--ink-soft);
+  font-size: 14.5px;
+}
+
+/* --------------------------------------------------------------- /u uploads */
+
+.grant-shell {
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 20px;
+}
+
+.grant-card {
+  width: 100%;
+  max-width: 480px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 30px;
+}
+
+.grant-card h1 {
+  font-size: 20px;
+  margin: 12px 0 4px;
+}
+
+.grant-card .meta {
+  color: var(--ink-soft);
+  font-size: 13.5px;
+  margin: 0 0 20px;
+}
+
+.drop {
+  border: 2px dashed var(--line);
+  border-radius: var(--radius);
+  padding: 26px;
+  text-align: center;
+  font-size: 14px;
+  color: var(--ink-soft);
+  background: var(--paper);
+}
+
+.file-list {
+  list-style: none;
+  margin: 14px 0;
+  padding: 0;
+  font-size: 13.5px;
+}
+
+.file-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.file-list .st {
+  color: var(--ink-soft);
+  font-family: var(--mono);
+  font-size: 12px;
+}

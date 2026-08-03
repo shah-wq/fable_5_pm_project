@@ -5,3 +5,5 @@ node_modules/
 supabase/.temp/
 supabase/.branches/
 *.tsbuildinfo
+.next/
+next-env.d.ts.bak

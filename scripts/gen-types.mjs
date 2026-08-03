@@ -5,7 +5,7 @@
 // full local stack is running; this script is the Docker-free fallback used
 // by scripts/verify-local.sh environments and CI.
 //
-// Usage: DB_URL=postgresql://postgres@127.0.0.1:54322/postgres node scripts/gen-types.mjs > src/lib/database.types.ts
+// Usage: DB_URL=postgresql://postgres@127.0.0.1:54322/postgres node scripts/gen-types.mjs > apps/web/src/lib/database.types.ts
 
 import { PostgresMeta } from '@supabase/postgres-meta';
 import { apply } from '@supabase/postgres-meta/dist/server/templates/typescript.js';

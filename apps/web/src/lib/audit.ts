@@ -1,5 +1,5 @@
 import type { Json } from './database.types';
-import type { TypedClient } from './supabase/client';
+import type { TypedClient } from './supabase/types';
 
 /**
  * Audit-log writer — the shared utility every module calls for events that
