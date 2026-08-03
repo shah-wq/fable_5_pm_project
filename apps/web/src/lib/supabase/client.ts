@@ -2,14 +2,12 @@
 
 import { createBrowserClient } from '@supabase/ssr';
 import type { Database } from '../database.types';
+import { supabasePublishableKey, supabaseUrl } from './env';
 
 /**
- * Browser client (anon key + the user's cookie session). RLS is the
+ * Browser client (publishable key + the user's cookie session). RLS is the
  * authorization layer — each role sees exactly its §2 slice.
  */
 export function createClient() {
-  return createBrowserClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
+  return createBrowserClient<Database>(supabaseUrl(), supabasePublishableKey());
 }

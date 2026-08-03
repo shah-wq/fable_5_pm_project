@@ -2,6 +2,7 @@ import { createServerClient } from '@supabase/ssr';
 import { createClient as createBareClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import type { Database } from '../database.types';
+import { supabasePublishableKey, supabaseSecretKey, supabaseUrl } from './env';
 import type { TypedClient } from './types';
 
 /**
@@ -11,8 +12,8 @@ import type { TypedClient } from './types';
 export async function createSupabaseServer(): Promise<TypedClient> {
   const cookieStore = await cookies();
   return createServerClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    supabaseUrl(),
+    supabasePublishableKey(),
     {
       cookies: {
         getAll() {
@@ -38,11 +39,9 @@ export async function createSupabaseServer(): Promise<TypedClient> {
  * see a user's cookies (e.g. validating /u/<token> upload grants).
  */
 export function createAnonClient(): TypedClient {
-  return createBareClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { auth: { persistSession: false, autoRefreshToken: false } }
-  );
+  return createBareClient<Database>(supabaseUrl(), supabasePublishableKey(), {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
 }
 
 /**
@@ -51,11 +50,7 @@ export function createAnonClient(): TypedClient {
  * their own authorization, and never ship the key to the browser.
  */
 export function createServiceClient(): TypedClient {
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!key) {
-    throw new Error('SUPABASE_SERVICE_ROLE_KEY is required for this code path.');
-  }
-  return createBareClient<Database>(process.env.NEXT_PUBLIC_SUPABASE_URL!, key, {
+  return createBareClient<Database>(supabaseUrl(), supabaseSecretKey(), {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 }
