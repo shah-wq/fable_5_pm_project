@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { logAuditEvent } from '@/lib/audit';
 import type { UserRole } from '@/lib/auth/roles';
+import { siteOrigin } from '@/lib/supabase/env';
 import { createServiceClient, createSupabaseServer } from '@/lib/supabase/server';
 
 const INVITABLE_ROLES: readonly UserRole[] = [
@@ -68,7 +69,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'projectId is required for customer invites' }, { status: 400 });
   }
 
-  const origin = process.env.NEXT_PUBLIC_SITE_URL ?? new URL(request.url).origin;
+  const origin = siteOrigin(new URL(request.url).origin);
   const landing = role === 'customer' ? '/portal' : '/auth/update-password';
 
   const service = createServiceClient();

@@ -27,6 +27,14 @@ export function supabasePublishableKey(): string {
   return key;
 }
 
+/**
+ * The app's public origin for links in emails (invites, recovery). Trailing
+ * slashes are stripped so `${siteOrigin()}/auth/callback` never doubles up.
+ */
+export function siteOrigin(fallback: string): string {
+  return (process.env.NEXT_PUBLIC_SITE_URL ?? fallback).replace(/\/+$/, '');
+}
+
 export function supabaseSecretKey(): string {
   const key = process.env.SUPABASE_SECRET_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!key) {
