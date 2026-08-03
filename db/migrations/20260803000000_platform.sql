@@ -26,8 +26,20 @@ begin
     create role authenticated nologin;
   end if;
   if not exists (select 1 from pg_roles where rolname = 'service_role') then
-    create role service_role nologin bypassrls;
+    begin
+      create role service_role nologin bypassrls;
+    exception when insufficient_privilege then
+      -- Managed Postgres (Neon, RDS, ...) has no superuser, and BYPASSRLS
+      -- needs one. The app never connects as service_role — it exists for
+      -- grant symmetry — so a plain role is fine there.
+      create role service_role nologin;
+    end;
   end if;
+
+  -- The app's data layer runs SET LOCAL ROLE authenticated on every
+  -- transaction. A superuser can always do that; on managed Postgres the
+  -- migration runner (e.g. neondb_owner) needs the membership explicitly.
+  execute format('grant anon, authenticated to %I', current_user);
 end
 $$;
 
