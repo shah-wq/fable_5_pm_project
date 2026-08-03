@@ -885,3 +885,23 @@ a {
   padding: 11px 22px;
   margin-top: 8px;
 }
+
+.app-nav {
+  display: flex;
+  gap: 4px;
+  margin-left: 18px;
+}
+
+.app-nav a {
+  color: #cfd8e6;
+  text-decoration: none;
+  font-size: 13.5px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 8px;
+}
+
+.app-nav a:hover {
+  background: var(--navy-soft);
+  color: #fff;
+}

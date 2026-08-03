@@ -8,9 +8,11 @@
 
 export type UserRole = 'admin' | 'ops' | 'designer' | 'customer' | 'dealer' | 'finance';
 
-/** Where each role lands after login (and gets sent when caught elsewhere). */
+/** Where each role lands after login (and gets sent when caught elsewhere).
+ *  Manual version: the admin operates the pipeline day-to-day, so it is their
+ *  home too; /admin stays one click away in the header. */
 export const ROLE_HOME: Record<UserRole, string> = {
-  admin: '/admin',
+  admin: '/pipeline',
   ops: '/pipeline',
   designer: '/designer',
   finance: '/admin/finance',
