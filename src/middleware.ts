@@ -20,6 +20,20 @@ import {
  * same profiles.role.
  */
 export async function middleware(request: NextRequest) {
+  try {
+    return await handle(request);
+  } catch (cause) {
+    // Fail closed, but say where to look: an opaque 500 on every route is
+    // almost always missing env vars on the deploy platform.
+    console.error('middleware error:', cause);
+    return new NextResponse(
+      'Server misconfigured — open /api/health for diagnostics.',
+      { status: 500, headers: { 'content-type': 'text/plain' } }
+    );
+  }
+}
+
+async function handle(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
 
   let response = NextResponse.next({ request });
@@ -106,6 +120,6 @@ export const config = {
      *    holders never get a Supabase session, so no cookies to refresh here
      *  - Next.js internals and static assets
      */
-    '/((?!u/|api/u/|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|map|txt)$).*)',
+    '/((?!u/|api/u/|api/health|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|map|txt)$).*)',
   ],
 };
