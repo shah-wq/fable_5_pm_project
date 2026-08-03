@@ -1,6 +1,8 @@
+import { guardPath } from '@/lib/auth/session';
 import { Surface } from '../_components/Surface';
 
-export default function DesignerHome() {
+export default async function DesignerHome() {
+  await guardPath('/designer');
   return (
     <Surface
       title="Design queue"

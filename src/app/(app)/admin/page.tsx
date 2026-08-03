@@ -1,6 +1,8 @@
+import { guardPath } from '@/lib/auth/session';
 import { Surface } from '../_components/Surface';
 
-export default function AdminHome() {
+export default async function AdminHome() {
+  await guardPath('/admin');
   return (
     <Surface
       title="Admin"

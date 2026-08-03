@@ -1,13 +1,22 @@
 -- =============================================================================
--- LOCAL TEST SHIM — never run against a real Supabase project.
+-- 000000 — Platform baseline (plain PostgreSQL, no Supabase)
 -- =============================================================================
--- Recreates just enough of the Supabase platform surface (roles, auth schema,
--- storage schema) on a vanilla PostgreSQL server so the migrations in
--- supabase/migrations and the checks in rls_verification.sql can run via
--- scripts/verify-local.sh. On hosted/local Supabase all of this already
--- exists — the migrations themselves depend only on the real platform.
+-- Recreates the platform surface the rest of the migrations build on: the
+-- role model, the auth schema (users + request-claims helpers), and the
+-- storage schema (bucket/object metadata; blob bytes arrive in 001100).
+--
+-- How requests are authorized without Supabase:
+--   * The app connects with DATABASE_URL and, for every request, runs
+--       set_config('request.jwt.claims', <session claims>, true)
+--       SET LOCAL ROLE authenticated
+--     inside a transaction (src/lib/db.ts). auth.uid()/auth.jwt() read those
+--     claims, so every RLS policy in 000600/000700 keeps working unchanged.
+--   * SET LOCAL ROLE also means a superuser DATABASE_URL cannot silently
+--     bypass RLS — enforcement happens as `authenticated` either way.
+--
+-- Run migrations as a privileged user (it must own these objects); run the
+-- app as any user that can SET ROLE authenticated.
 
--- Platform roles ---------------------------------------------------------------
 do $$
 begin
   if not exists (select 1 from pg_roles where rolname = 'anon') then
@@ -19,28 +28,37 @@ begin
   if not exists (select 1 from pg_roles where rolname = 'service_role') then
     create role service_role nologin bypassrls;
   end if;
-  if not exists (select 1 from pg_roles where rolname = 'supabase_auth_admin') then
-    create role supabase_auth_admin nologin;
-  end if;
 end
 $$;
 
--- extensions schema (hosted Supabase installs extensions here) -----------------
+-- extensions schema -----------------------------------------------------------
 create schema if not exists extensions;
 grant usage on schema extensions to anon, authenticated, service_role;
+
+-- pgcrypto: password hashing (crypt/gen_salt), token hashing (digest),
+-- token generation (gen_random_bytes).
+create extension if not exists pgcrypto with schema extensions;
 
 -- auth schema ------------------------------------------------------------------
 create schema if not exists auth;
 
-create table if not exists auth.users (
-  id                 uuid primary key,
-  email              text,
+create table auth.users (
+  id                 uuid primary key default gen_random_uuid(),
+  email              text not null,
+  encrypted_password text,
+  email_confirmed_at timestamptz,
+  last_sign_in_at    timestamptz,
+  failed_attempts    integer not null default 0,
+  locked_until       timestamptz,
   raw_app_meta_data  jsonb not null default '{}'::jsonb,
   raw_user_meta_data jsonb not null default '{}'::jsonb,
-  created_at         timestamptz not null default now()
+  created_at         timestamptz not null default now(),
+  updated_at         timestamptz not null default now()
 );
 
--- Same semantics as Supabase: claims come from the request-scoped GUC.
+create unique index users_email_lower_idx on auth.users (lower(email));
+
+-- Request-scoped identity, set per transaction by the app.
 create or replace function auth.jwt()
 returns jsonb
 language sql
@@ -65,14 +83,14 @@ as $$
   select coalesce(auth.jwt() ->> 'role', 'anon');
 $$;
 
-grant usage on schema auth to anon, authenticated, service_role, supabase_auth_admin;
+grant usage on schema auth to anon, authenticated, service_role;
 grant execute on function auth.jwt(), auth.uid(), auth.role()
-  to anon, authenticated, service_role, supabase_auth_admin;
+  to anon, authenticated, service_role;
 
--- storage schema ---------------------------------------------------------------
+-- storage schema ----------------------------------------------------------------
 create schema if not exists storage;
 
-create table if not exists storage.buckets (
+create table storage.buckets (
   id                 text primary key,
   name               text unique not null,
   public             boolean not null default false,
@@ -82,7 +100,7 @@ create table if not exists storage.buckets (
   updated_at         timestamptz not null default now()
 );
 
-create table if not exists storage.objects (
+create table storage.objects (
   id         uuid primary key default gen_random_uuid(),
   bucket_id  text not null references storage.buckets (id),
   name       text not null,

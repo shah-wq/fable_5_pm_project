@@ -1,10 +1,12 @@
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
+import { ROLE_HOME } from '@/lib/auth/roles';
+import { getSession } from '@/lib/auth/session';
 import { Notice } from '../_components/AuthUi';
 import { StaffLoginForm } from '../_components/StaffLoginForm';
 
 const ERRORS: Record<string, string> = {
   account_disabled: 'This account has been deactivated. Contact your administrator.',
-  auth_callback: 'That sign-in link is invalid or has expired.',
 };
 
 /** Staff door: admin, PM (ops), designer, finance — one page, destination
@@ -14,6 +16,9 @@ export default async function LoginPage({
 }: {
   searchParams: Promise<{ next?: string; error?: string }>;
 }) {
+  const session = await getSession();
+  if (session?.isActive) redirect(ROLE_HOME[session.role]);
+
   const { next, error } = await searchParams;
   return (
     <>

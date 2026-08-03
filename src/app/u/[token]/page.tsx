@@ -1,12 +1,14 @@
 import { Logo } from '@/app/(auth)/_components/AuthUi';
-import { createAnonClient } from '@/lib/supabase/server';
+import { withAnon } from '@/lib/db';
 import { GrantUploadForm } from './GrantUploadForm';
+
+export const dynamic = 'force-dynamic';
 
 /**
  * The no-login upload surface (REQ-SEC-01). The URL token — validated by
  * public.validate_upload_grant, sha-256 at rest, 7-day max expiry — unlocks
- * exactly one project's upload page. No Supabase session is ever created:
- * this whole subtree is excluded from the auth middleware.
+ * exactly one project's upload page. No session is ever created: this whole
+ * subtree is excluded from the auth middleware.
  */
 
 const PURPOSE_COPY: Record<string, { title: string; hint: string }> = {
@@ -24,12 +26,21 @@ const PURPOSE_COPY: Record<string, { title: string; hint: string }> = {
   },
 };
 
+interface GrantRow {
+  grant_id: string;
+  project_id: string;
+  purpose: string;
+  project_name: string;
+  expires_at: string;
+}
+
 export default async function GrantPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
 
-  const supabase = createAnonClient();
-  const { data } = await supabase.rpc('validate_upload_grant', { p_token: token });
-  const grant = data?.[0];
+  const { rows } = await withAnon((c) =>
+    c.query<GrantRow>('select * from public.validate_upload_grant($1)', [token])
+  );
+  const grant = rows[0];
 
   if (!grant) {
     return (

@@ -2,37 +2,34 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { ROLE_HOME, doorForRole, sanitizeNextPath } from '@/lib/auth/roles';
-import { createClient } from '@/lib/supabase/client';
 import { Notice } from './AuthUi';
 
 /**
- * Homeowner sign-in: 6-digit email code, no passwords. `shouldCreateUser:
- * false` means this form can never mint an account — customers exist only
- * because a project (or converted lead) invited them.
+ * Homeowner sign-in: 6-digit emailed code, no passwords. Codes are only
+ * issued for existing, active customer accounts — this form can never mint
+ * an account, and it never learns whether one exists.
  */
 export function CustomerOtpForm({ next }: { next?: string }) {
   const router = useRouter();
   const [step, setStep] = useState<'email' | 'code'>('email');
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
-  const [error, setError] = useState<React.ReactNode>(null);
+  const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   async function requestCode(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setBusy(true);
-    const supabase = createClient();
     try {
-      const { error: otpError } = await supabase.auth.signInWithOtp({
-        email,
-        options: { shouldCreateUser: false },
+      const res = await fetch('/api/auth/otp/request', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email }),
       });
-      if (otpError) {
-        setError(
-          'We could not find an account for that email. Your installer sends the invitation — check with them if you expected access.'
-        );
+      if (!res.ok) {
+        const json = await res.json().catch(() => null);
+        setError(json?.error ?? 'Something went wrong. Try again.');
         return;
       }
       setStep('code');
@@ -45,44 +42,19 @@ export function CustomerOtpForm({ next }: { next?: string }) {
     e.preventDefault();
     setError(null);
     setBusy(true);
-    const supabase = createClient();
     try {
-      const { data: auth, error: verifyError } = await supabase.auth.verifyOtp({
-        email,
-        token: code,
-        type: 'email',
+      const res = await fetch('/api/auth/otp/verify', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email, code, next }),
       });
-      if (verifyError || !auth.user) {
-        setError('That code is incorrect or expired. Request a new one.');
+      const json = await res.json().catch(() => null);
+      if (res.ok && json?.redirect) {
+        router.replace(json.redirect);
+        router.refresh();
         return;
       }
-
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('role, is_active')
-        .eq('id', auth.user.id)
-        .single();
-
-      if (!profile || !profile.is_active) {
-        await supabase.auth.signOut();
-        setError('This account has been deactivated. Contact your installer.');
-        return;
-      }
-
-      if (profile.role !== 'customer') {
-        const rightDoor = doorForRole(profile.role);
-        await supabase.auth.signOut();
-        setError(
-          <>
-            This is the homeowner door. Your account signs in at{' '}
-            <a href={rightDoor.path}>{rightDoor.path}</a>.
-          </>
-        );
-        return;
-      }
-
-      router.replace(sanitizeNextPath(next) ?? ROLE_HOME.customer);
-      router.refresh();
+      setError(json?.error ?? 'That code is incorrect or expired. Request a new one.');
     } finally {
       setBusy(false);
     }
@@ -113,7 +85,7 @@ export function CustomerOtpForm({ next }: { next?: string }) {
   return (
     <form onSubmit={verifyCode} noValidate>
       <Notice kind="ok">
-        We sent a 6-digit code to <strong>{email}</strong>.
+        If an account exists for <strong>{email}</strong>, a 6-digit code is on its way.
       </Notice>
       {error && <Notice kind="error">{error}</Notice>}
       <label className="field">

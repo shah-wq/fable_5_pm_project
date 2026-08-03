@@ -203,7 +203,7 @@ create policy project_adders_select on public.project_adders
 -- photo upload, crew work-orders, and customer delivery uploads. The URL
 -- token is the credential; only its sha-256 lands in the database, expiry is
 -- capped at 7 days, and a grant unlocks exactly one project's upload surface
--- (never a Supabase session).
+-- (never an app session).
 -- -----------------------------------------------------------------------------
 
 create type public.upload_grant_purpose as enum (
@@ -229,7 +229,7 @@ create index upload_grants_project_id_idx on public.upload_grants (project_id);
 
 alter table public.upload_grants enable row level security;
 
--- Hosted Supabase default-privileges hand new tables broad grants; make the
+-- Default privileges could hand new tables broad grants; make the
 -- surface explicit: staff read their project's grants, all writes go through
 -- the SECURITY DEFINER functions below.
 revoke all on public.upload_grants from anon, authenticated;

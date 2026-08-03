@@ -1,6 +1,8 @@
+import { guardPath } from '@/lib/auth/session';
 import { Surface } from '../_components/Surface';
 
-export default function PortalHome() {
+export default async function PortalHome() {
+  await guardPath('/portal');
   return (
     <Surface
       title="Your solar project"

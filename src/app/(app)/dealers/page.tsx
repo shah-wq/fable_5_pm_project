@@ -1,6 +1,8 @@
+import { guardPath } from '@/lib/auth/session';
 import { Surface } from '../_components/Surface';
 
-export default function DealerHome() {
+export default async function DealerHome() {
+  await guardPath('/dealers');
   return (
     <Surface
       title="Your book"

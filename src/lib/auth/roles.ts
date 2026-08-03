@@ -1,12 +1,12 @@
-import type { Database } from '../database.types';
-
 /**
- * The single routing truth. Middleware, login forms, and the callback route
- * all decide destinations from this file — never from which page a user
- * signed in on or anything the client claims.
+ * The single routing truth. Middleware, login forms, and the auth routes all
+ * decide destinations from this file — never from which page a user signed
+ * in on or anything the client claims.
+ *
+ * Must stay in sync with the public.user_role enum (db/migrations).
  */
 
-export type UserRole = Database['public']['Enums']['user_role'];
+export type UserRole = 'admin' | 'ops' | 'designer' | 'customer' | 'dealer' | 'finance';
 
 /** Where each role lands after login (and gets sent when caught elsewhere). */
 export const ROLE_HOME: Record<UserRole, string> = {

@@ -1,4 +1,7 @@
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
+import { ROLE_HOME } from '@/lib/auth/roles';
+import { getSession } from '@/lib/auth/session';
 import { StaffLoginForm } from '../../_components/StaffLoginForm';
 
 /** Dealer door. Same password form; only the 'dealer' role may pass. */
@@ -7,6 +10,9 @@ export default async function DealerLoginPage({
 }: {
   searchParams: Promise<{ next?: string }>;
 }) {
+  const session = await getSession();
+  if (session?.isActive) redirect(ROLE_HOME[session.role]);
+
   const { next } = await searchParams;
   return (
     <>

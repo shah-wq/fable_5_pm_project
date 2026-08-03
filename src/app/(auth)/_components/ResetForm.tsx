@@ -1,25 +1,30 @@
 'use client';
 
 import { useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
 import { Notice } from './AuthUi';
 
 export function ResetForm() {
   const [email, setEmail] = useState('');
   const [sent, setSent] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setError(null);
     setBusy(true);
-    const supabase = createClient();
     try {
-      // Always report success — a reset form must not be an account oracle.
-      await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(
-          '/auth/update-password'
-        )}`,
+      // Always reports success for valid requests — no account oracle.
+      const res = await fetch('/api/auth/recovery', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email }),
       });
+      if (!res.ok) {
+        const json = await res.json().catch(() => null);
+        setError(json?.error ?? 'Something went wrong. Try again.');
+        return;
+      }
       setSent(true);
     } finally {
       setBusy(false);
@@ -30,13 +35,14 @@ export function ResetForm() {
     return (
       <Notice kind="ok">
         If an account exists for <strong>{email}</strong>, a reset link is on its way. The link
-        expires after one use.
+        works once and expires in an hour.
       </Notice>
     );
   }
 
   return (
     <form onSubmit={onSubmit} noValidate>
+      {error && <Notice kind="error">{error}</Notice>}
       <label className="field">
         <span>Email</span>
         <input

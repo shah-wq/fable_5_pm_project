@@ -2,21 +2,14 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import {
-  LOGIN_DOORS,
-  ROLE_HOME,
-  doorForRole,
-  sanitizeNextPath,
-  type DoorId,
-} from '@/lib/auth/roles';
-import { createClient } from '@/lib/supabase/client';
+import type { DoorId } from '@/lib/auth/roles';
 import { Notice } from './AuthUi';
 
 /**
  * Email + password form used by both password doors (staff and dealer).
- * The destination is decided by profiles.role AFTER authentication — never by
- * which door was used. A right-credentials/wrong-door sign-in is immediately
- * signed out again and pointed at the correct door.
+ * POSTs to /api/auth/login; the server decides the destination from
+ * profiles.role — never from which door was used. Right credentials at the
+ * wrong door come back as a pointer to the correct one.
  */
 export function StaffLoginForm({ door, next }: { door: DoorId; next?: string }) {
   const router = useRouter();
@@ -29,44 +22,31 @@ export function StaffLoginForm({ door, next }: { door: DoorId; next?: string }) 
     e.preventDefault();
     setError(null);
     setBusy(true);
-    const supabase = createClient();
-
     try {
-      const { data: auth, error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email, password, door, next }),
       });
-      if (signInError || !auth.user) {
-        setError('Invalid email or password.');
+      const json = await res.json().catch(() => null);
+
+      if (res.ok && json?.redirect) {
+        router.replace(json.redirect);
+        router.refresh();
         return;
       }
 
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('role, is_active')
-        .eq('id', auth.user.id)
-        .single();
-
-      if (!profile || !profile.is_active) {
-        await supabase.auth.signOut();
-        setError('This account has been deactivated. Contact your administrator.');
-        return;
-      }
-
-      if (!LOGIN_DOORS[door].roles.includes(profile.role)) {
-        const rightDoor = doorForRole(profile.role);
-        await supabase.auth.signOut();
+      if (json?.error === 'wrong_door' && json.doorPath) {
         setError(
           <>
-            This account signs in at <a href={rightDoor.path}>{rightDoor.path}</a> (
-            {rightDoor.label.toLowerCase()}).
+            This account signs in at <a href={json.doorPath}>{json.doorPath}</a> (
+            {String(json.doorLabel ?? '').toLowerCase()}).
           </>
         );
         return;
       }
 
-      router.replace(sanitizeNextPath(next) ?? ROLE_HOME[profile.role]);
-      router.refresh();
+      setError(json?.error ?? 'Sign-in failed. Try again.');
     } finally {
       setBusy(false);
     }

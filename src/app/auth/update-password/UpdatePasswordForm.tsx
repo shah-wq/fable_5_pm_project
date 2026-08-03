@@ -2,23 +2,30 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
-import { ROLE_HOME } from '@/lib/auth/roles';
-import { createClient } from '@/lib/supabase/client';
+import { useState } from 'react';
 import { Notice } from '@/app/(auth)/_components/AuthUi';
 
-export function UpdatePasswordForm() {
+/**
+ * Finishes an invite or a password recovery. The one-time token arrives in
+ * the link's query string; setting the password consumes it, revokes any
+ * other sessions, and signs the user in.
+ */
+export function UpdatePasswordForm({ token }: { token?: string }) {
   const router = useRouter();
-  const [hasSession, setHasSession] = useState<boolean | null>(null);
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  useEffect(() => {
-    const supabase = createClient();
-    supabase.auth.getUser().then(({ data }) => setHasSession(Boolean(data.user)));
-  }, []);
+  if (!token) {
+    return (
+      <Notice kind="error">
+        This link is invalid or has expired. Request a new one from{' '}
+        <Link href="/login/reset">the reset page</Link>, or ask your administrator to re-send the
+        invitation.
+      </Notice>
+    );
+  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -32,35 +39,22 @@ export function UpdatePasswordForm() {
       return;
     }
     setBusy(true);
-    const supabase = createClient();
     try {
-      const { data, error: updateError } = await supabase.auth.updateUser({ password });
-      if (updateError || !data.user) {
-        setError(updateError?.message ?? 'Could not set the password. Try the link again.');
+      const res = await fetch('/api/auth/password', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ token, password }),
+      });
+      const json = await res.json().catch(() => null);
+      if (res.ok && json?.redirect) {
+        router.replace(json.redirect);
+        router.refresh();
         return;
       }
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', data.user.id)
-        .single();
-      router.replace(profile ? ROLE_HOME[profile.role] : '/');
-      router.refresh();
+      setError(json?.error ?? 'Could not set the password. Try the link again.');
     } finally {
       setBusy(false);
     }
-  }
-
-  if (hasSession === null) return null;
-
-  if (!hasSession) {
-    return (
-      <Notice kind="error">
-        This link is invalid or has expired. Request a new one from{' '}
-        <Link href="/login/reset">the reset page</Link>, or ask your administrator to re-send the
-        invitation.
-      </Notice>
-    );
   }
 
   return (

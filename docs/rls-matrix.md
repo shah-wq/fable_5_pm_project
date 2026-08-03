@@ -1,22 +1,25 @@
 # RLS access matrix (§2)
 
-Source of truth: `supabase/migrations/20260803000600_rls_policies.sql` (tables)
+Source of truth: `db/migrations/20260803000600_rls_policies.sql` (tables)
 and `20260803000700_storage.sql` (storage). Executable proof:
-`supabase/tests/rls_verification.sql`, run via `scripts/verify-local.sh`.
+`db/tests/rls_verification.sql`, run via `scripts/verify-local.sh`.
 
 ## How a request is authorized
 
 1. Every user has exactly one §2 role on `public.profiles.role`
    (`admin | ops | designer | customer | dealer | finance`).
-2. `public.custom_access_token_hook` stamps that role into the JWT as the
-   `user_role` claim at token mint time; `app.current_user_role()` reads the
-   claim (falling back to a profiles lookup for pre-hook sessions).
+2. The app (`src/lib/db.ts`) runs every query in a transaction that sets
+   `request.jwt.claims` from the validated session — `sub` and `user_role`
+   — and `SET LOCAL ROLE authenticated`. `auth.uid()`/`auth.jwt()` read
+   those claims; `app.current_user_role()` prefers the claim and falls back
+   to a profiles lookup.
 3. Policies delegate to `SECURITY DEFINER` helpers in the `app` schema —
    `can_access_project()`, `is_project_staff()`, `current_dealer_ids()`,
    `current_client_ids()`, `current_designer_id()` — so the §2 rules live in
    one place and policy evaluation never recurses into RLS.
-4. `service_role` bypasses RLS entirely (trusted server-side jobs only);
-   `anon` has no grants on any table.
+4. Privileged operations (auth flows, grant uploads, governed downloads) are
+   SECURITY DEFINER functions with their own checks; `anon` has no table
+   grants at all.
 
 Identity chains: a **designer** is `designers.user_id = auth.uid()`, their
 queue is `projects.assigned_designer_id = designers.id`. A **dealer** user is
@@ -118,7 +121,7 @@ anything else. Downloads use signed URLs (`src/lib/storage.ts`).
     exceptions, documents, price_book, adder_rules, profiles.
   - `public.log_audit_event(...)` RPC ⇄ `logAuditEvent()` in `src/lib/audit.ts`
     for app-level events.
-- Actor identity (`actor_id`, `actor_role`) is resolved from the JWT inside
+- Actor identity (`actor_id`, `actor_role`) is resolved from the request claims inside
   the SECURITY DEFINER writer — callers cannot spoof it.
 - Reads: **admin only**. Direct INSERT/UPDATE/DELETE: revoked for clients, and
   a trigger raises on UPDATE/DELETE so the log is append-only even for

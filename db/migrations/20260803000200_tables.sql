@@ -9,7 +9,7 @@
 
 -- One row per auth user. Created automatically by app.tg_handle_new_user()
 -- (000400). `role` is the single source of truth for §2 authorization; it is
--- mirrored into the JWT `user_role` claim by the custom access token hook.
+-- carried in the per-request claims (`user_role`) by the session layer.
 create table public.profiles (
   id          uuid primary key references auth.users (id) on delete cascade,
   role        public.user_role not null default 'customer',

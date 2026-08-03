@@ -1,6 +1,8 @@
+import { guardPath } from '@/lib/auth/session';
 import { Surface } from '../_components/Surface';
 
-export default function PipelineHome() {
+export default async function PipelineHome() {
+  await guardPath('/pipeline');
   return (
     <Surface
       title="Pipeline"

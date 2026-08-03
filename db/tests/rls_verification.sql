@@ -1,7 +1,7 @@
 -- =============================================================================
 -- RLS VERIFICATION — the §2 "done when" check, executable.
 -- =============================================================================
--- Run by scripts/verify-local.sh against a throwaway database (shim +
+-- Run by scripts/verify-local.sh against a throwaway database (all
 -- migrations applied). Creates users for every §2 role and two full projects
 -- via plain SQL, then queries as each role by simulating that role's JWT
 -- (`set role authenticated` + request.jwt.claims — exactly what PostgREST

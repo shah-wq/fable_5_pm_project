@@ -6,8 +6,8 @@
 -- (e.g. the clients policy can reference projects without re-entering the
 -- projects policy).
 
--- Resolve the caller's §2 role. Prefers the `user_role` JWT claim (stamped by
--- public.custom_access_token_hook, 000400); falls back to profiles for
+-- Resolve the caller's §2 role. Prefers the `user_role` request claim (set by
+-- the app session layer per request); falls back to profiles for
 -- sessions minted before the hook ran.
 create or replace function app.current_user_role()
 returns public.user_role

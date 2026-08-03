@@ -14,8 +14,8 @@ grant usage on schema app to authenticated;
 -- Enums
 -- -----------------------------------------------------------------------------
 
--- §2 roles. One role per user, stored on public.profiles and mirrored into the
--- JWT as the `user_role` claim by public.custom_access_token_hook (000400).
+-- §2 roles. One role per user, stored on public.profiles and stamped
+-- request claims (`user_role`) by the session layer on every request.
 create type public.user_role as enum (
   'admin',
   'designer',

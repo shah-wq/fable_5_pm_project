@@ -1,6 +1,8 @@
+import { guardPath } from '@/lib/auth/session';
 import { Surface } from '../../_components/Surface';
 
-export default function FinanceHome() {
+export default async function FinanceHome() {
+  await guardPath('/admin/finance');
   return (
     <Surface
       title="Finance"

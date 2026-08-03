@@ -11,7 +11,7 @@
 --   finance  → the whitelisted columns via public.project_financials plus
 --              financial tables (price_book, change_orders, vendor_quotes,
 --              project_adders); NO direct project/client row access
--- service_role bypasses RLS (Supabase built-in); anon gets nothing.
+-- service_role (BYPASSRLS) is reserved for trusted jobs; anon gets nothing.
 
 -- -----------------------------------------------------------------------------
 -- Grants: RLS is the authorization layer, so table grants are broad for

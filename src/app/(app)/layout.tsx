@@ -1,23 +1,15 @@
 import { redirect } from 'next/navigation';
 import { Logo } from '@/app/(auth)/_components/AuthUi';
-import { createSupabaseServer } from '@/lib/supabase/server';
+import { getSession } from '@/lib/auth/session';
 
 /**
- * Shell for every authenticated surface. Middleware has already gated the
- * route by role; this layout only renders identity chrome.
+ * Shell for every authenticated surface. Each page enforces its own role
+ * gate via guardPath(); this layout renders identity chrome.
  */
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const supabase = await createSupabaseServer();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role, full_name, email')
-    .eq('id', user.id)
-    .single();
+  const session = await getSession();
+  if (!session) redirect('/login');
+  if (!session.isActive) redirect('/auth/signout?reason=deactivated');
 
   return (
     <>
@@ -26,8 +18,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <Logo />
         </div>
         <span className="spacer" />
-        <span className="role-chip">{profile?.role ?? 'unknown'}</span>
-        <span className="who">{profile?.full_name ?? profile?.email ?? user.email}</span>
+        <span className="role-chip">{session.role}</span>
+        <span className="who">{session.fullName ?? session.email}</span>
         <form action="/auth/signout" method="post">
           <button className="btn-signout" type="submit">
             Sign out
