@@ -2,7 +2,7 @@
 
 /** The pipeline every surface shows after login — the first screen teaches
  *  the product's shape. */
-const STAGES = ['Intake', 'Survey', 'Design', 'Permitting', 'Install', 'PTO'];
+const STAGES = ['Survey', 'Design', 'Permits', 'Procurement', 'Install', 'Inspection & PTO'];
 
 export function Logo() {
   return (

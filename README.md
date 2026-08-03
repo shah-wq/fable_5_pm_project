@@ -6,6 +6,7 @@ in the database and the app server. Built so far:
 
 - **Module 0 — Foundation**: complete schema (§3), row-level security for
   every §2 role, project-scoped file storage, append-only audit log.
+- **Module 2 — Pipeline & Projects**: the six-stage Kanban board (drag with the same validation as the advance button, snap-back + missing-items toast, admin-only backwards moves with logged reasons), the searchable/filterable Projects tab, project creation, the stage stepper, and the full stage data model + rules engine for all six manual stage forms. See `docs/rls-matrix.md` and the spec rules in `src/lib/stages/`.
 - **Module 1 — Authentication**: three login doors (staff password, dealer
   password, customer OTP), DB-backed sessions, role-gated routing, invite
   flows (ADM-02), password recovery, and REQ-SEC-01 no-login upload links

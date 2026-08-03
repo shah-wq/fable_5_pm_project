@@ -1,13 +1,33 @@
+import Link from 'next/link';
 import { guardPath } from '@/lib/auth/session';
-import { Surface } from '../_components/Surface';
+import { loadProjectCards } from '@/lib/stages/service';
+import { Board } from './Board';
 
-export default async function PipelineHome() {
-  await guardPath('/pipeline');
+export const dynamic = 'force-dynamic';
+
+/**
+ * The Kanban pipeline: six stage columns, drag-and-drop between adjacent
+ * columns with the same validation as the advance button. The Projects tab
+ * (/projects) is the table view over the same data.
+ */
+export default async function PipelinePage() {
+  const session = await guardPath('/pipeline');
+  const cards = await loadProjectCards(session);
+
   return (
-    <Surface
-      title="Pipeline"
-      intro="Every project, six stages, one board — the PM's home."
-      module="Module 2 (pipeline)"
-    />
+    <main className="board-page">
+      <div className="board-header">
+        <h1>Pipeline</h1>
+        <div className="board-actions">
+          <Link className="btn-link" href="/projects">
+            Projects table
+          </Link>
+          <Link className="btn-link primary" href="/projects/new">
+            + New project
+          </Link>
+        </div>
+      </div>
+      <Board cards={cards} isAdmin={session.role === 'admin'} />
+    </main>
   );
 }

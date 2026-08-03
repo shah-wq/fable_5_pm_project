@@ -37,3 +37,22 @@ insert into public.vendors (name, categories, contact) values
   ('CED Greentech',   array['module', 'inverter', 'racking'], '{"email": "quotes@example.com"}'),
   ('BayWa r.e.',      array['module', 'storage'],             '{"email": "sales@example.com"}')
 on conflict do nothing;
+
+insert into public.surveyors (name, phone) values
+  ('Miguel Torres', '480-555-0141'),
+  ('Dana Kim', '480-555-0177')
+on conflict do nothing;
+
+insert into public.crews (name, contact) values
+  ('Helios Install Co', '{"phone": "480-555-0190"}'),
+  ('SunRaise Crews LLC', '{"phone": "512-555-0122"}')
+on conflict do nothing;
+
+insert into public.hoas (name, contact) values
+  ('Desert Vista HOA', '{"email": "arch@desertvista.example"}')
+on conflict do nothing;
+
+insert into public.finance_partners (name, contact) values
+  ('GoodLeap', '{"email": "partners@example.com"}'),
+  ('Mosaic', '{"email": "partners@example.com"}')
+on conflict do nothing;

@@ -129,7 +129,7 @@ insert into public.projects
 values
   (t_id('project1'), 'Homeowner One PV', t_id('dealer1'), t_id('client1'),
    t_id('designer1'), 'b1b1b1b1-b1b1-4b1b-8b1b-b1b1b1b1b1b1',
-   'site_survey', 42000, 3500, 8.4),
+   'survey', 42000, 3500, 8.4),
   (t_id('project2'), 'Homeowner Two PV', t_id('dealer2'), t_id('client2'),
    t_id('designer2'), 'b1b1b1b1-b1b1-4b1b-8b1b-b1b1b1b1b1b1',
    'design', 31000, 2800, 6.2);
@@ -204,9 +204,11 @@ begin
   if n < 1 then raise exception 'FAIL: ops should read price_book'; end if;
   select count(*) into n from public.project_financials;
   if n <> 0 then raise exception 'FAIL: ops must not read the finance view, got %', n; end if;
-  select count(*) into n from public.audit_log;
-  if n <> 0 then raise exception 'FAIL: ops must not read audit_log, got %', n; end if;
-  raise notice 'PASS: ops runs the pipeline (all projects, writes) without admin surfaces';
+  select count(*) into n from public.audit_log where project_id is null;
+  if n <> 0 then raise exception 'FAIL: ops must not read global audit rows, got %', n; end if;
+  select count(*) into n from public.audit_log where project_id is not null;
+  if n < 1 then raise exception 'FAIL: ops should read project activity logs'; end if;
+  raise notice 'PASS: ops runs the pipeline (all projects, project activity) without admin surfaces';
 end
 $t$;
 reset role;
@@ -546,11 +548,11 @@ set role authenticated;
 do $t$
 begin
   insert into public.stage_feedback (project_id, stage, rating, feedback, source, created_by)
-  values (t_id('project1'), 'site_survey', 5, 'Great crew!', 'customer', t_id('u_customer1'));
+  values (t_id('project1'), 'survey', 5, 'Great crew!', 'customer', t_id('u_customer1'));
 
   begin
     insert into public.stage_feedback (project_id, stage, rating, source, created_by)
-    values (t_id('project1'), 'site_survey', 1, 'customer', t_id('u_designer1'));
+    values (t_id('project1'), 'survey', 1, 'customer', t_id('u_designer1'));
     raise exception 'FAIL: customer forged feedback author';
   exception when insufficient_privilege then
     raise notice 'PASS: feedback author cannot be spoofed';
