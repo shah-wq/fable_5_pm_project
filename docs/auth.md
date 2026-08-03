@@ -1,6 +1,6 @@
 # Auth module (Module 1)
 
-Supabase Auth wired into Next.js (`apps/web`), per the SolarFlow AI auth
+Supabase Auth wired into Next.js (the repo root), per the SolarFlow AI auth
 model: three doors, one routing truth, role-gated middleware, invite flows,
 and the REQ-SEC-01 no-login upload links.
 
@@ -19,19 +19,19 @@ the right door.
 
 ## Where things live
 
-- `apps/web/src/lib/auth/roles.ts` — `ROLE_HOME`, `ROUTE_ACCESS`,
+- `src/lib/auth/roles.ts` — `ROLE_HOME`, `ROUTE_ACCESS`,
   `LOGIN_DOORS`, `sanitizeNextPath`. The single place that decides who sees
-  what. Unit-tested (`npm run test:unit -w apps/web`).
-- `apps/web/src/middleware.ts` — session refresh (`@supabase/ssr` cookies) +
+  what. Unit-tested (`npm run test:unit`).
+- `src/middleware.ts` — session refresh (`@supabase/ssr` cookies) +
   role gating per request: reads `profiles.role` and `is_active`, redirects
   wrong-role visitors to their home, force-signs-out deactivated accounts,
   returns 403 JSON for `/api/*`. `/u/*` and `/api/u/*` are excluded from the
   matcher — token holders never carry a session.
-- `apps/web/src/app/(auth)/…` — the three doors + `/login/reset`, sharing the
+- `src/app/(auth)/…` — the three doors + `/login/reset`, sharing the
   navy brand panel with the six-stage rail.
-- `apps/web/src/app/auth/callback/route.ts` — every emailed link (invite,
+- `src/app/auth/callback/route.ts` — every emailed link (invite,
   recovery, magic) lands here; PKCE code → session → relative-only `next`.
-- `apps/web/src/app/auth/update-password/…` — invite-accept and recovery both
+- `src/app/auth/update-password/…` — invite-accept and recovery both
   finish here (set password → role home).
 
 ## Invitations (ADM-02)

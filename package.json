@@ -2,16 +2,28 @@
   "name": "fable_5_pm_project",
   "version": "0.1.0",
   "private": true,
-  "type": "module",
-  "workspaces": ["apps/web"],
   "scripts": {
-    "typecheck": "npm run typecheck -w apps/web",
-    "build": "npm run build -w apps/web",
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "test:unit": "node --experimental-strip-types --test src/lib/auth/roles.test.ts",
     "db:verify": "scripts/verify-local.sh",
     "db:gen-types": "node scripts/gen-types.mjs"
   },
+  "dependencies": {
+    "@supabase/ssr": "^0.7.0",
+    "@supabase/supabase-js": "^2.112.0",
+    "next": "^15.5.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
   "devDependencies": {
     "@supabase/postgres-meta": "^0.91.0",
-    "supabase": "^2.111.0"
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "supabase": "^2.111.0",
+    "typescript": "^5.9.0"
   }
 }
