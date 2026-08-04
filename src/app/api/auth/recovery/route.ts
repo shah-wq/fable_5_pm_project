@@ -29,9 +29,14 @@ export async function POST(request: Request) {
       });
     } catch (error) {
       console.error('recovery email failed:', error);
+      const unconfigured = error instanceof Error && error.message.includes('SMTP is not configured');
       return NextResponse.json(
-        { error: 'We could not send the email. Try again shortly.' },
-        { status: 502 }
+        {
+          error: unconfigured
+            ? 'Email is not set up on this server yet. Ask your administrator to change your password from the Admin panel (Users & roles).'
+            : 'We could not send the email. Try again shortly.',
+        },
+        { status: unconfigured ? 503 : 502 }
       );
     }
   }

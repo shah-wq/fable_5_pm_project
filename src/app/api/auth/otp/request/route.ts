@@ -27,9 +27,14 @@ export async function POST(request: Request) {
       });
     } catch (error) {
       console.error('otp email failed:', error);
+      const unconfigured = error instanceof Error && error.message.includes('SMTP is not configured');
       return NextResponse.json(
-        { error: 'We could not send the email. Try again shortly.' },
-        { status: 502 }
+        {
+          error: unconfigured
+            ? 'Email is not set up on this server yet — sign-in codes cannot be sent. Contact your installer.'
+            : 'We could not send the email. Try again shortly.',
+        },
+        { status: unconfigured ? 503 : 502 }
       );
     }
   }
