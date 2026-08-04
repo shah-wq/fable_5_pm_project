@@ -34,7 +34,7 @@ begin
     perform * from auth.set_password_with_token(inv.invite_token, 'short');
     raise exception 'FAIL: short password accepted';
   exception when others then
-    if sqlerrm not like '%at least 10 characters%' then raise; end if;
+    if sqlerrm not like '%at least 8 characters%' then raise; end if;
   end;
 
   select * into acc from auth.set_password_with_token(inv.invite_token, 'op5-secure-pass!');
@@ -278,6 +278,118 @@ begin
   if n <> 0 then raise exception 'FAIL: sessionless read of a document blob'; end if;
 
   raise notice 'PASS: grant uploads store blobs; downloads follow the access rules';
+end
+$t$;
+reset role;
+
+-- -----------------------------------------------------------------------------
+-- 8. Admin user management (admin panel engine)
+-- -----------------------------------------------------------------------------
+
+set role authenticated;
+do $t$
+declare adm record; pm record; s1 text; s2 text; v record; n int; tok record;
+begin
+  -- Bootstrap a second admin (no user context = trusted bootstrap path).
+  perform set_config('request.jwt.claims', '', true);
+  select * into adm from auth.create_invited_user('adm2@example.test', 'admin', 'Admin Two');
+  perform auth.set_password_with_token(adm.invite_token, 'admin2-pass-1');
+  insert into public.t2 values ('adm2_uid', adm.user_id::text);
+
+  -- Non-admins are locked out of the engine.
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', (select val from public.t2 where key = 'ops_uid'),
+                      'role', 'authenticated', 'user_role', 'ops')::text, true);
+  begin
+    perform * from auth.admin_list_users();
+    raise exception 'FAIL: ops used the admin user engine';
+  exception when insufficient_privilege then null;
+  end;
+
+  -- Act as the admin from here on.
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', adm.user_id, 'role', 'authenticated', 'user_role', 'admin')::text, true);
+
+  -- Create a PM with an admin-set password; force-change defaults on.
+  select * into pm from auth.admin_create_user(
+    'newpm@example.test', 'ops', 'New PM', '480-555-0000', 'pm-pass-1234', true);
+  if pm.invite_token is not null then raise exception 'FAIL: password-mode create returned a token'; end if;
+
+  select * into v from auth.login_with_password('newpm@example.test', 'pm-pass-1234');
+  if v.session_token is null or not v.force_password_change then
+    raise exception 'FAIL: admin-created PM cannot log in / no force flag';
+  end if;
+  s1 := v.session_token;
+  s2 := (select session_token from auth.login_with_password('newpm@example.test', 'pm-pass-1234'));
+
+  -- The PM changes their own password: wrong current fails; right current
+  -- keeps the calling session, kills the other, clears the flag.
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', pm.user_id, 'role', 'authenticated', 'user_role', 'ops')::text, true);
+  begin
+    perform auth.change_password('wrong-current', 'pm-pass-5678', s1);
+    raise exception 'FAIL: change_password accepted a wrong current password';
+  exception when others then
+    if sqlerrm not like '%current password%' then raise; end if;
+  end;
+  perform auth.change_password('pm-pass-1234', 'pm-pass-5678', s1);
+  select count(*) into n from auth.validate_session(s1);
+  if n <> 1 then raise exception 'FAIL: calling session did not survive change_password'; end if;
+  select count(*) into n from auth.validate_session(s2);
+  if n <> 0 then raise exception 'FAIL: other session survived change_password'; end if;
+  if (select force_password_change from auth.login_with_password('newpm@example.test', 'pm-pass-5678')) then
+    raise exception 'FAIL: force flag not cleared by change_password';
+  end if;
+
+  -- Admin resets the PM's password directly: all sessions revoked.
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', adm.user_id, 'role', 'authenticated', 'user_role', 'admin')::text, true);
+  perform auth.admin_set_password(pm.user_id, 'admin-set-999', true);
+  select count(*) into n from auth.validate_session(s1);
+  if n <> 0 then raise exception 'FAIL: sessions survived an admin password reset'; end if;
+  if (select session_token from auth.login_with_password('newpm@example.test', 'admin-set-999')) is null then
+    raise exception 'FAIL: admin-set password does not log in';
+  end if;
+
+  -- Invitation lifecycle: cancel kills the link, resend mints a working one.
+  select * into tok from auth.admin_create_user('newdes@example.test', 'designer');
+  if tok.invite_token is null then raise exception 'FAIL: invite-mode create returned no token'; end if;
+  perform auth.admin_cancel_invite(tok.user_id);
+  select count(*) into n from auth.set_password_with_token(tok.invite_token, 'designer-pass-1');
+  if n <> 0 then raise exception 'FAIL: cancelled invite still works'; end if;
+  select * into tok from auth.admin_resend_invite(tok.user_id);
+  select count(*) into n from auth.set_password_with_token(tok.invite_token, 'designer-pass-1');
+  if n <> 1 then raise exception 'FAIL: resent invite does not work'; end if;
+
+  raise notice 'PASS: admin creates users (password/invite), resets, self-change, invite lifecycle';
+end
+$t$;
+
+-- Deletion: history-preserving scrub, last-admin guard.
+do $t$
+declare n int;
+begin
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', (select val from public.t2 where key = 'adm2_uid'),
+                      'role', 'authenticated', 'user_role', 'admin')::text, true);
+
+  perform auth.admin_delete_user((select val from public.t2 where key = 'ops_uid')::uuid);
+  select count(*) into n from auth.login_with_password('newops@example.test', 'brand-new-pass-42');
+  if n <> 0 then raise exception 'FAIL: deleted user can still log in'; end if;
+  if (select deleted_at from public.profiles
+      where id = (select val from public.t2 where key = 'ops_uid')::uuid) is null then
+    raise exception 'FAIL: deleted profile has no deleted marker';
+  end if;
+
+  -- Delete the other admin, then the guard protects the last one.
+  perform auth.admin_delete_user('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
+  begin
+    perform auth.admin_delete_user((select val from public.t2 where key = 'adm2_uid')::uuid);
+    raise exception 'FAIL: deleted the only remaining admin';
+  exception when insufficient_privilege then null;
+  end;
+
+  raise notice 'PASS: deletion scrubs credentials, keeps history, protects the last admin';
 end
 $t$;
 reset role;

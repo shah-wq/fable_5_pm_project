@@ -47,6 +47,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             <span className="role-chip">{session.role}</span>
             <span className="who">{session.fullName ?? session.email}</span>
           </div>
+          <a className="foot-link" href="/auth/change-password">Change password</a>
           <form action="/auth/signout" method="post">
             <button className="btn-signout" type="submit">
               Sign out

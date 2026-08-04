@@ -17,6 +17,7 @@ interface LoginRow {
   user_role: UserRole;
   is_active: boolean;
   full_name: string | null;
+  force_password_change: boolean;
 }
 
 /**
@@ -75,7 +76,9 @@ export async function POST(request: Request) {
   );
 
   const response = NextResponse.json({
-    redirect: sanitizeNextPath(body?.next) ?? ROLE_HOME[row.user_role],
+    redirect: row.force_password_change
+      ? '/auth/change-password?forced=1'
+      : (sanitizeNextPath(body?.next) ?? ROLE_HOME[row.user_role]),
   });
   setSessionCookie(response, row.session_token);
   return response;

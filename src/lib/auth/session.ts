@@ -10,6 +10,7 @@ export interface Session {
   role: UserRole;
   isActive: boolean;
   fullName: string | null;
+  mustChangePassword: boolean;
   token: string;
 }
 
@@ -19,6 +20,7 @@ interface SessionRow {
   user_role: UserRole;
   is_active: boolean;
   full_name: string | null;
+  must_change_password: boolean;
 }
 
 /**
@@ -43,6 +45,7 @@ export async function getSession(): Promise<Session | null> {
     role: row.user_role,
     isActive: row.is_active,
     fullName: row.full_name,
+    mustChangePassword: row.must_change_password,
     token,
   };
 }
@@ -63,6 +66,11 @@ export async function requireRole(
   }
   if (!session.isActive) {
     redirect('/auth/signout?reason=deactivated');
+  }
+  // Admin-set passwords with "force change on first login" hold the user on
+  // the change-password screen until they set their own.
+  if (session.mustChangePassword) {
+    redirect('/auth/change-password?forced=1');
   }
   if (!allowed.includes(session.role)) {
     redirect(ROLE_HOME[session.role]);
