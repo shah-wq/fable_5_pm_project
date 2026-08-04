@@ -104,43 +104,6 @@ export const ADMIN_ENTITIES: Record<string, EntityDef> = {
     ],
     listColumns: ['code', 'email', 'phone'],
   },
-  jurisdictions: {
-    table: 'jurisdictions',
-    title: 'Jurisdictions',
-    blurb: 'AHJs: a reference the PM reads — permit method, fees, turnaround. Nothing automated.',
-    nameColumn: 'name',
-    fields: [
-      { name: 'name', label: 'Name', type: 'text', required: true },
-      { name: 'state', label: 'State', type: 'text', required: true },
-      { name: 'county', label: 'County', type: 'text' },
-      { name: 'ahj_code', label: 'AHJ code', type: 'text' },
-      { name: 'typical_turnaround_days', label: 'Typical turnaround (days)', type: 'number' },
-      { name: 'notes', label: 'Notes (requirements, portal, fees…)', type: 'textarea' },
-    ],
-    listColumns: ['state', 'county', 'typical_turnaround_days'],
-  },
-  utilities: {
-    table: 'utilities',
-    title: 'Utilities',
-    blurb: 'Utility companies for interconnection.',
-    nameColumn: 'name',
-    fields: [
-      { name: 'name', label: 'Name', type: 'text', required: true },
-      { name: 'state', label: 'State', type: 'text', required: true },
-    ],
-    listColumns: ['state'],
-  },
-  hoas: {
-    table: 'hoas',
-    title: 'HOAs',
-    blurb: 'Homeowner associations referenced by the Stage 1 form.',
-    nameColumn: 'name',
-    fields: [
-      { name: 'name', label: 'Name', type: 'text', required: true },
-      { name: 'notes', label: 'Notes / contact', type: 'textarea' },
-    ],
-    listColumns: [],
-  },
   finance_partners: {
     table: 'finance_partners',
     title: 'Finance partners',
