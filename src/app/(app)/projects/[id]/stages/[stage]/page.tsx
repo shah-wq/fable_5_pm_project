@@ -8,17 +8,19 @@ import {
   isStageKey,
   stageIndex,
 } from '@/lib/stages/definitions';
+import { STAGE_FORMS, STAGE_TABLES } from '@/lib/stages/fields';
 import { evaluateStage } from '@/lib/stages/requirements';
 import { loadBundles } from '@/lib/stages/service';
 import { Stepper } from '../../Stepper';
 import { AdvanceButton } from './AdvanceButton';
+import { StageForm } from './StageForm';
 
 export const dynamic = 'force-dynamic';
 
 /**
- * A stage's page: its live requirements checklist and the validated advance
- * button. Module 2 replaces the checklist body with the full data-entry form
- * (same requirements engine keeps gating the button).
+ * A stage's data-entry form (Stage Field Specification) plus the validated
+ * advance button — the same requirements engine gates both this button and
+ * the board drag.
  */
 export default async function StagePage({
   params,
@@ -29,29 +31,81 @@ export default async function StagePage({
   if (!isStageKey(stage)) notFound();
   const session = await guardPath('/projects');
 
+  const cards = STAGE_FORMS[stage];
+  const uploadCategories = cards
+    .flatMap((c) => c.fields)
+    .filter((f) => f.type === 'upload')
+    .map((f) => f.name);
+
   const data = await withUser(session, async (c) => {
-    const { rows } = await c.query(
-      `select id, name, address, stage, status from public.projects where id = $1`,
+    const project = await c.query(
+      `select id, name, address, stage, status, created_at, finance_partner_id
+       from public.projects where id = $1`,
       [id]
     );
-    if (!rows[0]) return null;
-    const bundles = await loadBundles(c, [id]);
-    return { project: rows[0], bundle: bundles.get(id) ?? null };
+    if (!project.rows[0]) return null;
+
+    const [stageRow, financeRow, docs, designers, staff, financePartners, bundles] =
+      await Promise.all([
+        c.query(`select * from public."${STAGE_TABLES[stage]}" where project_id = $1`, [id]),
+        c.query(`select * from public.finance_milestones where project_id = $1`, [id]),
+        uploadCategories.length
+          ? c.query(
+              `select id, title, category from public.documents
+               where project_id = $1 and category = any($2) order by created_at`,
+              [id, uploadCategories]
+            )
+          : Promise.resolve({ rows: [] as { id: string; title: string | null; category: string }[] }),
+        c.query(`select id, display_name as name from public.designers where is_active order by 2`),
+        c.query(
+          `select id, coalesce(full_name, email) as name from public.profiles
+           where role in ('admin', 'ops') and is_active and deleted_at is null order by 2`
+        ),
+        c.query(`select id, name from public.finance_partners where is_active order by name`),
+        loadBundles(c, [id]),
+      ]);
+
+    return {
+      project: project.rows[0],
+      stageRow: stageRow.rows[0] ?? {},
+      financeRow: financeRow.rows[0] ?? {},
+      docs: docs.rows,
+      refs: {
+        designers: designers.rows,
+        staff: staff.rows,
+        financePartners: financePartners.rows,
+      },
+      bundle: bundles.get(id) ?? null,
+    };
   });
   if (!data) notFound();
 
   const project = data.project;
-  const currentStage = isStageKey(project.stage) ? project.stage : 'survey';
+  const currentStage = isStageKey(String(project.stage)) ? (String(project.stage) as typeof stage) : 'survey';
   const viewIndex = stageIndex(stage);
   const currentIndex = stageIndex(currentStage);
 
-  // Future stages are locked: bounce to the current one.
+  // Future stages stay locked until reached.
   if (project.status !== 'complete' && viewIndex > currentIndex) {
     redirect(`/projects/${id}/stages/${currentStage}`);
   }
 
   const isCurrent = project.status !== 'complete' && stage === currentStage;
   const missing = data.bundle ? evaluateStage(stage, data.bundle) : [];
+
+  // Merge the three persistence sources into one flat value map for the form.
+  const drop = new Set(['project_id', 'created_at', 'updated_at']);
+  const initialValues: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(data.stageRow)) if (!drop.has(k)) initialValues[k] = v;
+  for (const [k, v] of Object.entries(data.financeRow)) if (!drop.has(k)) initialValues[k] = v;
+  initialValues.finance_partner_id = project.finance_partner_id;
+
+  const docsByCategory: Record<string, { id: string; title: string | null }[]> = {};
+  for (const d of data.docs) {
+    (docsByCategory[d.category] ??= []).push({ id: d.id, title: d.title });
+  }
+
+  const editable = ['admin', 'ops'].includes(session.role);
 
   return (
     <main className="surface wide">
@@ -66,49 +120,43 @@ export default async function StagePage({
           <Link className="btn-link" href={`/projects/${id}`}>
             Project overview
           </Link>
+          <Link className="btn-link" href="/pipeline">
+            Board
+          </Link>
         </div>
       </div>
 
       <Stepper projectId={id} current={currentStage} completed={project.status === 'complete'} />
 
-      <div className="detail-grid two">
-        <section className="panel">
-          <h2>{isCurrent ? 'Required to advance' : 'Stage record'}</h2>
-          {!isCurrent && (
-            <p className="dim">
-              {project.status === 'complete' || viewIndex < currentIndex
-                ? 'This stage is complete — shown read-only. Corrections come with the stage forms (next module) and are logged.'
-                : null}
-            </p>
-          )}
-          {missing.length === 0 ? (
-            <p className="ok-line">✓ Every required item for this stage is complete.</p>
-          ) : (
-            <ul className="gap-list">
-              {missing.map((m) => (
-                <li key={m}>{m}</li>
-              ))}
-            </ul>
-          )}
-          <p className="dim form-note">
-            The {STAGE_LABELS[stage]} data-entry form (fields &amp; uploads) arrives with the
-            stage-forms module; this checklist and the button below already run the exact
-            validation it will use.
-          </p>
-        </section>
+      {!isCurrent && (
+        <p className="notice ok">
+          {project.status === 'complete' || viewIndex < currentIndex
+            ? 'This stage is complete. Edits are allowed for corrections and every change is written to the activity log.'
+            : null}
+        </p>
+      )}
 
-        {isCurrent && (
-          <section className="panel">
-            <h2>Advance</h2>
-            <AdvanceButton
-              projectId={id}
-              label={ADVANCE_LABELS[stage]}
-              missing={missing}
-              canMove={['admin', 'ops'].includes(session.role)}
-            />
-          </section>
-        )}
-      </div>
+      <StageForm
+        projectId={id}
+        stage={stage}
+        cards={cards}
+        initialValues={initialValues}
+        docs={docsByCategory}
+        refs={data.refs}
+        projectCreatedAt={String(project.created_at)}
+        editable={editable}
+      />
+
+      {isCurrent && (
+        <section className="panel advance-panel">
+          <AdvanceButton
+            projectId={id}
+            label={ADVANCE_LABELS[stage]}
+            missing={missing}
+            canMove={editable}
+          />
+        </section>
+      )}
     </main>
   );
 }

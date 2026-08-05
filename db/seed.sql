@@ -56,3 +56,7 @@ insert into public.finance_partners (name, contact) values
   ('GoodLeap', '{"email": "partners@example.com"}'),
   ('Mosaic', '{"email": "partners@example.com"}')
 on conflict do nothing;
+
+insert into public.finance_partners (name) values
+  ('Credit Human'), ('TOPCO'), ('ICCU'), ('LightReach')
+on conflict do nothing;

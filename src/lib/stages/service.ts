@@ -37,151 +37,47 @@ export async function loadBundles(
   if (projectIds.length === 0) return bundles;
   const ids = [projectIds];
 
-  const [projects, surveys, designs, procurements, installs, inspections, permits, bom, adders, cos, docs] =
-    await Promise.all([
-      client.query(
-        `select id, jurisdiction_id, utility_id, finance_partner_id
-         from public.projects where id = any($1)`, ids),
-      client.query(
-        `select project_id, hoa_applies, hoa_id, survey_date, time_window, surveyor_id,
-                survey_status, roof_type, roof_pitch, main_panel_adequate
-         from public.stage_survey where project_id = any($1)`, ids),
-      client.query(
-        `select project_id, designer_id, assigned_date, due_date, adder_approval_date,
-                new_contract_total, finance_notified_date, finance_acked_date,
-                production_kwh, client_approval_date, pe_stamp_date
-         from public.stage_design where project_id = any($1)`, ids),
-      client.query(
-        `select project_id, delivery_date, delivery_ok
-         from public.stage_procurement where project_id = any($1)`, ids),
-      client.query(
-        `select project_id, crew_id, start_date, end_date, customer_confirmed,
-                work_order_date, install_status, completion_date, punch_list, punch_resolved_date
-         from public.stage_install where project_id = any($1)`, ids),
-      client.query(
-        `select project_id, inspection_date, time_window, crew_confirmed, result,
-                pto_submitted_date, pto_issued_date, handoff_done
-         from public.stage_inspection where project_id = any($1)`, ids),
-      client.query(
-        `select project_id, permit_type, status, submission_method, submitted_at,
-                reference_no, approved_at
-         from public.permits where project_id = any($1)`, ids),
-      client.query(
-        `select project_id, line_status, vendor_id, po_number, order_date
-         from public.bom_items where project_id = any($1)`, ids),
-      client.query(
-        `select project_id, count(*)::int as n
-         from public.project_adders where project_id = any($1) group by project_id`, ids),
-      client.query(
-        `select project_id, count(*)::int as n
-         from public.change_orders where project_id = any($1) and document_id is not null
-         group by project_id`, ids),
-      client.query(
-        `select distinct project_id, category
-         from public.documents where project_id = any($1) and category is not null`, ids),
-    ]);
+  const [projects, s1, s2, s3, s4, s5, s6, fin, docs] = await Promise.all([
+    client.query(`select id, finance_partner_id from public.projects where id = any($1)`, ids),
+    client.query(`select * from public.stage1_survey where project_id = any($1)`, ids),
+    client.query(`select * from public.stage2_design where project_id = any($1)`, ids),
+    client.query(`select * from public.stage3_permit where project_id = any($1)`, ids),
+    client.query(`select * from public.stage4_procurement where project_id = any($1)`, ids),
+    client.query(`select * from public.stage5_install where project_id = any($1)`, ids),
+    client.query(`select * from public.stage6_inspection where project_id = any($1)`, ids),
+    client.query(`select * from public.finance_milestones where project_id = any($1)`, ids),
+    client.query(
+      `select distinct project_id, category
+       from public.documents where project_id = any($1) and category is not null`, ids),
+  ]);
 
-  const by = <T extends { project_id: string }>(rows: T[]) => {
-    const m = new Map<string, T[]>();
-    for (const r of rows) {
-      const list = m.get(r.project_id) ?? [];
-      list.push(r);
-      m.set(r.project_id, list);
-    }
-    return m;
-  };
-  const surveyBy = by(surveys.rows);
-  const designBy = by(designs.rows);
-  const procBy = by(procurements.rows);
-  const installBy = by(installs.rows);
-  const inspBy = by(inspections.rows);
-  const permitsBy = by(permits.rows);
-  const bomBy = by(bom.rows);
-  const addersBy = by(adders.rows);
-  const cosBy = by(cos.rows);
-  const docsBy = by(docs.rows);
+  const byProject = <T extends { project_id: string }>(rows: T[]) =>
+    new Map(rows.map((r) => [r.project_id, r]));
+  const m1 = byProject(s1.rows);
+  const m2 = byProject(s2.rows);
+  const m3 = byProject(s3.rows);
+  const m4 = byProject(s4.rows);
+  const m5 = byProject(s5.rows);
+  const m6 = byProject(s6.rows);
+  const mf = byProject(fin.rows);
+  const docsBy = new Map<string, Set<string>>();
+  for (const r of docs.rows) {
+    const set = docsBy.get(r.project_id) ?? new Set<string>();
+    set.add(r.category);
+    docsBy.set(r.project_id, set);
+  }
 
   for (const p of projects.rows) {
-    const s = surveyBy.get(p.id)?.[0];
-    const d = designBy.get(p.id)?.[0];
-    const pr = procBy.get(p.id)?.[0];
-    const i = installBy.get(p.id)?.[0];
-    const q = inspBy.get(p.id)?.[0];
     bundles.set(p.id, {
-      project: {
-        jurisdictionId: p.jurisdiction_id,
-        utilityId: p.utility_id,
-        financePartnerId: p.finance_partner_id,
-      },
-      survey: s
-        ? {
-            hoaApplies: s.hoa_applies,
-            hoaId: s.hoa_id,
-            surveyDate: s.survey_date,
-            timeWindow: s.time_window,
-            surveyorId: s.surveyor_id,
-            surveyStatus: s.survey_status,
-            roofType: s.roof_type,
-            roofPitch: s.roof_pitch,
-            mainPanelAdequate: s.main_panel_adequate,
-          }
-        : null,
-      design: d
-        ? {
-            designerId: d.designer_id,
-            assignedDate: d.assigned_date,
-            dueDate: d.due_date,
-            adderApprovalDate: d.adder_approval_date,
-            newContractTotal: d.new_contract_total,
-            financeNotifiedDate: d.finance_notified_date,
-            financeAckedDate: d.finance_acked_date,
-            productionKwh: d.production_kwh,
-            clientApprovalDate: d.client_approval_date,
-            peStampDate: d.pe_stamp_date,
-          }
-        : null,
-      permits: (permitsBy.get(p.id) ?? []).map((r) => ({
-        permitType: r.permit_type,
-        status: r.status,
-        submissionMethod: r.submission_method,
-        submittedAt: r.submitted_at,
-        referenceNo: r.reference_no,
-        approvedAt: r.approved_at,
-      })),
-      bomLines: (bomBy.get(p.id) ?? []).map((r) => ({
-        lineStatus: r.line_status,
-        vendorId: r.vendor_id,
-        poNumber: r.po_number,
-        orderDate: r.order_date,
-      })),
-      procurement: pr ? { deliveryDate: pr.delivery_date, deliveryOk: pr.delivery_ok } : null,
-      install: i
-        ? {
-            crewId: i.crew_id,
-            startDate: i.start_date,
-            endDate: i.end_date,
-            customerConfirmed: i.customer_confirmed,
-            workOrderDate: i.work_order_date,
-            installStatus: i.install_status,
-            completionDate: i.completion_date,
-            punchList: i.punch_list,
-            punchResolvedDate: i.punch_resolved_date,
-          }
-        : null,
-      inspection: q
-        ? {
-            inspectionDate: q.inspection_date,
-            timeWindow: q.time_window,
-            crewConfirmed: q.crew_confirmed,
-            result: q.result,
-            ptoSubmittedDate: q.pto_submitted_date,
-            ptoIssuedDate: q.pto_issued_date,
-            handoffDone: q.handoff_done,
-          }
-        : null,
-      adderCount: addersBy.get(p.id)?.[0]?.n ?? 0,
-      signedChangeOrderCount: cosBy.get(p.id)?.[0]?.n ?? 0,
-      docCategories: new Set((docsBy.get(p.id) ?? []).map((r) => r.category)),
+      financePartnerId: p.finance_partner_id,
+      survey: m1.get(p.id) ?? null,
+      design: m2.get(p.id) ?? null,
+      permits: m3.get(p.id) ?? null,
+      procurement: m4.get(p.id) ?? null,
+      install: m5.get(p.id) ?? null,
+      inspection: m6.get(p.id) ?? null,
+      finance: mf.get(p.id) ?? null,
+      docCategories: docsBy.get(p.id) ?? new Set(),
     });
   }
   return bundles;
