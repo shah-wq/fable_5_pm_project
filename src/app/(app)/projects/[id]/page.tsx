@@ -5,6 +5,7 @@ import { withUser } from '@/lib/db';
 import { STAGE_LABELS, isStageKey } from '@/lib/stages/definitions';
 import { loadBundles } from '@/lib/stages/service';
 import { evaluateStage } from '@/lib/stages/requirements';
+import { ProjectActions } from './ProjectActions';
 import { Stepper } from './Stepper';
 
 export const dynamic = 'force-dynamic';
@@ -78,6 +79,10 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
           </Link>
         </div>
       </div>
+
+      {['admin', 'ops'].includes(session.role) && (
+        <ProjectActions projectId={id} status={String(p.status)} isAdmin={session.role === 'admin'} />
+      )}
 
       <Stepper projectId={id} current={stage} completed={p.status === 'complete'} />
 

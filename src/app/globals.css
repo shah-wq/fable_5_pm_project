@@ -1451,3 +1451,40 @@ a {
 .advance-panel {
   margin-top: 4px;
 }
+
+/* --------------------------------------------------- board side stages + actions */
+
+.board-col.side {
+  background: #e7e4de;
+  border: 1px dashed var(--line);
+}
+
+.board-col.side header {
+  color: var(--ink);
+}
+
+.card.cancelled {
+  opacity: 0.7;
+  border-left: 3px solid var(--danger);
+}
+
+.card.on-hold {
+  border-left: 3px solid var(--amber);
+}
+
+.header-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.btn-link.danger-text {
+  color: var(--danger);
+}
+
+.btn-link.primary {
+  background: var(--navy);
+  border-color: var(--navy);
+  color: #fff;
+}

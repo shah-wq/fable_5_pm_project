@@ -10,9 +10,14 @@ export const STAGES = [
   'procurement',
   'install',
   'inspection_pto',
+  'complete',
 ] as const;
 
 export type StageKey = (typeof STAGES)[number];
+
+/** The stages that appear as working columns on the board (Complete is
+ *  terminal — completed projects leave the active board). */
+export const BOARD_STAGES = STAGES.filter((s) => s !== 'complete');
 
 export const STAGE_LABELS: Record<StageKey, string> = {
   survey: 'Survey',
@@ -21,16 +26,18 @@ export const STAGE_LABELS: Record<StageKey, string> = {
   procurement: 'Procurement',
   install: 'Install',
   inspection_pto: 'Inspection & PTO',
+  complete: 'Complete',
 };
 
-/** The green button's label on each stage form. */
+/** The green button's label on each stage form (Complete is terminal). */
 export const ADVANCE_LABELS: Record<StageKey, string> = {
   survey: 'Move to Design',
   design: 'Move to Permits',
   permits: 'Move to Procurement',
   procurement: 'Move to Installation',
   install: 'Move to Inspection & PTO',
-  inspection_pto: 'Mark Project Complete',
+  inspection_pto: 'Move to Complete',
+  complete: '',
 };
 
 export function isStageKey(value: string): value is StageKey {

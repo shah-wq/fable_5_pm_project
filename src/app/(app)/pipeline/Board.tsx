@@ -3,7 +3,8 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
-import { STAGES, STAGE_LABELS, stageIndex, type StageKey } from '@/lib/stages/definitions';
+import { BOARD_STAGES, STAGE_LABELS, stageIndex, type StageKey } from '@/lib/stages/definitions';
+import { HOLD_REASONS, CANCELLATION_REASONS } from '@/lib/stages/fields';
 import type { ProjectCard } from '@/lib/stages/service';
 
 interface ToastState {
@@ -13,22 +14,27 @@ interface ToastState {
   link?: { href: string; label: string };
 }
 
+type SideKind = 'hold' | 'cancel';
+type BackState = { card: ProjectCard; to: StageKey };
+type SideState = { card: ProjectCard; kind: SideKind };
+
 /**
- * Kanban board. Drag is limited to one stage forward (backwards one stage for
- * admins, with a mandatory reason). Drops call the same /move endpoint as the
- * advance button; an invalid drop snaps the card back, outlines the target
- * column red, and lists the missing items in a toast with a link to the form.
+ * Kanban board: six working stage columns plus the Hold and Cancelled side
+ * columns at the right. Forward drag is one stage and runs the shared
+ * validation (snap-back + red outline + missing-items toast on rejection);
+ * a drop on Hold/Cancelled opens a reason dialog and bypasses validation;
+ * admins can drag one stage back with a logged reason.
  */
 export function Board({ cards, isAdmin }: { cards: ProjectCard[]; isAdmin: boolean }) {
   const router = useRouter();
   const [dragging, setDragging] = useState<ProjectCard | null>(null);
-  const [rejectedColumn, setRejectedColumn] = useState<StageKey | null>(null);
+  const [rejectedColumn, setRejectedColumn] = useState<string | null>(null);
   const [toast, setToast] = useState<ToastState | null>(null);
   const [busy, setBusy] = useState(false);
-  const [backMove, setBackMove] = useState<{ card: ProjectCard; to: StageKey } | null>(null);
+  const [backMove, setBackMove] = useState<BackState | null>(null);
+  const [sideMove, setSideMove] = useState<SideState | null>(null);
   const reasonRef = useRef<HTMLTextAreaElement>(null);
 
-  // "Two PMs see each other's moves live" — poll + refresh on focus.
   useEffect(() => {
     const interval = setInterval(() => router.refresh(), 30_000);
     const onFocus = () => router.refresh();
@@ -45,23 +51,17 @@ export function Board({ cards, isAdmin }: { cards: ProjectCard[]; isAdmin: boole
     return () => clearTimeout(t);
   }, [toast]);
 
-  async function requestMove(card: ProjectCard, direction: 'forward' | 'back', reason?: string) {
+  async function post(card: ProjectCard, body: Record<string, unknown>): Promise<boolean> {
     setBusy(true);
     try {
       const res = await fetch(`/api/projects/${card.id}/move`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ direction, via: 'drag', reason }),
+        body: JSON.stringify({ via: 'drag', ...body }),
       });
       const json = await res.json().catch(() => null);
       if (res.ok) {
-        setToast({
-          kind: 'ok',
-          title:
-            json?.stage === 'completed'
-              ? `${card.name} completed 🎉`
-              : `${card.name} → ${STAGE_LABELS[json?.stage as StageKey] ?? json?.stage}`,
-        });
+        setToast({ kind: 'ok', title: `${card.name} moved` });
         router.refresh();
         return true;
       }
@@ -77,26 +77,35 @@ export function Board({ cards, isAdmin }: { cards: ProjectCard[]; isAdmin: boole
     }
   }
 
-  function onDrop(target: StageKey) {
+  function onDrop(column: string) {
     if (!dragging || busy) return;
     const card = dragging;
     setDragging(null);
-    const from = stageIndex(card.stage);
-    const to = stageIndex(target);
 
+    if (column === 'hold' || column === 'cancelled') {
+      if (card.column === column) return;
+      setSideMove({ card, kind: column === 'hold' ? 'hold' : 'cancel' });
+      return;
+    }
+    // Held/cancelled cards must be resumed/reinstated first (via the header).
+    if (card.column === 'hold' || card.column === 'cancelled') {
+      setToast({ kind: 'error', title: `Resume or reinstate ${card.name} from its page first.` });
+      return;
+    }
+
+    const from = stageIndex(card.stage);
+    const to = stageIndex(column as StageKey);
     if (to === from + 1) {
-      // Forward one stage — validation happens server-side; a rejection
-      // "snaps back" simply because we never render the card elsewhere.
-      requestMove(card, 'forward').then((ok) => {
+      post(card, { direction: 'forward' }).then((ok) => {
         if (!ok) {
-          setRejectedColumn(target);
+          setRejectedColumn(column);
           setTimeout(() => setRejectedColumn(null), 1500);
         }
       });
     } else if (to === from - 1 && isAdmin) {
-      setBackMove({ card, to: target });
+      setBackMove({ card, to: column as StageKey });
     } else if (to !== from) {
-      setRejectedColumn(target);
+      setRejectedColumn(column);
       setTimeout(() => setRejectedColumn(null), 1500);
       setToast({
         kind: 'error',
@@ -110,27 +119,33 @@ export function Board({ cards, isAdmin }: { cards: ProjectCard[]; isAdmin: boole
     }
   }
 
+  const columns: Array<{ key: string; label: string; side?: boolean }> = [
+    ...BOARD_STAGES.map((s) => ({ key: s, label: STAGE_LABELS[s as StageKey] })),
+    { key: 'hold', label: 'Hold', side: true },
+    { key: 'cancelled', label: 'Cancelled', side: true },
+  ];
+
   return (
     <>
       <div className="board" role="list">
-        {STAGES.map((stage) => {
-          const columnCards = cards.filter((c) => c.stage === stage && c.status !== 'complete');
+        {columns.map((col) => {
+          const columnCards = cards.filter((c) => c.column === col.key);
           return (
             <section
-              key={stage}
-              className={`board-col${rejectedColumn === stage ? ' rejected' : ''}`}
+              key={col.key}
+              className={`board-col${col.side ? ' side' : ''}${rejectedColumn === col.key ? ' rejected' : ''}`}
               onDragOver={(e) => e.preventDefault()}
-              onDrop={() => onDrop(stage)}
+              onDrop={() => onDrop(col.key)}
             >
               <header>
-                <span>{STAGE_LABELS[stage]}</span>
+                <span>{col.label}</span>
                 <span className="col-count">{columnCards.length}</span>
               </header>
               <div className="col-cards">
                 {columnCards.map((card) => (
                   <article
                     key={card.id}
-                    className={`card${card.status === 'on_hold' ? ' on-hold' : ''}`}
+                    className={`card${card.column === 'hold' ? ' on-hold' : ''}${card.column === 'cancelled' ? ' cancelled' : ''}`}
                     draggable={!busy}
                     onDragStart={() => setDragging(card)}
                     onDragEnd={() => setDragging(null)}
@@ -141,13 +156,13 @@ export function Board({ cards, isAdmin }: { cards: ProjectCard[]; isAdmin: boole
                     <div className="card-sub">{card.address ?? card.code}</div>
                     <div className="card-meta">
                       {card.systemSizeKw !== null && <span>{card.systemSizeKw} kW</span>}
-                      <span>{card.daysInStage}d in stage</span>
-                      {card.status === 'on_hold' && <span className="hold-chip">on hold</span>}
-                      {card.missing.length > 0 && (
-                        <span
-                          className="missing-badge"
-                          title={card.missing.join('\n')}
-                        >
+                      {col.side ? (
+                        <span className="dim">was {STAGE_LABELS[card.stage]}</span>
+                      ) : (
+                        <span>{card.daysInStage}d in stage</span>
+                      )}
+                      {!col.side && card.missing.length > 0 && (
+                        <span className="missing-badge" title={card.missing.join('\n')}>
                           {card.missing.length}
                         </span>
                       )}
@@ -181,7 +196,7 @@ export function Board({ cards, isAdmin }: { cards: ProjectCard[]; isAdmin: boole
                 onClick={() => {
                   const reason = reasonRef.current?.value?.trim() ?? '';
                   if (reason.length < 5) return;
-                  requestMove(backMove.card, 'back', reason).then(() => setBackMove(null));
+                  post(backMove.card, { direction: 'back', reason }).then(() => setBackMove(null));
                 }}
               >
                 Move back
@@ -189,6 +204,15 @@ export function Board({ cards, isAdmin }: { cards: ProjectCard[]; isAdmin: boole
             </div>
           </div>
         </div>
+      )}
+
+      {sideMove && (
+        <SideDialog
+          state={sideMove}
+          busy={busy}
+          onClose={() => setSideMove(null)}
+          onSubmit={(body) => post(sideMove.card, body).then((ok) => ok && setSideMove(null))}
+        />
       )}
 
       {toast && (
@@ -205,5 +229,98 @@ export function Board({ cards, isAdmin }: { cards: ProjectCard[]; isAdmin: boole
         </div>
       )}
     </>
+  );
+}
+
+function SideDialog({
+  state,
+  busy,
+  onClose,
+  onSubmit,
+}: {
+  state: SideState;
+  busy: boolean;
+  onClose: () => void;
+  onSubmit: (body: Record<string, unknown>) => void;
+}) {
+  const hold = state.kind === 'hold';
+  const [reason, setReason] = useState('');
+  const [notes, setNotes] = useState('');
+  const [expected, setExpected] = useState('');
+  const [refund, setRefund] = useState(false);
+  const [equipment, setEquipment] = useState(false);
+  const reasons = hold ? HOLD_REASONS : CANCELLATION_REASONS;
+
+  return (
+    <div className="dialog-backdrop">
+      <div className="dialog" role="dialog" aria-modal>
+        <h2>{hold ? 'Put on hold' : 'Cancel project'}</h2>
+        <p>
+          {hold ? 'Pause' : 'Cancel'} <strong>{state.card.name}</strong>. No stage fields are
+          required — just the reason below. Logged to the activity trail.
+        </p>
+        <label className="field">
+          <span>Reason *</span>
+          <select value={reason} onChange={(e) => setReason(e.target.value)}>
+            <option value="">Select…</option>
+            {reasons.map((r) => (
+              <option key={r} value={r}>
+                {r}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="field">
+          <span>Notes *</span>
+          <textarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} />
+        </label>
+        {hold ? (
+          <label className="field">
+            <span>Expected resume date</span>
+            <input type="date" value={expected} onChange={(e) => setExpected(e.target.value)} />
+          </label>
+        ) : (
+          <>
+            <label className="check-inline">
+              <input type="checkbox" checked={refund} onChange={(e) => setRefund(e.target.checked)} />
+              Refund / clawback required
+            </label>
+            <label className="check-inline">
+              <input
+                type="checkbox"
+                checked={equipment}
+                onChange={(e) => setEquipment(e.target.checked)}
+              />
+              Equipment return required
+            </label>
+          </>
+        )}
+        <div className="dialog-actions">
+          <button className="btn secondary" type="button" onClick={onClose}>
+            Back
+          </button>
+          <button
+            className={`btn${hold ? '' : ' danger'}`}
+            type="button"
+            disabled={busy || !reason || notes.trim().length < 3}
+            onClick={() =>
+              onSubmit(
+                hold
+                  ? { direction: 'hold', reason, notes, expectedResumeDate: expected || null }
+                  : {
+                      direction: 'cancel',
+                      reason,
+                      notes,
+                      refundRequired: refund,
+                      equipmentReturnRequired: equipment,
+                    }
+              )
+            }
+          >
+            {hold ? 'Put on hold' : 'Cancel project'}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }

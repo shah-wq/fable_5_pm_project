@@ -553,6 +553,44 @@ export const STAGE_FORMS: Record<StageKey, StageCard[]> = {
     financeM2Card,
     driveCard('PTO letter, inspection sign-off and final documents filed to the Drive folder'),
   ],
+
+  complete: [
+    {
+      key: 'completion',
+      title: 'Completion',
+      statusField: 'completion_status',
+      days: { to: 'completion_date', label: 'Total Project Days' },
+      fields: [
+        {
+          name: 'completion_status',
+          label: 'Project Completion Status',
+          type: 'select',
+          options: ['complete', 'complete_with_open_items'],
+          required: true,
+        },
+        {
+          name: 'completion_date',
+          label: 'Project Completion Date',
+          type: 'date',
+          required: true,
+          note: 'Defaults to the date the project was completed; editable (change logged)',
+        },
+        {
+          name: 'completion_notes',
+          label: 'Completion PM Notes',
+          type: 'textarea',
+          note: 'Closing summary, open items, anything the next person should know',
+        },
+        {
+          name: 'final_drive_updated',
+          label: 'Final Drive Updated',
+          type: 'toggle',
+          required: true,
+          note: 'Confirms the complete document trail is filed to the Drive folder',
+        },
+      ],
+    },
+  ],
 };
 
 /** The stage's own table in the database. */
@@ -563,7 +601,28 @@ export const STAGE_TABLES: Record<StageKey, string> = {
   procurement: 'stage4_procurement',
   install: 'stage5_install',
   inspection_pto: 'stage6_inspection',
+  complete: 'stage7_complete',
 };
+
+export const HOLD_REASONS = [
+  'Customer request',
+  'Finance pending',
+  'Weather',
+  'Access issue',
+  'Awaiting documents',
+  'Site issue',
+  'Other',
+] as const;
+
+export const CANCELLATION_REASONS = [
+  'Customer cancelled',
+  'Failed credit',
+  'Site not viable',
+  'Permit denied',
+  'Duplicate',
+  'Competitor',
+  'Other',
+] as const;
 
 export const PERMIT_OPTIONS = ['building', 'electrical', 'structural'] as const;
 

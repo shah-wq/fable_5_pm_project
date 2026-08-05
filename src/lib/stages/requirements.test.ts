@@ -20,8 +20,12 @@ function bundle(partial: Partial<StageBundle> = {}): StageBundle {
   };
 }
 
-test('every stage blocks an empty project', () => {
+test('every working stage blocks an empty project (Complete is terminal)', () => {
   for (const stage of STAGES) {
+    if (stage === 'complete') {
+      assert.deepEqual(evaluateStage(stage, bundle()), [], 'Complete has no advance gate');
+      continue;
+    }
     assert.ok(evaluateStage(stage, bundle()).length > 0, `${stage} must have gaps`);
   }
 });

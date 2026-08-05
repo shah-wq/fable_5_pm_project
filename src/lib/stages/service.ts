@@ -18,6 +18,8 @@ export interface ProjectCard {
   address: string | null;
   stage: StageKey;
   status: string;
+  /** Board column: 'hold' / 'cancelled' for side stages, else the stage. */
+  column: string;
   systemSizeKw: number | null;
   daysInStage: number;
   missing: string[];
@@ -146,6 +148,8 @@ export async function loadProjectCards(
     return rows.map((r) => {
       const bundle = bundles.get(r.id);
       const stage = r.stage as StageKey;
+      const column =
+        r.status === 'on_hold' ? 'hold' : r.status === 'cancelled' ? 'cancelled' : stage;
       return {
         id: r.id,
         code: r.code,
@@ -153,6 +157,7 @@ export async function loadProjectCards(
         address: r.address,
         stage,
         status: r.status,
+        column,
         systemSizeKw: r.system_size_kw === null ? null : Number(r.system_size_kw),
         daysInStage: Math.max(0, Math.floor((now - new Date(r.stage_since).getTime()) / 86_400_000)),
         missing: bundle && r.status !== 'complete' ? evaluateStage(stage, bundle) : [],
@@ -166,46 +171,131 @@ export async function loadProjectCards(
   });
 }
 
+export type MoveDirection = 'forward' | 'back' | 'hold' | 'resume' | 'cancel' | 'reinstate';
+
 export type MoveResult =
-  | { ok: true; stage: StageKey | 'completed' }
+  | { ok: true; stage: StageKey | 'completed'; column?: string }
   | { ok: false; code: 'not_found' | 'forbidden' | 'invalid'; message: string; missing?: string[] };
 
+export interface MoveOptions {
+  via: 'button' | 'drag';
+  reason?: string;
+  /** Side-stage detail (hold / cancel). */
+  notes?: string;
+  expectedResumeDate?: string | null;
+  refundRequired?: boolean;
+  equipmentReturnRequired?: boolean;
+}
+
 /**
- * THE move service — both the advance button and the board drag call this.
- * Forward: one stage, gated by evaluateStage; the last stage completes the
- * project. Backward: admin only, one stage, mandatory reason, logged.
+ * THE move service — the advance button, the board drag, and the header
+ * Hold/Cancel/Resume buttons all call this. Forward/back run one stage,
+ * gated by evaluateStage (forward) or requiring an admin + reason (back).
+ * hold/cancel bypass validation entirely (a separate path, by design) and
+ * only need their own reason fields; resume/reinstate restore the origin
+ * stage with every field intact.
  */
 export async function moveProject(
   session: SessionIdentity,
   projectId: string,
-  direction: 'forward' | 'back',
-  options: { via: 'button' | 'drag'; reason?: string }
+  direction: MoveDirection,
+  options: MoveOptions
 ): Promise<MoveResult> {
   if (!['admin', 'ops'].includes(session.role)) {
     return { ok: false, code: 'forbidden', message: 'Only the PM or an admin moves projects.' };
   }
-  if (direction === 'back') {
-    if (session.role !== 'admin') {
-      return { ok: false, code: 'forbidden', message: 'Only an admin can move a project backwards.' };
-    }
-    if (!options.reason || options.reason.trim().length < 5) {
-      return { ok: false, code: 'invalid', message: 'A reason is required to move a project backwards.' };
-    }
+  if (direction === 'back' && session.role !== 'admin') {
+    return { ok: false, code: 'forbidden', message: 'Only an admin can move a project backwards.' };
+  }
+  if ((direction === 'back' || direction === 'reinstate') &&
+      (!options.reason || options.reason.trim().length < 5)) {
+    return { ok: false, code: 'invalid', message: 'A reason is required for this move.' };
+  }
+  if ((direction === 'hold' || direction === 'cancel') &&
+      (!options.reason || !options.notes || options.notes.trim().length < 3)) {
+    return { ok: false, code: 'invalid', message: 'A reason and notes are required.' };
+  }
+  if (direction === 'reinstate' && session.role !== 'admin') {
+    return { ok: false, code: 'forbidden', message: 'Only an admin can reinstate a cancelled project.' };
   }
 
-  return withUser(session, async (client) => {
+  return withUser(session, async (client): Promise<MoveResult> => {
     const { rows } = await client.query(
       `select id, stage, status from public.projects where id = $1`,
       [projectId]
     );
     const project = rows[0];
     if (!project) return { ok: false as const, code: 'not_found' as const, message: 'Project not found.' };
-    if (project.status === 'complete') {
-      return { ok: false as const, code: 'invalid' as const, message: 'Project is already completed.' };
-    }
     const stage = project.stage as StageKey;
     if (!isStageKey(stage)) {
       return { ok: false as const, code: 'invalid' as const, message: `Unknown stage ${stage}` };
+    }
+
+    // --- Side stages: never blocked by field validation ----------------------
+    if (direction === 'hold') {
+      if (project.status === 'on_hold') {
+        return { ok: false as const, code: 'invalid' as const, message: 'Already on hold.' };
+      }
+      await client.query(
+        `insert into public.project_holds
+           (project_id, reason, notes, expected_resume_date, stage_held_from, created_by)
+         values ($1, $2, $3, $4, $5, $6)`,
+        [projectId, options.reason, options.notes, options.expectedResumeDate || null, stage, session.userId]
+      );
+      await client.query(`update public.projects set status = 'on_hold' where id = $1`, [projectId]);
+      return { ok: true as const, stage, column: 'hold' };
+    }
+    if (direction === 'cancel') {
+      await client.query(
+        `insert into public.project_cancellation
+           (project_id, reason, notes, stage_cancelled_from, refund_required,
+            refund_status, equipment_return_required, created_by)
+         values ($1, $2, $3, $4, $5, $6, $7, $8)
+         on conflict (project_id) do update set
+           reason = excluded.reason, notes = excluded.notes,
+           stage_cancelled_from = excluded.stage_cancelled_from,
+           refund_required = excluded.refund_required,
+           refund_status = excluded.refund_status,
+           equipment_return_required = excluded.equipment_return_required,
+           reinstated_at = null`,
+        [projectId, options.reason, options.notes, stage, options.refundRequired ?? false,
+         options.refundRequired ? 'pending' : 'not_required', options.equipmentReturnRequired ?? false,
+         session.userId]
+      );
+      await client.query(`update public.projects set status = 'cancelled' where id = $1`, [projectId]);
+      return { ok: true as const, stage, column: 'cancelled' };
+    }
+    if (direction === 'resume') {
+      if (project.status !== 'on_hold') {
+        return { ok: false as const, code: 'invalid' as const, message: 'Project is not on hold.' };
+      }
+      await client.query(
+        `update public.project_holds set resume_date = current_date
+         where project_id = $1 and resume_date is null`,
+        [projectId]
+      );
+      await client.query(`update public.projects set status = 'active' where id = $1`, [projectId]);
+      return { ok: true as const, stage };
+    }
+    if (direction === 'reinstate') {
+      if (project.status !== 'cancelled') {
+        return { ok: false as const, code: 'invalid' as const, message: 'Project is not cancelled.' };
+      }
+      await client.query(
+        `update public.project_cancellation set reinstated_at = now() where project_id = $1`,
+        [projectId]
+      );
+      await client.query(`update public.projects set status = 'active' where id = $1`, [projectId]);
+      return { ok: true as const, stage };
+    }
+
+    // --- Normal flow ----------------------------------------------------------
+    if (project.status === 'complete') {
+      return { ok: false as const, code: 'invalid' as const, message: 'Project is already completed.' };
+    }
+    if (project.status === 'on_hold' || project.status === 'cancelled') {
+      return { ok: false as const, code: 'invalid' as const,
+        message: 'Resume or reinstate the project before moving it through the pipeline.' };
     }
 
     if (direction === 'back') {
@@ -230,27 +320,39 @@ export async function moveProject(
     }
 
     const target = nextStage(stage);
-    if (target) {
-      await client.query(`update public.projects set stage = $2 where id = $1`, [projectId, target]);
-      return { ok: true as const, stage: target };
+    if (!target) {
+      return { ok: false as const, code: 'invalid' as const, message: 'Already at the final stage.' };
     }
-    await client.query(`update public.projects set status = 'complete' where id = $1`, [projectId]);
-    return { ok: true as const, stage: 'completed' as const };
+    await client.query(`update public.projects set stage = $2 where id = $1`, [projectId, target]);
+    // Entering Complete finishes the project and seeds its completion record.
+    if (target === 'complete') {
+      await client.query(`update public.projects set status = 'complete' where id = $1`, [projectId]);
+      await client.query(
+        `insert into public.stage7_complete (project_id, completion_date)
+         values ($1, current_date) on conflict (project_id) do nothing`,
+        [projectId]
+      );
+      return { ok: true as const, stage: 'complete', column: 'complete' };
+    }
+    return { ok: true as const, stage: target };
   }).then(async (result) => {
     if (result.ok) {
+      const action =
+        direction === 'back' ? 'stage.moved_back'
+        : direction === 'hold' ? 'project.held'
+        : direction === 'resume' ? 'project.resumed'
+        : direction === 'cancel' ? 'project.cancelled'
+        : direction === 'reinstate' ? 'project.reinstated'
+        : result.stage === 'complete' ? 'project.completed'
+        : 'stage.advanced';
       await logAuditEvent(session, {
-        action:
-          direction === 'back'
-            ? 'stage.moved_back'
-            : result.stage === 'completed'
-              ? 'project.completed'
-              : 'stage.advanced',
+        action,
         entityType: 'projects',
         entityId: projectId,
         projectId,
         context: {
           via: options.via,
-          to: result.stage,
+          to: result.column ?? result.stage,
           ...(options.reason ? { reason: options.reason } : {}),
         },
       }).catch(() => undefined);

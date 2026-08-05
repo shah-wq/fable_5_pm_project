@@ -191,5 +191,7 @@ export function evaluateStage(stage: StageKey, bundle: StageBundle): string[] {
       return installGaps(bundle);
     case 'inspection_pto':
       return inspectionGaps(bundle);
+    case 'complete':
+      return []; // terminal stage — no advance
   }
 }
