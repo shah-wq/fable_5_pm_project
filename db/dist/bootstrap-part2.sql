@@ -1986,11 +1986,11 @@ to authenticated;
 -- dates at read time — never stored. The old stage tables (built from the
 -- earlier draft, empty in every deployment) are replaced.
 
-drop table public.stage_survey;
-drop table public.stage_design;
-drop table public.stage_procurement;
-drop table public.stage_install;
-drop table public.stage_inspection;
+drop table if exists public.stage_survey;
+drop table if exists public.stage_design;
+drop table if exists public.stage_procurement;
+drop table if exists public.stage_install;
+drop table if exists public.stage_inspection;
 
 -- Stage 1 · Site Survey ------------------------------------------------------
 create table public.stage1_survey (
