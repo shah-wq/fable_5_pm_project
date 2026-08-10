@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
-import { BOARD_STAGES, STAGE_LABELS, stageIndex, type StageKey } from '@/lib/stages/definitions';
+import { STAGES, STAGE_LABELS, stageIndex, type StageKey } from '@/lib/stages/definitions';
 import { HOLD_REASONS, CANCELLATION_REASONS } from '@/lib/stages/fields';
 import type { ProjectCard } from '@/lib/stages/service';
 
@@ -19,11 +19,12 @@ type BackState = { card: ProjectCard; to: StageKey };
 type SideState = { card: ProjectCard; kind: SideKind };
 
 /**
- * Kanban board: six working stage columns plus the Hold and Cancelled side
- * columns at the right. Forward drag is one stage and runs the shared
- * validation (snap-back + red outline + missing-items toast on rejection);
- * a drop on Hold/Cancelled opens a reason dialog and bypasses validation;
- * admins can drag one stage back with a logged reason.
+ * Kanban board: the seven stage columns (Complete is terminal) plus the Hold
+ * and Cancelled side columns at the right. Forward drag is one stage and runs
+ * the shared validation (snap-back + red outline + missing-items toast on
+ * rejection); a drop on Hold/Cancelled opens a reason dialog and bypasses
+ * validation; admins can drag one stage back with a logged reason — including
+ * back out of Complete, which reopens the project.
  */
 export function Board({ cards, isAdmin }: { cards: ProjectCard[]; isAdmin: boolean }) {
   const router = useRouter();
@@ -84,6 +85,10 @@ export function Board({ cards, isAdmin }: { cards: ProjectCard[]; isAdmin: boole
 
     if (column === 'hold' || column === 'cancelled') {
       if (card.column === column) return;
+      if (card.column === 'complete') {
+        setToast({ kind: 'error', title: 'Move the project back out of Complete first.' });
+        return;
+      }
       setSideMove({ card, kind: column === 'hold' ? 'hold' : 'cancel' });
       return;
     }
@@ -120,7 +125,7 @@ export function Board({ cards, isAdmin }: { cards: ProjectCard[]; isAdmin: boole
   }
 
   const columns: Array<{ key: string; label: string; side?: boolean }> = [
-    ...BOARD_STAGES.map((s) => ({ key: s, label: STAGE_LABELS[s as StageKey] })),
+    ...STAGES.map((s) => ({ key: s as string, label: STAGE_LABELS[s] })),
     { key: 'hold', label: 'Hold', side: true },
     { key: 'cancelled', label: 'Cancelled', side: true },
   ];
@@ -133,7 +138,7 @@ export function Board({ cards, isAdmin }: { cards: ProjectCard[]; isAdmin: boole
           return (
             <section
               key={col.key}
-              className={`board-col${col.side ? ' side' : ''}${rejectedColumn === col.key ? ' rejected' : ''}`}
+              className={`board-col${col.side ? ' side' : ''}${col.key === 'complete' ? ' terminal' : ''}${rejectedColumn === col.key ? ' rejected' : ''}`}
               onDragOver={(e) => e.preventDefault()}
               onDrop={() => onDrop(col.key)}
             >
@@ -158,6 +163,8 @@ export function Board({ cards, isAdmin }: { cards: ProjectCard[]; isAdmin: boole
                       {card.systemSizeKw !== null && <span>{card.systemSizeKw} kW</span>}
                       {col.side ? (
                         <span className="dim">was {STAGE_LABELS[card.stage]}</span>
+                      ) : col.key === 'complete' ? (
+                        <span className="done-badge">✓ Completed</span>
                       ) : (
                         <span>{card.daysInStage}d in stage</span>
                       )}

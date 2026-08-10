@@ -49,7 +49,10 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
   if (!data) notFound();
   const p = data.project;
   const rawStage = String(p.stage);
-  const stage = isStageKey(rawStage) ? rawStage : 'survey';
+  // Projects completed before the stage column carried 'complete' still land
+  // on the Complete step here.
+  const stage =
+    p.status === 'complete' ? 'complete' : isStageKey(rawStage) ? rawStage : 'survey';
 
   const missing =
     p.status === 'complete'
@@ -117,7 +120,10 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
             {p.status === 'complete' ? 'Completed' : `Current stage: ${STAGE_LABELS[stage]}`}
           </h2>
           {p.status === 'complete' ? (
-            <p className="dim">This project reached PTO and is archived with its document trail.</p>
+            <p className="dim">
+              This project reached PTO and is complete. The completion record and document
+              trail stay editable below.
+            </p>
           ) : missing.length === 0 ? (
             <p className="ok-line">✓ All required items complete — ready to advance.</p>
           ) : (
@@ -130,11 +136,9 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
               </ul>
             </>
           )}
-          {p.status !== 'complete' && (
-            <Link className="btn-link primary" href={`/projects/${id}/stages/${stage}`}>
-              Open stage form
-            </Link>
-          )}
+          <Link className="btn-link primary" href={`/projects/${id}/stages/${stage}`}>
+            Open stage form
+          </Link>
         </section>
 
         <section className="panel">

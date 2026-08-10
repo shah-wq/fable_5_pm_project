@@ -1,8 +1,8 @@
 -- ============================================================================
 -- GENERATED FILE — do not edit. Rebuild with: node scripts/build-sql-bootstrap.mjs
--- Bootstrap part 2 of 2 for a fresh database via a SQL console (e.g. Neon SQL Editor).
--- Run part 1 first, then part 2, each as its own execution.
--- Includes: 20260803000900_auth_module.sql, 20260803001000_auth_engine.sql, 20260803001100_file_storage.sql, 20260803001200_manual_version.sql, 20260803001300_admin_panel.sql, 20260803001400_stage_fields.sql, 20260803001500_complete_hold_cancel.sql, migration bookkeeping
+-- Bootstrap part 2 of 3 for a fresh database via a SQL console (e.g. Neon SQL Editor).
+-- Run the parts in order, each as its own execution.
+-- Includes: 20260803000900_auth_module.sql, 20260803001000_auth_engine.sql, 20260803001100_file_storage.sql, 20260803001200_manual_version.sql, 20260803001300_admin_panel.sql, 20260803001400_stage_fields.sql, 20260803001500_complete_hold_cancel.sql
 -- ============================================================================
 
 -- >>> 20260803000900_auth_module.sql
@@ -2342,7 +2342,8 @@ create table public.project_cancellation (
   drive_updated            boolean not null default false,
   reinstated_at            timestamptz,
   created_by               uuid references public.profiles (id),
-  created_at               timestamptz not null default now()
+  created_at               timestamptz not null default now(),
+  updated_at               timestamptz not null default now()
 );
 
 -- RLS + audit + updated_at.
@@ -2390,27 +2391,3 @@ create trigger audit_row after insert or update or delete on public.project_canc
   for each row execute function app.tg_audit_row();
 
 
-
--- >>> migration bookkeeping (lets `npm run db:migrate` skip these later)
-create table if not exists public.schema_migrations (
-  name       text primary key,
-  applied_at timestamptz not null default now()
-);
-insert into public.schema_migrations (name) values
-  ('20260803000000_platform.sql'),
-  ('20260803000100_init_schema_and_enums.sql'),
-  ('20260803000200_tables.sql'),
-  ('20260803000300_access_helpers.sql'),
-  ('20260803000400_hooks_and_views.sql'),
-  ('20260803000500_audit.sql'),
-  ('20260803000600_rls_policies.sql'),
-  ('20260803000700_storage.sql'),
-  ('20260803000800_add_ops_role.sql'),
-  ('20260803000900_auth_module.sql'),
-  ('20260803001000_auth_engine.sql'),
-  ('20260803001100_file_storage.sql'),
-  ('20260803001200_manual_version.sql'),
-  ('20260803001300_admin_panel.sql'),
-  ('20260803001400_stage_fields.sql'),
-  ('20260803001500_complete_hold_cancel.sql')
-on conflict (name) do nothing;

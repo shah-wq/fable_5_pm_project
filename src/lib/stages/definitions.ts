@@ -1,6 +1,7 @@
 /**
- * The six manual-version stages, in pipeline order. Must stay in sync with
- * the public.project_stage enum (db/migrations/…001200).
+ * The seven pipeline stages, in order (Complete is the terminal column).
+ * Must stay in sync with the public.project_stage enum
+ * (db/migrations/…001200 + …001500).
  */
 
 export const STAGES = [
@@ -14,10 +15,6 @@ export const STAGES = [
 ] as const;
 
 export type StageKey = (typeof STAGES)[number];
-
-/** The stages that appear as working columns on the board (Complete is
- *  terminal — completed projects leave the active board). */
-export const BOARD_STAGES = STAGES.filter((s) => s !== 'complete');
 
 export const STAGE_LABELS: Record<StageKey, string> = {
   survey: 'Survey',

@@ -74,7 +74,12 @@ export async function PATCH(
     if (!coerced.ok) {
       return NextResponse.json({ error: `invalid value for ${field.label}` }, { status: 400 });
     }
-    byTable[field.table ?? 'stage'].push({ col: name, value: coerced.value });
+    // Status/toggle columns are NOT NULL with defaults; an untouched dropdown
+    // arrives as null and must be omitted, not written.
+    if (coerced.value === null && (field.type === 'select' || field.type === 'toggle')) continue;
+    const value =
+      field.type === 'permits' && coerced.value === null ? [] : coerced.value;
+    byTable[field.table ?? 'stage'].push({ col: name, value });
   }
 
   // Drive Updated carries its own timestamp (Complete uses final_drive_updated).

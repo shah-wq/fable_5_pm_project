@@ -1,7 +1,7 @@
 -- ============================================================================
 -- GENERATED FILE — do not edit. Rebuild with: node scripts/build-sql-bootstrap.mjs
--- Bootstrap part 1 of 2 for a fresh database via a SQL console (e.g. Neon SQL Editor).
--- Run part 1 first, then part 2, each as its own execution.
+-- Bootstrap part 1 of 3 for a fresh database via a SQL console (e.g. Neon SQL Editor).
+-- Run the parts in order, each as its own execution.
 -- Includes: 20260803000000_platform.sql, 20260803000100_init_schema_and_enums.sql, 20260803000200_tables.sql, 20260803000300_access_helpers.sql, 20260803000400_hooks_and_views.sql, 20260803000500_audit.sql, 20260803000600_rls_policies.sql, 20260803000700_storage.sql, 20260803000800_add_ops_role.sql
 -- ============================================================================
 

@@ -149,7 +149,13 @@ export async function loadProjectCards(
       const bundle = bundles.get(r.id);
       const stage = r.stage as StageKey;
       const column =
-        r.status === 'on_hold' ? 'hold' : r.status === 'cancelled' ? 'cancelled' : stage;
+        r.status === 'on_hold'
+          ? 'hold'
+          : r.status === 'cancelled'
+            ? 'cancelled'
+            : r.status === 'complete'
+              ? 'complete'
+              : stage;
       return {
         id: r.id,
         code: r.code,
@@ -174,7 +180,7 @@ export async function loadProjectCards(
 export type MoveDirection = 'forward' | 'back' | 'hold' | 'resume' | 'cancel' | 'reinstate';
 
 export type MoveResult =
-  | { ok: true; stage: StageKey | 'completed'; column?: string }
+  | { ok: true; stage: StageKey; column?: string }
   | { ok: false; code: 'not_found' | 'forbidden' | 'invalid'; message: string; missing?: string[] };
 
 export interface MoveOptions {
@@ -232,6 +238,10 @@ export async function moveProject(
     }
 
     // --- Side stages: never blocked by field validation ----------------------
+    if ((direction === 'hold' || direction === 'cancel') && project.status === 'complete') {
+      return { ok: false as const, code: 'invalid' as const,
+        message: 'The project is completed — an admin must move it back out of Complete first.' };
+    }
     if (direction === 'hold') {
       if (project.status === 'on_hold') {
         return { ok: false as const, code: 'invalid' as const, message: 'Already on hold.' };
@@ -290,9 +300,6 @@ export async function moveProject(
     }
 
     // --- Normal flow ----------------------------------------------------------
-    if (project.status === 'complete') {
-      return { ok: false as const, code: 'invalid' as const, message: 'Project is already completed.' };
-    }
     if (project.status === 'on_hold' || project.status === 'cancelled') {
       return { ok: false as const, code: 'invalid' as const,
         message: 'Resume or reinstate the project before moving it through the pipeline.' };
@@ -303,8 +310,16 @@ export async function moveProject(
       if (!target) {
         return { ok: false as const, code: 'invalid' as const, message: 'Already at the first stage.' };
       }
-      await client.query(`update public.projects set stage = $2 where id = $1`, [projectId, target]);
+      // Backing out of Complete reopens the project (closed early by mistake).
+      await client.query(
+        `update public.projects set stage = $2, status = 'active' where id = $1`,
+        [projectId, target]
+      );
       return { ok: true as const, stage: target };
+    }
+
+    if (project.status === 'complete') {
+      return { ok: false as const, code: 'invalid' as const, message: 'Project is already completed.' };
     }
 
     const bundles = await loadBundles(client, [projectId]);
