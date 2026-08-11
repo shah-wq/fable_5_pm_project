@@ -1,8 +1,9 @@
 import Link from 'next/link';
 import { guardPath } from '@/lib/auth/session';
 import { withUser } from '@/lib/db';
-import { STAGES, STAGE_LABELS, type StageKey } from '@/lib/stages/definitions';
+import { STAGES, STAGE_LABELS } from '@/lib/stages/definitions';
 import { loadProjectCards, type ProjectCard } from '@/lib/stages/service';
+import { ProjectsTable } from './ProjectsTable';
 
 export const dynamic = 'force-dynamic';
 
@@ -48,6 +49,13 @@ export default async function ProjectsPage({ searchParams }: { searchParams: Pro
     withUser(session, async (c) => ({
       jurisdictions: (await c.query('select id, name from public.jurisdictions order by name')).rows,
       dealers: (await c.query('select id, name from public.dealers order by name')).rows,
+      salesReps: (await c.query('select id, name from public.sales_reps where is_active order by name')).rows,
+      pms: (
+        await c.query(
+          `select id, coalesce(full_name, email) as name from public.profiles
+           where role in ('admin', 'ops') and is_active and deleted_at is null order by 2`
+        )
+      ).rows,
     })),
   ]);
 
@@ -117,60 +125,18 @@ export default async function ProjectsPage({ searchParams }: { searchParams: Pro
         </button>
       </form>
 
-      <div className="table-wrap">
-        <table className="projects-table">
-          <thead>
-            <tr>
-              <th><Link href={sortLink('name')}>Customer</Link></th>
-              <th>Address</th>
-              <th><Link href={sortLink('size')}>kW</Link></th>
-              <th><Link href={sortLink('stage')}>Stage</Link></th>
-              <th><Link href={sortLink('days')}>Days in stage</Link></th>
-              <th><Link href={sortLink('missing')}>Missing</Link></th>
-              <th>Jurisdiction</th>
-              <th>Dealer</th>
-              <th>PM</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((p) => (
-              <tr key={p.id}>
-                <td>
-                  <Link href={`/projects/${p.id}`}>{p.name}</Link>
-                  <div className="dim">{p.code}</div>
-                </td>
-                <td>{p.address ?? '—'}</td>
-                <td>{p.systemSizeKw ?? '—'}</td>
-                <td>{STAGE_LABELS[p.stage as StageKey] ?? p.stage}</td>
-                <td>{p.daysInStage}</td>
-                <td>
-                  {p.status === 'complete' ? (
-                    '—'
-                  ) : p.missing.length > 0 ? (
-                    <span className="missing-badge" title={p.missing.join('\n')}>
-                      {p.missing.length}
-                    </span>
-                  ) : (
-                    <span className="ok-dot" title="Ready to advance">✓</span>
-                  )}
-                </td>
-                <td>{p.jurisdictionName ?? '—'}</td>
-                <td>{p.dealerName ?? '—'}</td>
-                <td>{p.pmName ?? '—'}</td>
-                <td>{p.status.replace('_', ' ')}</td>
-              </tr>
-            ))}
-            {rows.length === 0 && (
-              <tr>
-                <td colSpan={10} className="dim">
-                  No projects match. <Link href="/projects/new">Create the first one</Link>.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      <ProjectsTable
+        rows={rows}
+        sortLinks={{
+          name: sortLink('name'),
+          size: sortLink('size'),
+          stage: sortLink('stage'),
+          days: sortLink('days'),
+          missing: sortLink('missing'),
+        }}
+        canBulk={['admin', 'ops'].includes(session.role)}
+        bulkRefs={{ pms: refs.pms, dealers: refs.dealers, salesReps: refs.salesReps }}
+      />
     </main>
   );
 }

@@ -7,13 +7,16 @@
  * dropdowns but stay attached to historical projects.
  */
 
-export type FieldType = 'text' | 'email' | 'number' | 'textarea' | 'tags' | 'rating';
+export type FieldType = 'text' | 'email' | 'number' | 'textarea' | 'tags' | 'rating' | 'ref';
 
 export interface EntityField {
   name: string;
   label: string;
   type: FieldType;
   required?: boolean;
+  /** type 'ref' only: the table the dropdown lists (id + refLabel column). */
+  refTable?: string;
+  refLabel?: string;
 }
 
 export interface EntityDef {
@@ -107,7 +110,83 @@ export const ADMIN_ENTITIES: Record<string, EntityDef> = {
   finance_partners: {
     table: 'finance_partners',
     title: 'Finance partners',
-    blurb: 'Lenders referenced on projects and the Stage 2 finance checks.',
+    blurb: 'Drives the milestone field labels on the stage forms (Finance M1/M2).',
+    nameColumn: 'name',
+    fields: [{ name: 'name', label: 'Name', type: 'text', required: true }],
+    listColumns: [],
+  },
+
+  // Equipment & financing lists — the New Project form's dropdowns, seeded
+  // from Solar_SCOOP_Data.xlsx. Not hardcoded: correcting a name here fixes
+  // it on every project that references the row.
+  sales_reps: {
+    table: 'sales_reps',
+    title: 'Sales reps',
+    blurb: 'Reps as a list, not free text — per-rep reporting stays consistent.',
+    nameColumn: 'name',
+    fields: [
+      { name: 'name', label: 'Name', type: 'text', required: true },
+      { name: 'email', label: 'Email', type: 'email' },
+      { name: 'phone', label: 'Phone', type: 'text' },
+      { name: 'dealer_id', label: 'Dealer', type: 'ref', refTable: 'dealers', refLabel: 'name' },
+    ],
+    listColumns: ['email', 'phone'],
+  },
+  system_types: {
+    table: 'system_types',
+    title: 'System types',
+    blurb: 'Battery only, Battery & solar, Grid-tie… the first system-spec dropdown.',
+    nameColumn: 'name',
+    fields: [{ name: 'name', label: 'Name', type: 'text', required: true }],
+    listColumns: [],
+  },
+  module_types: {
+    table: 'module_types',
+    title: 'Module types',
+    blurb: 'Panel models for the Module Type dropdown. Manufacturer and wattage let the PM filter by brand and sanity-check system size.',
+    nameColumn: 'name',
+    fields: [
+      { name: 'name', label: 'Model', type: 'text', required: true },
+      { name: 'manufacturer', label: 'Manufacturer', type: 'text' },
+      { name: 'wattage', label: 'Wattage (W)', type: 'number' },
+    ],
+    listColumns: ['manufacturer', 'wattage'],
+  },
+  inverter_types: {
+    table: 'inverter_types',
+    title: 'Inverter types',
+    blurb: 'Inverter models for the Inverter Type dropdown.',
+    nameColumn: 'name',
+    fields: [
+      { name: 'name', label: 'Model', type: 'text', required: true },
+      { name: 'manufacturer', label: 'Manufacturer', type: 'text' },
+    ],
+    listColumns: ['manufacturer'],
+  },
+  battery_types: {
+    table: 'battery_types',
+    title: 'Battery types',
+    blurb: 'Battery models — shown on the project form only when the System Type includes a battery.',
+    nameColumn: 'name',
+    fields: [
+      { name: 'name', label: 'Model', type: 'text', required: true },
+      { name: 'manufacturer', label: 'Manufacturer', type: 'text' },
+      { name: 'capacity_kwh', label: 'Capacity (kWh)', type: 'number' },
+    ],
+    listColumns: ['manufacturer', 'capacity_kwh'],
+  },
+  financing_companies: {
+    table: 'financing_companies',
+    title: 'Financing companies',
+    blurb: 'Who lent the money. Deal-specific text belongs in the project’s Financing Notes, not here.',
+    nameColumn: 'name',
+    fields: [{ name: 'name', label: 'Name', type: 'text', required: true }],
+    listColumns: [],
+  },
+  cash_financing_options: {
+    table: 'cash_financing_options',
+    title: 'Cash or Financing',
+    blurb: 'The deal-structure dropdown (Cash, Financing, HDM with Cash…).',
     nameColumn: 'name',
     fields: [{ name: 'name', label: 'Name', type: 'text', required: true }],
     listColumns: [],

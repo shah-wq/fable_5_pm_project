@@ -19,6 +19,8 @@ async function requireAdmin(): Promise<Session | NextResponse> {
   return session;
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 function coerce(type: string, raw: unknown): unknown {
   if (raw === '' || raw === undefined || raw === null) return null;
   switch (type) {
@@ -27,6 +29,8 @@ function coerce(type: string, raw: unknown): unknown {
       const n = Number(raw);
       return Number.isFinite(n) ? n : null;
     }
+    case 'ref':
+      return UUID_RE.test(String(raw)) ? String(raw) : null;
     case 'tags':
       return Array.isArray(raw)
         ? raw.map(String)

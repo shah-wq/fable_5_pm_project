@@ -2,9 +2,11 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { guardPath } from '@/lib/auth/session';
 import { withUser } from '@/lib/db';
+import { loadDetailRefs } from '@/lib/projects/details';
 import { STAGE_LABELS, isStageKey } from '@/lib/stages/definitions';
 import { loadBundles } from '@/lib/stages/service';
 import { evaluateStage } from '@/lib/stages/requirements';
+import { DetailsPanel } from './DetailsPanel';
 import { ProjectActions } from './ProjectActions';
 import { Stepper } from './Stepper';
 
@@ -12,7 +14,8 @@ export const dynamic = 'force-dynamic';
 
 /**
  * Project detail: stage stepper across the top (completed green, current
- * highlighted, future locked), header facts, current-stage checklist, and the
+ * highlighted, future locked), the Details tab (the New Project form's four
+ * blocks, editable from any stage), the current-stage checklist, and the
  * recent activity trail.
  */
 export default async function ProjectPage({ params }: { params: Promise<{ id: string }> }) {
@@ -21,11 +24,16 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
 
   const data = await withUser(session, async (c) => {
     const { rows } = await c.query(
-      `select p.*, cl.first_name || ' ' || cl.last_name as client_name,
+      `select p.*, cl.first_name as client_first, cl.last_name as client_last,
+              cl.first_name || ' ' || cl.last_name as client_name,
               cl.email as client_email, cl.phone as client_phone,
               dl.name as dealer_name, j.name as jurisdiction_name,
               u.name as utility_name, fp.name as finance_partner_name,
-              pm.full_name as pm_name
+              pm.full_name as pm_name,
+              sr.name as sales_rep_name, st.name as system_type_name,
+              mt.name as module_type_name, it.name as inverter_type_name,
+              bt.name as battery_type_name, cf.name as cash_or_financing_name,
+              fc.name as financing_company_name
        from public.projects p
        left join public.clients cl on cl.id = p.client_id
        left join public.dealers dl on dl.id = p.dealer_id
@@ -33,6 +41,13 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
        left join public.utilities u on u.id = p.utility_id
        left join public.finance_partners fp on fp.id = p.finance_partner_id
        left join public.profiles pm on pm.id = p.assigned_pm
+       left join public.sales_reps sr on sr.id = p.sales_rep_id
+       left join public.system_types st on st.id = p.system_type_id
+       left join public.module_types mt on mt.id = p.module_type_id
+       left join public.inverter_types it on it.id = p.inverter_type_id
+       left join public.battery_types bt on bt.id = p.battery_type_id
+       left join public.cash_financing_options cf on cf.id = p.cash_or_financing_id
+       left join public.financing_companies fc on fc.id = p.financing_company_id
        where p.id = $1`,
       [id]
     );
@@ -43,7 +58,8 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
        order by occurred_at desc limit 12`,
       [id]
     );
-    return { project: rows[0], events: events.rows };
+    const refs = await loadDetailRefs(c);
+    return { project: rows[0], events: events.rows, refs };
   });
 
   if (!data) notFound();
@@ -89,32 +105,48 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
 
       <Stepper projectId={id} current={stage} completed={p.status === 'complete'} />
 
-      <div className="detail-grid">
-        <section className="panel">
-          <h2>Project</h2>
-          <dl className="facts">
-            <dt>Customer</dt>
-            <dd>
-              {p.client_name ?? '—'}
-              {p.client_phone && <span className="dim"> · {p.client_phone}</span>}
-            </dd>
-            <dt>Dealer</dt>
-            <dd>{p.dealer_name ?? '—'}</dd>
-            <dt>Jurisdiction</dt>
-            <dd>{p.jurisdiction_name ?? 'not set'}</dd>
-            <dt>Utility</dt>
-            <dd>{p.utility_name ?? 'not set'}</dd>
-            <dt>Finance partner</dt>
-            <dd>{p.finance_partner_name ?? 'cash / none'}</dd>
-            <dt>System size</dt>
-            <dd>{p.system_size_kw ? `${p.system_size_kw} kW` : '—'}</dd>
-            <dt>Contract total</dt>
-            <dd>{p.contract_value ? `$${Number(p.contract_value).toLocaleString()}` : '—'}</dd>
-            <dt>PM</dt>
-            <dd>{p.pm_name ?? '—'}</dd>
-          </dl>
-        </section>
+      <DetailsPanel
+        projectId={id}
+        initialValues={{
+          first_name: p.client_first,
+          last_name: p.client_last,
+          email: p.client_email,
+          phone: p.client_phone,
+          address: p.address,
+          dealer_id: p.dealer_id,
+          sales_rep_id: p.sales_rep_id,
+          contract_value: p.contract_value === null ? null : Number(p.contract_value),
+          assigned_pm: p.assigned_pm,
+          system_type_id: p.system_type_id,
+          module_type_id: p.module_type_id,
+          module_quantity: p.module_quantity,
+          inverter_type_id: p.inverter_type_id,
+          battery_type_id: p.battery_type_id,
+          system_size_kw: p.system_size_kw === null ? null : Number(p.system_size_kw),
+          cash_or_financing_id: p.cash_or_financing_id,
+          financing_company_id: p.financing_company_id,
+          finance_partner_id: p.finance_partner_id,
+          financing_notes: p.financing_notes,
+        }}
+        refs={data.refs}
+        fallbackLabels={{
+          dealer_id: p.dealer_name,
+          sales_rep_id: p.sales_rep_name,
+          assigned_pm: p.pm_name,
+          system_type_id: p.system_type_name,
+          module_type_id: p.module_type_name,
+          inverter_type_id: p.inverter_type_name,
+          battery_type_id: p.battery_type_name,
+          cash_or_financing_id: p.cash_or_financing_name,
+          financing_company_id: p.financing_company_name,
+          finance_partner_id: p.finance_partner_name,
+        }}
+        status={String(p.status)}
+        isAdmin={session.role === 'admin'}
+        canEdit={['admin', 'ops'].includes(session.role)}
+      />
 
+      <div className="detail-grid">
         <section className="panel">
           <h2>
             {p.status === 'complete' ? 'Completed' : `Current stage: ${STAGE_LABELS[stage]}`}

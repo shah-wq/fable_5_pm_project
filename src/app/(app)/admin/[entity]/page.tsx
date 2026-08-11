@@ -20,9 +20,23 @@ export default async function AdminEntityPage({
   const session = await guardPath('/admin');
 
   const cols = ['id', 'is_active', ...def.fields.map((f) => `"${f.name}"`)].join(', ');
-  const { rows } = await withUser(session, (c) =>
-    c.query(`select ${cols} from public."${def.table}" order by "${def.nameColumn}"`)
-  );
+  const data = await withUser(session, async (c) => {
+    const { rows } = await c.query(
+      `select ${cols} from public."${def.table}" order by "${def.nameColumn}"`
+    );
+    // Options for 'ref' dropdown fields (e.g. a sales rep's dealer).
+    const refOptions: Record<string, { id: string; name: string }[]> = {};
+    for (const f of def.fields) {
+      if (f.type !== 'ref' || !f.refTable) continue;
+      refOptions[f.name] = (
+        await c.query(
+          `select id, "${f.refLabel ?? 'name'}" as name from public."${f.refTable}"
+           where is_active order by 2`
+        )
+      ).rows;
+    }
+    return { rows, refOptions };
+  });
 
   return (
     <main className="table-page">
@@ -35,7 +49,8 @@ export default async function AdminEntityPage({
         nameColumn={def.nameColumn}
         fields={def.fields}
         listColumns={def.listColumns}
-        rows={rows}
+        rows={data.rows}
+        refOptions={data.refOptions}
       />
     </main>
   );

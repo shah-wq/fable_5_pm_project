@@ -52,11 +52,15 @@ insert into public.hoas (name, contact) values
   ('Desert Vista HOA', '{"email": "arch@desertvista.example"}')
 on conflict do nothing;
 
-insert into public.finance_partners (name, contact) values
+-- finance_partners has no unique name constraint, so 'on conflict' can't
+-- dedupe — insert only what's missing (001700 seeds the spec's partner list).
+insert into public.finance_partners (name, contact)
+select v.name, v.contact::jsonb
+from (values
   ('GoodLeap', '{"email": "partners@example.com"}'),
-  ('Mosaic', '{"email": "partners@example.com"}')
-on conflict do nothing;
-
-insert into public.finance_partners (name) values
-  ('Credit Human'), ('TOPCO'), ('ICCU'), ('LightReach')
-on conflict do nothing;
+  ('Mosaic', '{"email": "partners@example.com"}'),
+  ('Credit Human', '{}'), ('TOPCO', '{}'), ('ICCU', '{}'), ('LightReach', '{}')
+) as v(name, contact)
+where not exists (
+  select 1 from public.finance_partners fp where lower(fp.name) = lower(v.name)
+);

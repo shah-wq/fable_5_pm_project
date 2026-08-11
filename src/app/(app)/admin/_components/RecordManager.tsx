@@ -18,12 +18,15 @@ export function RecordManager({
   fields,
   listColumns,
   rows,
+  refOptions = {},
 }: {
   entity: string;
   nameColumn: string;
   fields: EntityField[];
   listColumns: string[];
   rows: Row[];
+  /** Options per 'ref' field name. */
+  refOptions?: Record<string, { id: string; name: string }[]>;
 }) {
   const router = useRouter();
   const [search, setSearch] = useState('');
@@ -158,6 +161,15 @@ export function RecordManager({
                       rows={3}
                       defaultValue={String(drawer.row?.[f.name] ?? '')}
                     />
+                  ) : f.type === 'ref' ? (
+                    <select name={f.name} defaultValue={String(drawer.row?.[f.name] ?? '')}>
+                      <option value="">—</option>
+                      {(refOptions[f.name] ?? []).map((o) => (
+                        <option key={o.id} value={o.id}>
+                          {o.name}
+                        </option>
+                      ))}
+                    </select>
                   ) : f.type === 'rating' ? (
                     <select name={f.name} defaultValue={String(drawer.row?.[f.name] ?? '')}>
                       <option value="">—</option>
