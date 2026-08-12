@@ -2,7 +2,7 @@
 -- GENERATED FILE — do not edit. Rebuild with: node scripts/build-sql-bootstrap.mjs
 -- Bootstrap part 3 of 3 for a fresh database via a SQL console (e.g. Neon SQL Editor).
 -- Run the parts in order, each as its own execution.
--- Includes: 20260803001600_complete_stage_backfill.sql, 20260803001700_project_details.sql, migration bookkeeping
+-- Includes: 20260803001600_complete_stage_backfill.sql, 20260803001700_project_details.sql, 20260803001800_equipment_quantities.sql, migration bookkeeping
 -- ============================================================================
 
 -- >>> 20260803001600_complete_stage_backfill.sql
@@ -438,6 +438,20 @@ on conflict (name) do nothing;
 
 
 
+-- >>> 20260803001800_equipment_quantities.sql
+
+-- =============================================================================
+-- 001800 — Inverter & battery quantities
+-- =============================================================================
+-- The system specification carries how many of each, not just which model:
+-- module_quantity arrived with 001700; inverter and battery counts join it.
+
+alter table public.projects
+  add column if not exists inverter_quantity integer check (inverter_quantity > 0),
+  add column if not exists battery_quantity  integer check (battery_quantity > 0);
+
+
+
 -- >>> migration bookkeeping (lets `npm run db:migrate` skip these later)
 create table if not exists public.schema_migrations (
   name       text primary key,
@@ -461,5 +475,6 @@ insert into public.schema_migrations (name) values
   ('20260803001400_stage_fields.sql'),
   ('20260803001500_complete_hold_cancel.sql'),
   ('20260803001600_complete_stage_backfill.sql'),
-  ('20260803001700_project_details.sql')
+  ('20260803001700_project_details.sql'),
+  ('20260803001800_equipment_quantities.sql')
 on conflict (name) do nothing;

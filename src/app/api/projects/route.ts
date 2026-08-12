@@ -22,8 +22,8 @@ interface CreatePayload {
 /** Columns settable via `details` at creation (the base insert covers the rest). */
 const CREATE_DETAIL_COLUMNS = new Set([
   'sales_rep_id', 'system_type_id', 'module_type_id', 'module_quantity',
-  'inverter_type_id', 'battery_type_id', 'cash_or_financing_id',
-  'financing_company_id', 'financing_notes',
+  'inverter_type_id', 'inverter_quantity', 'battery_type_id', 'battery_quantity',
+  'cash_or_financing_id', 'financing_company_id', 'financing_notes',
 ]);
 
 /**
