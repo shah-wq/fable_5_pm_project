@@ -144,9 +144,11 @@ export function coerceDetail(
 }
 
 /**
- * Conditional visibility (spec §4): Battery Type only when the selected
- * System Type includes a battery; Financing Company / Finance partner only
- * when Cash or Financing is anything other than plain Cash.
+ * Conditional visibility (spec §4): Battery Type/Quantity hide when the
+ * selected System Type explicitly has no battery (Grid-tie solar, Inverter
+ * only) — with no System Type chosen yet they stay visible; Financing
+ * Company / Finance partner only when Cash or Financing is anything other
+ * than plain Cash.
  */
 export function fieldVisible(
   field: DetailField,
@@ -156,7 +158,7 @@ export function fieldVisible(
   if (!field.visibleIf) return true;
   if (field.visibleIf === 'hasBattery') {
     const st = (refs.systemTypes ?? []).find((o) => o.id === values.system_type_id);
-    return !!st && /battery/i.test(st.name);
+    return !st || /battery/i.test(st.name);
   }
   const cf = (refs.cashFinancing ?? []).find((o) => o.id === values.cash_or_financing_id);
   return !!cf && cf.name.trim().toLowerCase() !== 'cash';
