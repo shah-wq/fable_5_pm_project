@@ -42,6 +42,20 @@ for f in "$REPO_ROOT"/db/migrations/*.sql; do
   "${PSQL[@]}" -f "$f"
 done
 
+# Re-running a migration must be safe: a browser-pasted batch can stop
+# half-way (a truncated copy, a dropped connection), and the fix is to paste
+# it again. Migrations from 001400 on are written to survive that, so the
+# whole set is applied a second time here and any error fails the suite.
+# (Only 001400 and later: the earlier ones ran once, before any database was
+# maintained by hand.)
+echo "==> re-applying migrations 001400+ (idempotency check)"
+for f in "$REPO_ROOT"/db/migrations/*.sql; do
+  name="$(basename "$f")"
+  [[ "$name" > "20260803001399" ]] || continue
+  echo "    - $name"
+  "${PSQL[@]}" -f "$f" >/dev/null
+done
+
 echo "==> applying seed"
 "${PSQL[@]}" -f "$REPO_ROOT/db/seed.sql"
 

@@ -7,7 +7,7 @@
 
 -- Leads — a dealer's submission lands in a queue the PM reviews; it never
 -- creates a project directly.
-create table public.leads (
+create table if not exists public.leads (
   id                   uuid primary key default gen_random_uuid(),
   dealer_id            uuid not null references public.dealers (id),
   submitted_by         uuid references public.profiles (id),
@@ -29,17 +29,19 @@ create table public.leads (
   check (customer_email is not null or customer_phone is not null)
 );
 
-create index leads_dealer_idx on public.leads (dealer_id, created_at desc);
-create index leads_status_idx on public.leads (status) where status in ('submitted', 'under_review');
+create index if not exists leads_dealer_idx on public.leads (dealer_id, created_at desc);
+create index if not exists leads_status_idx on public.leads (status) where status in ('submitted', 'under_review');
 
 alter table public.leads enable row level security;
 grant select, insert, update on public.leads to authenticated;
+drop policy if exists leads_select on public.leads;
 create policy leads_select on public.leads
   for select to authenticated
   using (
     (select app.current_user_role()) in ('admin', 'ops')
     or dealer_id in (select app.current_dealer_ids())
   );
+drop policy if exists leads_insert on public.leads;
 create policy leads_insert on public.leads
   for insert to authenticated
   with check (
@@ -47,18 +49,21 @@ create policy leads_insert on public.leads
     or (dealer_id in (select app.current_dealer_ids()) and status = 'submitted')
   );
 -- Only the PM team moves a lead through review/convert/decline.
+drop policy if exists leads_update on public.leads;
 create policy leads_update on public.leads
   for update to authenticated
   using ((select app.current_user_role()) in ('admin', 'ops'))
   with check ((select app.current_user_role()) in ('admin', 'ops'));
+drop trigger if exists set_updated_at on public.leads;
 create trigger set_updated_at before update on public.leads
   for each row execute function app.tg_set_updated_at();
+drop trigger if exists audit_row on public.leads;
 create trigger audit_row after insert or update or delete on public.leads
   for each row execute function app.tg_audit_row();
 
 -- Commissions — one row per project, set by an admin (nothing automatic).
 -- History comes from the audit_row trigger: every change with date + actor.
-create table public.commissions (
+create table if not exists public.commissions (
   project_id   uuid primary key references public.projects (id) on delete cascade,
   base_amount  numeric(12,2) not null default 0,
   adjustment   numeric(12,2) not null default 0,
@@ -73,24 +78,30 @@ create table public.commissions (
 
 alter table public.commissions enable row level security;
 grant select, insert, update, delete on public.commissions to authenticated;
+drop policy if exists commissions_select on public.commissions;
 create policy commissions_select on public.commissions
   for select to authenticated using (app.can_access_project(project_id));
+drop policy if exists commissions_write_i on public.commissions;
 create policy commissions_write_i on public.commissions
   for insert to authenticated with check ((select app.is_admin()));
+drop policy if exists commissions_write_u on public.commissions;
 create policy commissions_write_u on public.commissions
   for update to authenticated
   using ((select app.is_admin())) with check ((select app.is_admin()));
+drop policy if exists commissions_delete on public.commissions;
 create policy commissions_delete on public.commissions
   for delete to authenticated using ((select app.is_admin()));
+drop trigger if exists set_updated_at on public.commissions;
 create trigger set_updated_at before update on public.commissions
   for each row execute function app.tg_set_updated_at();
+drop trigger if exists audit_row on public.commissions;
 create trigger audit_row after insert or update or delete on public.commissions
   for each row execute function app.tg_audit_row();
 
 -- Per-field dealer visibility — a flag per stage field, editable in Admin
 -- (Active = visible to dealers), never hardcoded. Cost/margin fields and
 -- free-text PM notes are additionally hard-hidden in code regardless.
-create table public.dealer_visible_fields (
+create table if not exists public.dealer_visible_fields (
   id         uuid primary key default gen_random_uuid(),
   name       text not null unique,   -- column name on the stage table
   label      text not null,
@@ -102,17 +113,23 @@ create table public.dealer_visible_fields (
 
 alter table public.dealer_visible_fields enable row level security;
 grant select, insert, update, delete on public.dealer_visible_fields to authenticated;
+drop policy if exists dealer_visible_fields_select on public.dealer_visible_fields;
 create policy dealer_visible_fields_select on public.dealer_visible_fields
   for select to authenticated using (true);
+drop policy if exists dealer_visible_fields_write_i on public.dealer_visible_fields;
 create policy dealer_visible_fields_write_i on public.dealer_visible_fields
   for insert to authenticated with check ((select app.is_admin()));
+drop policy if exists dealer_visible_fields_write_u on public.dealer_visible_fields;
 create policy dealer_visible_fields_write_u on public.dealer_visible_fields
   for update to authenticated
   using ((select app.is_admin())) with check ((select app.is_admin()));
+drop policy if exists dealer_visible_fields_delete on public.dealer_visible_fields;
 create policy dealer_visible_fields_delete on public.dealer_visible_fields
   for delete to authenticated using ((select app.is_admin()));
+drop trigger if exists set_updated_at on public.dealer_visible_fields;
 create trigger set_updated_at before update on public.dealer_visible_fields
   for each row execute function app.tg_set_updated_at();
+drop trigger if exists audit_row on public.dealer_visible_fields;
 create trigger audit_row after insert or update or delete on public.dealer_visible_fields
   for each row execute function app.tg_audit_row();
 

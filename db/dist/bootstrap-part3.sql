@@ -40,7 +40,7 @@ on conflict (project_id) do nothing;
 -- Deactivate-not-delete, same as every other admin list.
 
 -- Equipment & financing reference lists ---------------------------------------
-create table public.system_types (
+create table if not exists public.system_types (
   id         uuid primary key default gen_random_uuid(),
   name       text not null unique,
   is_active  boolean not null default true,
@@ -48,7 +48,7 @@ create table public.system_types (
   updated_at timestamptz not null default now()
 );
 
-create table public.module_types (
+create table if not exists public.module_types (
   id           uuid primary key default gen_random_uuid(),
   name         text not null unique,
   manufacturer text,
@@ -58,7 +58,7 @@ create table public.module_types (
   updated_at   timestamptz not null default now()
 );
 
-create table public.inverter_types (
+create table if not exists public.inverter_types (
   id           uuid primary key default gen_random_uuid(),
   name         text not null unique,
   manufacturer text,
@@ -67,7 +67,7 @@ create table public.inverter_types (
   updated_at   timestamptz not null default now()
 );
 
-create table public.battery_types (
+create table if not exists public.battery_types (
   id           uuid primary key default gen_random_uuid(),
   name         text not null unique,
   manufacturer text,
@@ -77,7 +77,7 @@ create table public.battery_types (
   updated_at   timestamptz not null default now()
 );
 
-create table public.financing_companies (
+create table if not exists public.financing_companies (
   id         uuid primary key default gen_random_uuid(),
   name       text not null unique,
   is_active  boolean not null default true,
@@ -85,7 +85,7 @@ create table public.financing_companies (
   updated_at timestamptz not null default now()
 );
 
-create table public.cash_financing_options (
+create table if not exists public.cash_financing_options (
   id         uuid primary key default gen_random_uuid(),
   name       text not null unique,
   is_active  boolean not null default true,
@@ -95,7 +95,7 @@ create table public.cash_financing_options (
 
 -- Sales reps as a list, not free text — 'J. Smith', 'John Smith' and 'jsmith'
 -- must not become three different reps.
-create table public.sales_reps (
+create table if not exists public.sales_reps (
   id         uuid primary key default gen_random_uuid(),
   name       text not null,
   email      text,
@@ -109,15 +109,15 @@ create table public.sales_reps (
 -- Project detail columns (everything the New Project form / Details tab edits
 -- that projects didn't already carry) -----------------------------------------
 alter table public.projects
-  add column sales_rep_id         uuid references public.sales_reps (id),
-  add column system_type_id       uuid references public.system_types (id),
-  add column module_type_id       uuid references public.module_types (id),
-  add column module_quantity      integer check (module_quantity > 0),
-  add column inverter_type_id     uuid references public.inverter_types (id),
-  add column battery_type_id      uuid references public.battery_types (id),
-  add column cash_or_financing_id uuid references public.cash_financing_options (id),
-  add column financing_company_id uuid references public.financing_companies (id),
-  add column financing_notes      text;
+  add column if not exists sales_rep_id         uuid references public.sales_reps (id),
+  add column if not exists system_type_id       uuid references public.system_types (id),
+  add column if not exists module_type_id       uuid references public.module_types (id),
+  add column if not exists module_quantity      integer check (module_quantity > 0),
+  add column if not exists inverter_type_id     uuid references public.inverter_types (id),
+  add column if not exists battery_type_id      uuid references public.battery_types (id),
+  add column if not exists cash_or_financing_id uuid references public.cash_financing_options (id),
+  add column if not exists financing_company_id uuid references public.financing_companies (id),
+  add column if not exists financing_notes      text;
 
 -- RLS: staff read, admin+ops manage (the PM can '+ Add new' inline), deletes
 -- admin-only — the reference-data pattern from 001200.
@@ -130,29 +130,35 @@ begin
   loop
     execute format('alter table public.%I enable row level security', t);
     execute format('grant select, insert, update, delete on public.%I to authenticated', t);
+    execute format('drop policy if exists %1$I_select on public.%1$I', t);
     execute format($p$
       create policy %1$I_select on public.%1$I
         for select to authenticated
         using ((select app.current_user_role()) in ('admin', 'ops', 'designer', 'finance'))
     $p$, t);
+    execute format('drop policy if exists %1$I_write_i on public.%1$I', t);
     execute format($p$
       create policy %1$I_write_i on public.%1$I
         for insert to authenticated
         with check ((select app.current_user_role()) in ('admin', 'ops'))
     $p$, t);
+    execute format('drop policy if exists %1$I_write_u on public.%1$I', t);
     execute format($p$
       create policy %1$I_write_u on public.%1$I
         for update to authenticated
         using ((select app.current_user_role()) in ('admin', 'ops'))
         with check ((select app.current_user_role()) in ('admin', 'ops'))
     $p$, t);
+    execute format('drop policy if exists %1$I_delete_admin on public.%1$I', t);
     execute format($p$
       create policy %1$I_delete_admin on public.%1$I
         for delete to authenticated
         using ((select app.is_admin()))
     $p$, t);
+    execute format('drop trigger if exists set_updated_at on public.%I', t);
     execute format('create trigger set_updated_at before update on public.%I
                     for each row execute function app.tg_set_updated_at()', t);
+    execute format('drop trigger if exists audit_row on public.%I', t);
     execute format('create trigger audit_row after insert or update or delete on public.%I
                     for each row execute function app.tg_audit_row()', t);
   end loop;
@@ -463,7 +469,7 @@ alter table public.projects
 
 -- Leads — a dealer's submission lands in a queue the PM reviews; it never
 -- creates a project directly.
-create table public.leads (
+create table if not exists public.leads (
   id                   uuid primary key default gen_random_uuid(),
   dealer_id            uuid not null references public.dealers (id),
   submitted_by         uuid references public.profiles (id),
@@ -485,17 +491,19 @@ create table public.leads (
   check (customer_email is not null or customer_phone is not null)
 );
 
-create index leads_dealer_idx on public.leads (dealer_id, created_at desc);
-create index leads_status_idx on public.leads (status) where status in ('submitted', 'under_review');
+create index if not exists leads_dealer_idx on public.leads (dealer_id, created_at desc);
+create index if not exists leads_status_idx on public.leads (status) where status in ('submitted', 'under_review');
 
 alter table public.leads enable row level security;
 grant select, insert, update on public.leads to authenticated;
+drop policy if exists leads_select on public.leads;
 create policy leads_select on public.leads
   for select to authenticated
   using (
     (select app.current_user_role()) in ('admin', 'ops')
     or dealer_id in (select app.current_dealer_ids())
   );
+drop policy if exists leads_insert on public.leads;
 create policy leads_insert on public.leads
   for insert to authenticated
   with check (
@@ -503,18 +511,21 @@ create policy leads_insert on public.leads
     or (dealer_id in (select app.current_dealer_ids()) and status = 'submitted')
   );
 -- Only the PM team moves a lead through review/convert/decline.
+drop policy if exists leads_update on public.leads;
 create policy leads_update on public.leads
   for update to authenticated
   using ((select app.current_user_role()) in ('admin', 'ops'))
   with check ((select app.current_user_role()) in ('admin', 'ops'));
+drop trigger if exists set_updated_at on public.leads;
 create trigger set_updated_at before update on public.leads
   for each row execute function app.tg_set_updated_at();
+drop trigger if exists audit_row on public.leads;
 create trigger audit_row after insert or update or delete on public.leads
   for each row execute function app.tg_audit_row();
 
 -- Commissions — one row per project, set by an admin (nothing automatic).
 -- History comes from the audit_row trigger: every change with date + actor.
-create table public.commissions (
+create table if not exists public.commissions (
   project_id   uuid primary key references public.projects (id) on delete cascade,
   base_amount  numeric(12,2) not null default 0,
   adjustment   numeric(12,2) not null default 0,
@@ -529,24 +540,30 @@ create table public.commissions (
 
 alter table public.commissions enable row level security;
 grant select, insert, update, delete on public.commissions to authenticated;
+drop policy if exists commissions_select on public.commissions;
 create policy commissions_select on public.commissions
   for select to authenticated using (app.can_access_project(project_id));
+drop policy if exists commissions_write_i on public.commissions;
 create policy commissions_write_i on public.commissions
   for insert to authenticated with check ((select app.is_admin()));
+drop policy if exists commissions_write_u on public.commissions;
 create policy commissions_write_u on public.commissions
   for update to authenticated
   using ((select app.is_admin())) with check ((select app.is_admin()));
+drop policy if exists commissions_delete on public.commissions;
 create policy commissions_delete on public.commissions
   for delete to authenticated using ((select app.is_admin()));
+drop trigger if exists set_updated_at on public.commissions;
 create trigger set_updated_at before update on public.commissions
   for each row execute function app.tg_set_updated_at();
+drop trigger if exists audit_row on public.commissions;
 create trigger audit_row after insert or update or delete on public.commissions
   for each row execute function app.tg_audit_row();
 
 -- Per-field dealer visibility — a flag per stage field, editable in Admin
 -- (Active = visible to dealers), never hardcoded. Cost/margin fields and
 -- free-text PM notes are additionally hard-hidden in code regardless.
-create table public.dealer_visible_fields (
+create table if not exists public.dealer_visible_fields (
   id         uuid primary key default gen_random_uuid(),
   name       text not null unique,   -- column name on the stage table
   label      text not null,
@@ -558,17 +575,23 @@ create table public.dealer_visible_fields (
 
 alter table public.dealer_visible_fields enable row level security;
 grant select, insert, update, delete on public.dealer_visible_fields to authenticated;
+drop policy if exists dealer_visible_fields_select on public.dealer_visible_fields;
 create policy dealer_visible_fields_select on public.dealer_visible_fields
   for select to authenticated using (true);
+drop policy if exists dealer_visible_fields_write_i on public.dealer_visible_fields;
 create policy dealer_visible_fields_write_i on public.dealer_visible_fields
   for insert to authenticated with check ((select app.is_admin()));
+drop policy if exists dealer_visible_fields_write_u on public.dealer_visible_fields;
 create policy dealer_visible_fields_write_u on public.dealer_visible_fields
   for update to authenticated
   using ((select app.is_admin())) with check ((select app.is_admin()));
+drop policy if exists dealer_visible_fields_delete on public.dealer_visible_fields;
 create policy dealer_visible_fields_delete on public.dealer_visible_fields
   for delete to authenticated using ((select app.is_admin()));
+drop trigger if exists set_updated_at on public.dealer_visible_fields;
 create trigger set_updated_at before update on public.dealer_visible_fields
   for each row execute function app.tg_set_updated_at();
+drop trigger if exists audit_row on public.dealer_visible_fields;
 create trigger audit_row after insert or update or delete on public.dealer_visible_fields
   for each row execute function app.tg_audit_row();
 

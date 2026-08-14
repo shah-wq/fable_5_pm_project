@@ -16,7 +16,7 @@ drop table if exists public.stage_install;
 drop table if exists public.stage_inspection;
 
 -- Stage 1 · Site Survey ------------------------------------------------------
-create table public.stage1_survey (
+create table if not exists public.stage1_survey (
   project_id uuid primary key references public.projects (id) on delete cascade,
   down_payment_status text not null default 'not_requested'
     check (down_payment_status in ('not_requested', 'requested', 'initiated', 'received')),
@@ -39,7 +39,7 @@ create table public.stage1_survey (
 );
 
 -- Stage 2 · Design -----------------------------------------------------------
-create table public.stage2_design (
+create table if not exists public.stage2_design (
   project_id uuid primary key references public.projects (id) on delete cascade,
   designer_id uuid references public.designers (id),
   design_status text not null default 'not_requested'
@@ -59,7 +59,7 @@ create table public.stage2_design (
 );
 
 -- Stage 3 · Permit (five tracks, flat columns) --------------------------------
-create table public.stage3_permit (
+create table if not exists public.stage3_permit (
   project_id uuid primary key references public.projects (id) on delete cascade,
   required_permits text[] not null default '{}',
   permit_status text not null default 'not_applied'
@@ -95,7 +95,7 @@ create table public.stage3_permit (
 );
 
 -- Stage 4 · Procurement --------------------------------------------------------
-create table public.stage4_procurement (
+create table if not exists public.stage4_procurement (
   project_id uuid primary key references public.projects (id) on delete cascade,
   procurement_manager uuid references public.profiles (id),
   material_status text not null default 'not_requested'
@@ -110,7 +110,7 @@ create table public.stage4_procurement (
 );
 
 -- Stage 5 · Installation --------------------------------------------------------
-create table public.stage5_install (
+create table if not exists public.stage5_install (
   project_id uuid primary key references public.projects (id) on delete cascade,
   install_manager uuid references public.profiles (id),
   install_status text not null default 'not_scheduled'
@@ -130,7 +130,7 @@ create table public.stage5_install (
 );
 
 -- Stage 6 · Inspection & PTO -----------------------------------------------------
-create table public.stage6_inspection (
+create table if not exists public.stage6_inspection (
   project_id uuid primary key references public.projects (id) on delete cascade,
   inspection_status text not null default 'not_requested'
     check (inspection_status in ('not_requested', 'requested', 'scheduled', 'passed', 'failed', 'reinspection_scheduled')),
@@ -153,7 +153,7 @@ create table public.stage6_inspection (
 
 -- Finance M1/M2 — ONE field set per project (the label follows the project's
 -- finance partner), rendered on the Install and Inspection forms.
-create table public.finance_milestones (
+create table if not exists public.finance_milestones (
   project_id uuid primary key references public.projects (id) on delete cascade,
   m1_status text not null default 'not_submitted'
     check (m1_status in ('not_submitted', 'submitted', 'approved', 'rejected', 'na')),
@@ -179,29 +179,35 @@ begin
   loop
     execute format('alter table public.%I enable row level security', t);
     execute format('grant select, insert, update, delete on public.%I to authenticated', t);
+    execute format('drop policy if exists %1$I_select on public.%1$I', t);
     execute format($p$
       create policy %1$I_select on public.%1$I
         for select to authenticated
         using (app.can_access_project(project_id))
     $p$, t);
+    execute format('drop policy if exists %1$I_write_i on public.%1$I', t);
     execute format($p$
       create policy %1$I_write_i on public.%1$I
         for insert to authenticated
         with check (app.is_project_staff(project_id))
     $p$, t);
+    execute format('drop policy if exists %1$I_write_u on public.%1$I', t);
     execute format($p$
       create policy %1$I_write_u on public.%1$I
         for update to authenticated
         using (app.is_project_staff(project_id))
         with check (app.is_project_staff(project_id))
     $p$, t);
+    execute format('drop policy if exists %1$I_delete_admin on public.%1$I', t);
     execute format($p$
       create policy %1$I_delete_admin on public.%1$I
         for delete to authenticated
         using ((select app.is_admin()))
     $p$, t);
+    execute format('drop trigger if exists set_updated_at on public.%I', t);
     execute format('create trigger set_updated_at before update on public.%I
                     for each row execute function app.tg_set_updated_at()', t);
+    execute format('drop trigger if exists audit_row on public.%I', t);
     execute format('create trigger audit_row after insert or update or delete on public.%I
                     for each row execute function app.tg_audit_row()', t);
   end loop;

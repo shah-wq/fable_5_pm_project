@@ -9,7 +9,7 @@
 -- Deactivate-not-delete, same as every other admin list.
 
 -- Equipment & financing reference lists ---------------------------------------
-create table public.system_types (
+create table if not exists public.system_types (
   id         uuid primary key default gen_random_uuid(),
   name       text not null unique,
   is_active  boolean not null default true,
@@ -17,7 +17,7 @@ create table public.system_types (
   updated_at timestamptz not null default now()
 );
 
-create table public.module_types (
+create table if not exists public.module_types (
   id           uuid primary key default gen_random_uuid(),
   name         text not null unique,
   manufacturer text,
@@ -27,7 +27,7 @@ create table public.module_types (
   updated_at   timestamptz not null default now()
 );
 
-create table public.inverter_types (
+create table if not exists public.inverter_types (
   id           uuid primary key default gen_random_uuid(),
   name         text not null unique,
   manufacturer text,
@@ -36,7 +36,7 @@ create table public.inverter_types (
   updated_at   timestamptz not null default now()
 );
 
-create table public.battery_types (
+create table if not exists public.battery_types (
   id           uuid primary key default gen_random_uuid(),
   name         text not null unique,
   manufacturer text,
@@ -46,7 +46,7 @@ create table public.battery_types (
   updated_at   timestamptz not null default now()
 );
 
-create table public.financing_companies (
+create table if not exists public.financing_companies (
   id         uuid primary key default gen_random_uuid(),
   name       text not null unique,
   is_active  boolean not null default true,
@@ -54,7 +54,7 @@ create table public.financing_companies (
   updated_at timestamptz not null default now()
 );
 
-create table public.cash_financing_options (
+create table if not exists public.cash_financing_options (
   id         uuid primary key default gen_random_uuid(),
   name       text not null unique,
   is_active  boolean not null default true,
@@ -64,7 +64,7 @@ create table public.cash_financing_options (
 
 -- Sales reps as a list, not free text — 'J. Smith', 'John Smith' and 'jsmith'
 -- must not become three different reps.
-create table public.sales_reps (
+create table if not exists public.sales_reps (
   id         uuid primary key default gen_random_uuid(),
   name       text not null,
   email      text,
@@ -78,15 +78,15 @@ create table public.sales_reps (
 -- Project detail columns (everything the New Project form / Details tab edits
 -- that projects didn't already carry) -----------------------------------------
 alter table public.projects
-  add column sales_rep_id         uuid references public.sales_reps (id),
-  add column system_type_id       uuid references public.system_types (id),
-  add column module_type_id       uuid references public.module_types (id),
-  add column module_quantity      integer check (module_quantity > 0),
-  add column inverter_type_id     uuid references public.inverter_types (id),
-  add column battery_type_id      uuid references public.battery_types (id),
-  add column cash_or_financing_id uuid references public.cash_financing_options (id),
-  add column financing_company_id uuid references public.financing_companies (id),
-  add column financing_notes      text;
+  add column if not exists sales_rep_id         uuid references public.sales_reps (id),
+  add column if not exists system_type_id       uuid references public.system_types (id),
+  add column if not exists module_type_id       uuid references public.module_types (id),
+  add column if not exists module_quantity      integer check (module_quantity > 0),
+  add column if not exists inverter_type_id     uuid references public.inverter_types (id),
+  add column if not exists battery_type_id      uuid references public.battery_types (id),
+  add column if not exists cash_or_financing_id uuid references public.cash_financing_options (id),
+  add column if not exists financing_company_id uuid references public.financing_companies (id),
+  add column if not exists financing_notes      text;
 
 -- RLS: staff read, admin+ops manage (the PM can '+ Add new' inline), deletes
 -- admin-only — the reference-data pattern from 001200.
@@ -99,29 +99,35 @@ begin
   loop
     execute format('alter table public.%I enable row level security', t);
     execute format('grant select, insert, update, delete on public.%I to authenticated', t);
+    execute format('drop policy if exists %1$I_select on public.%1$I', t);
     execute format($p$
       create policy %1$I_select on public.%1$I
         for select to authenticated
         using ((select app.current_user_role()) in ('admin', 'ops', 'designer', 'finance'))
     $p$, t);
+    execute format('drop policy if exists %1$I_write_i on public.%1$I', t);
     execute format($p$
       create policy %1$I_write_i on public.%1$I
         for insert to authenticated
         with check ((select app.current_user_role()) in ('admin', 'ops'))
     $p$, t);
+    execute format('drop policy if exists %1$I_write_u on public.%1$I', t);
     execute format($p$
       create policy %1$I_write_u on public.%1$I
         for update to authenticated
         using ((select app.current_user_role()) in ('admin', 'ops'))
         with check ((select app.current_user_role()) in ('admin', 'ops'))
     $p$, t);
+    execute format('drop policy if exists %1$I_delete_admin on public.%1$I', t);
     execute format($p$
       create policy %1$I_delete_admin on public.%1$I
         for delete to authenticated
         using ((select app.is_admin()))
     $p$, t);
+    execute format('drop trigger if exists set_updated_at on public.%I', t);
     execute format('create trigger set_updated_at before update on public.%I
                     for each row execute function app.tg_set_updated_at()', t);
+    execute format('drop trigger if exists audit_row on public.%I', t);
     execute format('create trigger audit_row after insert or update or delete on public.%I
                     for each row execute function app.tg_audit_row()', t);
   end loop;
