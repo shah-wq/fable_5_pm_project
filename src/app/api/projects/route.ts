@@ -67,7 +67,9 @@ export async function POST(request: Request) {
     detailVals.push(coerced.value);
   }
 
-  const projectId = await withUser(session, async (client) => {
+  let projectId: string;
+  try {
+    projectId = await withUser(session, async (client) => {
     const client_ = await client.query<{ id: string }>(
       `insert into public.clients (dealer_id, first_name, last_name, email, phone)
        values ($1, $2, $3, $4, $5) returning id`,
@@ -95,7 +97,22 @@ export async function POST(request: Request) {
       [...baseVals, ...detailVals]
     );
     return project.rows[0].id;
-  });
+    });
+  } catch (e) {
+    // 42P01 = missing table, 42703 = missing column: the deployed code is
+    // newer than the database — the migrations haven't been applied yet.
+    const code = (e as { code?: string }).code;
+    if (code === '42P01' || code === '42703') {
+      return NextResponse.json(
+        {
+          error:
+            'The database is missing recent migrations — open /api/health to see which ones, then run them in the Neon SQL editor.',
+        },
+        { status: 500 }
+      );
+    }
+    throw e;
+  }
 
   await tryLogAuditEvent(session, {
     action: 'project.created',
