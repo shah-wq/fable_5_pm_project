@@ -83,3 +83,42 @@ for (let n = 1; n <= total; n++) {
     `wrote db/dist/bootstrap-part${n}.sql (${names.length} migrations${last ? ' + bookkeeping' : ''})`
   );
 }
+
+// --- Catch-up files ---------------------------------------------------------
+// For a database that already ran the early migrations and needs topping up
+// (the Neon-console workflow). Everything from CATCH_UP_FROM is re-runnable,
+// so these two pastes can be run repeatedly and in any state. Two files, not
+// one, because PostgreSQL cannot use an enum value the same transaction added
+// and a pasted script is one transaction — the split lands on that boundary.
+const CATCH_UP_FROM = '20260803001400_stage_fields.sql';
+const CATCH_UP_SPLIT = '20260803001500_complete_hold_cancel.sql';
+
+const catchUpAll = files.slice(files.indexOf(CATCH_UP_FROM));
+const splitAt = catchUpAll.indexOf(CATCH_UP_SPLIT);
+const catchUp = [catchUpAll.slice(0, splitAt + 1), catchUpAll.slice(splitAt + 1)];
+
+const catchUpHeader = (n, names, withTracking) => `-- ============================================================================
+-- GENERATED FILE — do not edit. Rebuild with: node scripts/build-sql-bootstrap.mjs
+--
+--   SolarFlow PM · catch-up ${n} of 2 · newest migration: ${files[files.length - 1]}
+--
+-- Paste this whole file into a SQL console (e.g. the Neon SQL Editor) and run
+-- it. Safe to run more than once: every statement below skips work already
+-- done, so 'already exists' errors cannot happen. NOTICE lines saying
+-- 'does not exist, skipping' are normal.
+--
+-- Run catch-up 1 first, then catch-up 2, each as its own execution.
+-- Includes: ${names.join(', ')}${withTracking ? ', migration bookkeeping' : ''}
+-- ============================================================================
+
+`;
+
+for (let n = 1; n <= 2; n++) {
+  const names = catchUp[n - 1];
+  const last = n === 2;
+  await writeFile(
+    join(distDir, `catch-up-${n}.sql`),
+    catchUpHeader(n, names, last) + (await concat(names)) + (last ? '\n' + tracking : '')
+  );
+  console.log(`wrote db/dist/catch-up-${n}.sql (${names.length} migrations)`);
+}

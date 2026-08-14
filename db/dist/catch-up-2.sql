@@ -1,7 +1,14 @@
 -- ============================================================================
 -- GENERATED FILE — do not edit. Rebuild with: node scripts/build-sql-bootstrap.mjs
--- Bootstrap part 3 of 3 for a fresh database via a SQL console (e.g. Neon SQL Editor).
--- Run the parts in order, each as its own execution.
+--
+--   SolarFlow PM · catch-up 2 of 2 · newest migration: 20260803002000_dealer_companies.sql
+--
+-- Paste this whole file into a SQL console (e.g. the Neon SQL Editor) and run
+-- it. Safe to run more than once: every statement below skips work already
+-- done, so 'already exists' errors cannot happen. NOTICE lines saying
+-- 'does not exist, skipping' are normal.
+--
+-- Run catch-up 1 first, then catch-up 2, each as its own execution.
 -- Includes: 20260803001600_complete_stage_backfill.sql, 20260803001700_project_details.sql, 20260803001800_equipment_quantities.sql, 20260803001900_dealer_portal.sql, 20260803002000_dealer_companies.sql, migration bookkeeping
 -- ============================================================================
 
