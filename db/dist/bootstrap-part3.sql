@@ -2,7 +2,7 @@
 -- GENERATED FILE — do not edit. Rebuild with: node scripts/build-sql-bootstrap.mjs
 -- Bootstrap part 3 of 3 for a fresh database via a SQL console (e.g. Neon SQL Editor).
 -- Run the parts in order, each as its own execution.
--- Includes: 20260803001600_complete_stage_backfill.sql, 20260803001700_project_details.sql, 20260803001800_equipment_quantities.sql, 20260803001900_dealer_portal.sql, 20260803002000_dealer_companies.sql, migration bookkeeping
+-- Includes: 20260803001600_complete_stage_backfill.sql, 20260803001700_project_details.sql, 20260803001800_equipment_quantities.sql, 20260803001900_dealer_portal.sql, 20260803002000_dealer_companies.sql, 20260803002100_restore_project_defaults.sql, migration bookkeeping
 -- ============================================================================
 
 -- >>> 20260803001600_complete_stage_backfill.sql
@@ -795,6 +795,25 @@ create trigger seed_commission_defaults after insert on public.projects
 
 
 
+-- >>> 20260803002100_restore_project_defaults.sql
+
+-- =============================================================================
+-- 002100 — Re-assert the projects defaults
+-- =============================================================================
+-- 001200 swapped projects.stage onto the manual-version enum in three steps:
+-- drop default, change type, set default 'survey'. A database where that file
+-- was applied in pieces (a console paste that stopped part-way) can end up
+-- with the type changed but the default gone — and since the column is NOT
+-- NULL, every insert that relies on the default fails with 23502.
+--
+-- The application now names stage explicitly on insert, so this is belt and
+-- braces; re-asserting the defaults is harmless where they are already right.
+
+alter table public.projects alter column stage  set default 'survey';
+alter table public.projects alter column status set default 'active';
+
+
+
 -- >>> migration bookkeeping (lets `npm run db:migrate` skip these later)
 create table if not exists public.schema_migrations (
   name       text primary key,
@@ -821,5 +840,6 @@ insert into public.schema_migrations (name) values
   ('20260803001700_project_details.sql'),
   ('20260803001800_equipment_quantities.sql'),
   ('20260803001900_dealer_portal.sql'),
-  ('20260803002000_dealer_companies.sql')
+  ('20260803002000_dealer_companies.sql'),
+  ('20260803002100_restore_project_defaults.sql')
 on conflict (name) do nothing;

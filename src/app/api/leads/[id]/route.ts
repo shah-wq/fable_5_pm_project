@@ -60,11 +60,12 @@ export async function PATCH(request: Request, ctx: { params: Promise<{ id: strin
           [lead.sales_rep_name]
         )
       : { rows: [] as { id: string }[] };
+    // stage/status explicit — see the note in POST /api/projects.
     const project = await client.query<{ id: string }>(
       `insert into public.projects
          (name, address, dealer_id, client_id, system_size_kw, sales_rep_id,
-          cash_or_financing_id, assigned_pm, created_by)
-       values ($1, $2, $3, $4, $5, $6, $7, $8, $8)
+          cash_or_financing_id, assigned_pm, created_by, stage, status)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $8, 'survey', 'active')
        returning id`,
       [
         `${lead.customer_first} ${lead.customer_last}`,

@@ -4,6 +4,7 @@ import { getSession } from '@/lib/auth/session';
 import { dbErrorResponse } from '@/lib/db-error';
 import { withUser } from '@/lib/db';
 import { DETAIL_FIELDS, coerceDetail } from '@/lib/projects/details';
+import { STAGES } from '@/lib/stages/definitions';
 
 interface CreatePayload {
   customerFirst?: string;
@@ -76,6 +77,9 @@ export async function POST(request: Request) {
          values ($1, $2, $3, $4, $5) returning id`,
         [p.dealerId, first, last, p.customerEmail?.trim() || null, p.customerPhone?.trim() || null]
       );
+      // stage and status are named explicitly rather than left to the column
+      // defaults: 001200 drops and re-adds the stage default around its enum
+      // swap, so a database that applied that file in pieces has none.
       const baseVals = [
         `${first} ${last}`,
         p.address!.trim(),
@@ -86,14 +90,17 @@ export async function POST(request: Request) {
         p.contractValue ?? null,
         p.assignedPm || session.userId,
         session.userId,
+        STAGES[0],
       ];
       const extraCols = detailCols.map((c) => `, "${c}"`).join('');
       const extraPh = detailVals.map((_, i) => `, $${baseVals.length + i + 1}`).join('');
       const project = await client.query<{ id: string }>(
         `insert into public.projects
            (name, address, dealer_id, client_id, finance_partner_id,
-            system_size_kw, contract_value, assigned_pm, created_by${extraCols})
-         values ($1, $2, $3, $4, $5, $6, $7, $8, $9${extraPh})
+            system_size_kw, contract_value, assigned_pm, created_by,
+            stage, status${extraCols})
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9,
+            $10::public.project_stage, 'active'${extraPh})
          returning id`,
         [...baseVals, ...detailVals]
       );
