@@ -13,6 +13,7 @@
     "db:create-admin": "node scripts/create-admin.mjs"
   },
   "dependencies": {
+    "exceljs": "^4.4.0",
     "next": "^15.5.0",
     "nodemailer": "^7.0.0",
     "pg": "^8.16.0",

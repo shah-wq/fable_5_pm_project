@@ -11,6 +11,7 @@ const NAV: Record<UserRole, NavItem[]> = {
     { href: '/projects', label: 'Projects', icon: '☰' },
     { href: '/projects/new', label: 'New project', icon: '＋' },
     { href: '/leads', label: 'Leads', icon: '☎' },
+    { href: '/reports', label: 'Reports', icon: '▤' },
     { href: '/admin', label: 'Admin', icon: '⚙' },
     { href: '/admin/finance', label: 'Finance', icon: '$' },
   ],
@@ -19,9 +20,13 @@ const NAV: Record<UserRole, NavItem[]> = {
     { href: '/projects', label: 'Projects', icon: '☰' },
     { href: '/projects/new', label: 'New project', icon: '＋' },
     { href: '/leads', label: 'Leads', icon: '☎' },
+    { href: '/reports', label: 'Reports', icon: '▤' },
   ],
   designer: [{ href: '/designer', label: 'My queue', icon: '▦' }],
-  finance: [{ href: '/admin/finance', label: 'Finance', icon: '$' }],
+  finance: [
+    { href: '/admin/finance', label: 'Finance', icon: '$' },
+    { href: '/reports', label: 'Reports', icon: '▤' },
+  ],
   customer: [{ href: '/portal', label: 'My project', icon: '☀' }],
   dealer: [
     { href: '/dealers', label: 'Dashboard', icon: '▦' },
