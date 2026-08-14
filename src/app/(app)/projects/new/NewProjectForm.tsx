@@ -1,7 +1,8 @@
 'use client';
 
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { DETAIL_BLOCKS, type RefKey, type RefOption } from '@/lib/projects/details';
 import { DetailsFields, type DetailRefs, type DetailValues } from '../../_components/DetailsFields';
 
@@ -22,6 +23,28 @@ export function NewProjectForm({
   const [values, setValues] = useState<DetailValues>({ assigned_pm: defaultPm });
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // Duplicate detection at creation: far cheaper than merging afterwards.
+  const [matches, setMatches] = useState<Array<{
+    id: string; name: string; email: string | null; phone: string | null; projects: number;
+  }>>([]);
+
+  const email = String(values.email ?? '').trim();
+  const phone = String(values.phone ?? '').trim();
+  useEffect(() => {
+    if (!email && !phone) {
+      setMatches([]);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      const params = new URLSearchParams();
+      if (email) params.set('email', email);
+      if (phone) params.set('phone', phone);
+      const res = await fetch(`/api/customers/lookup?${params}`);
+      const json = await res.json().catch(() => null);
+      setMatches(json?.matches ?? []);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [email, phone]);
 
   const canCreate =
     String(values.first_name ?? '').trim() &&
@@ -82,6 +105,31 @@ export function NewProjectForm({
           {error}
         </p>
       )}
+
+      {matches.length > 0 && (
+        <div className="notice hold">
+          <strong>
+            A customer with this {email && matches.some((m) => m.email === email) ? 'email' : 'phone'}{' '}
+            already exists:
+          </strong>
+          <ul className="gap-list">
+            {matches.map((m) => (
+              <li key={m.id}>
+                {m.name} — {m.projects} project{m.projects === 1 ? '' : 's'}
+                {m.email ? ` · ${m.email}` : ''}
+                {' · '}
+                <Link href={`/admin/customers`}>open in Customers</Link>
+              </li>
+            ))}
+          </ul>
+          <p className="dim">
+            If this is the same person — a second property, a battery added later — add the project
+            to their existing record from Admin → Customers rather than creating a second
+            half-customer. Carry on here only if these really are different people.
+          </p>
+        </div>
+      )}
+
       {DETAIL_BLOCKS.map((block) => (
         <section className="panel" key={block.key}>
           <h2>{block.title}</h2>

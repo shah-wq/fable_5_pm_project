@@ -12,6 +12,7 @@ const GROUPS: Array<{ label?: string; tabs: Array<{ href: string; label: string 
       { href: '/admin/crews', label: 'Install crews' },
       { href: '/admin/vendors', label: 'Vendors' },
       { href: '/admin/dealers', label: 'Dealers' },
+      { href: '/admin/customers', label: 'Customers' },
       { href: '/admin/sales_reps', label: 'Sales reps' },
       { href: '/admin/settings', label: 'Settings' },
       { href: '/admin/activity', label: 'Activity log' },

@@ -2071,6 +2071,16 @@ a {
   font-weight: 700;
 }
 
+.drawer.wide-drawer {
+  max-width: 900px;
+}
+
+.dialog.wide-dialog {
+  max-width: 860px;
+  max-height: 88vh;
+  overflow-y: auto;
+}
+
 .linklike {
   background: none;
   border: none;
