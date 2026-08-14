@@ -6,6 +6,7 @@ import { loadDetailRefs } from '@/lib/projects/details';
 import { STAGE_LABELS, isStageKey } from '@/lib/stages/definitions';
 import { loadBundles } from '@/lib/stages/service';
 import { evaluateStage } from '@/lib/stages/requirements';
+import { CommissionPanel, type CommissionValue } from './CommissionPanel';
 import { DetailsPanel } from './DetailsPanel';
 import { ProjectActions } from './ProjectActions';
 import { Stepper } from './Stepper';
@@ -59,7 +60,8 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
       [id]
     );
     const refs = await loadDetailRefs(c);
-    return { project: rows[0], events: events.rows, refs };
+    const commission = await c.query(`select * from public.commissions where project_id = $1`, [id]);
+    return { project: rows[0], events: events.rows, refs, commission: commission.rows[0] ?? null };
   });
 
   if (!data) notFound();
@@ -149,6 +151,26 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
       />
 
       <div className="detail-grid">
+        {['admin', 'ops'].includes(session.role) && (
+          <CommissionPanel
+            projectId={id}
+            isAdmin={session.role === 'admin'}
+            initial={
+              data.commission
+                ? ({
+                    baseAmount: Number(data.commission.base_amount),
+                    adjustment: Number(data.commission.adjustment),
+                    status: String(data.commission.status),
+                    payableDate: data.commission.payable_date
+                      ? String(data.commission.payable_date)
+                      : null,
+                    paidDate: data.commission.paid_date ? String(data.commission.paid_date) : null,
+                    notes: data.commission.notes,
+                  } satisfies CommissionValue)
+                : null
+            }
+          />
+        )}
         <section className="panel">
           <h2>
             {p.status === 'complete' ? 'Completed' : `Current stage: ${STAGE_LABELS[stage]}`}

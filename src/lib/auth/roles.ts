@@ -30,12 +30,14 @@ export const ROUTE_ACCESS: Record<string, readonly UserRole[]> = {
   '/admin': ['admin'],
   '/pipeline': ['admin', 'ops'],
   '/projects': ['admin', 'ops'],
+  '/leads': ['admin', 'ops'],
   '/designer': ['admin', 'designer'],
   '/portal': ['customer'],
   '/dealers': ['dealer'],
   '/api/invites': ['admin'],
   '/api/admin': ['admin'],
   '/api/projects': ['admin', 'ops'],
+  '/api/leads': ['admin', 'ops', 'dealer'],
 };
 
 /** The three login doors. Destination is still decided by profiles.role. */

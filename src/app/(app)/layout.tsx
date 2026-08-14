@@ -10,6 +10,7 @@ const NAV: Record<UserRole, NavItem[]> = {
     { href: '/pipeline', label: 'Pipeline', icon: '▦' },
     { href: '/projects', label: 'Projects', icon: '☰' },
     { href: '/projects/new', label: 'New project', icon: '＋' },
+    { href: '/leads', label: 'Leads', icon: '☎' },
     { href: '/admin', label: 'Admin', icon: '⚙' },
     { href: '/admin/finance', label: 'Finance', icon: '$' },
   ],
@@ -17,11 +18,17 @@ const NAV: Record<UserRole, NavItem[]> = {
     { href: '/pipeline', label: 'Pipeline', icon: '▦' },
     { href: '/projects', label: 'Projects', icon: '☰' },
     { href: '/projects/new', label: 'New project', icon: '＋' },
+    { href: '/leads', label: 'Leads', icon: '☎' },
   ],
   designer: [{ href: '/designer', label: 'My queue', icon: '▦' }],
   finance: [{ href: '/admin/finance', label: 'Finance', icon: '$' }],
   customer: [{ href: '/portal', label: 'My project', icon: '☀' }],
-  dealer: [{ href: '/dealers', label: 'My book', icon: '☰' }],
+  dealer: [
+    { href: '/dealers', label: 'Dashboard', icon: '▦' },
+    { href: '/dealers/projects', label: 'My projects', icon: '☰' },
+    { href: '/dealers/leads', label: 'Submit a lead', icon: '＋' },
+    { href: '/dealers/commissions', label: 'Commissions', icon: '$' },
+  ],
 };
 
 /**

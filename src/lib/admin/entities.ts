@@ -191,6 +191,19 @@ export const ADMIN_ENTITIES: Record<string, EntityDef> = {
     fields: [{ name: 'name', label: 'Name', type: 'text', required: true }],
     listColumns: [],
   },
+  dealer_visible_fields: {
+    table: 'dealer_visible_fields',
+    title: 'Dealer visibility',
+    blurb:
+      'Which stage fields dealers see on their portal — Active = visible. New fields default to hidden; costs, margins and PM notes are never shown regardless.',
+    nameColumn: 'label',
+    fields: [
+      { name: 'label', label: 'Field', type: 'text', required: true },
+      { name: 'stage', label: 'Stage key', type: 'text', required: true },
+      { name: 'name', label: 'Column name', type: 'text', required: true },
+    ],
+    listColumns: ['stage', 'name'],
+  },
 };
 
 export type EntityKey = keyof typeof ADMIN_ENTITIES;

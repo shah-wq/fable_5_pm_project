@@ -27,6 +27,7 @@ const GROUPS: Array<{ label?: string; tabs: Array<{ href: string; label: string 
       { href: '/admin/financing_companies', label: 'Financing companies' },
       { href: '/admin/cash_financing_options', label: 'Cash or Financing' },
       { href: '/admin/finance_partners', label: 'Finance partners' },
+      { href: '/admin/dealer_visible_fields', label: 'Dealer visibility' },
     ],
   },
 ];
