@@ -60,6 +60,11 @@ export function UsersManager({
   const [busy, setBusy] = useState(false);
   const [mode, setMode] = useState<'password' | 'invite'>('password');
   const [role, setRole] = useState<UserRole>('ops');
+  // Inline company creation from the drawer — the half-filled user form must
+  // survive, so the nested dialog only ever adds to this local list.
+  const [dealerList, setDealerList] = useState(dealers);
+  const [dealerChoice, setDealerChoice] = useState('');
+  const [newCompany, setNewCompany] = useState(false);
 
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -171,6 +176,7 @@ export function UsersManager({
           onClick={() => {
             setMode('password');
             setRole('ops');
+            setDealerChoice('');
             setDrawer({ user: null });
           }}
         >
@@ -275,15 +281,27 @@ export function UsersManager({
                   {role === 'dealer' && (
                     <label className="field">
                       <span>Linked dealer company *</span>
-                      <select name="dealerId" required defaultValue="">
+                      <select
+                        name="dealerId"
+                        required
+                        value={dealerChoice}
+                        onChange={(e) => {
+                          if (e.target.value === '__new__') {
+                            setNewCompany(true);
+                            return;
+                          }
+                          setDealerChoice(e.target.value);
+                        }}
+                      >
                         <option value="" disabled>
                           Select…
                         </option>
-                        {dealers.map((d) => (
+                        {dealerList.map((d) => (
                           <option key={d.id} value={d.id}>
                             {d.name}
                           </option>
                         ))}
+                        <option value="__new__">+ Add new company…</option>
                       </select>
                     </label>
                   )}
@@ -470,6 +488,102 @@ export function UsersManager({
           </div>
         </div>
       )}
+
+      {newCompany && (
+        <NewCompanyDialog
+          onClose={() => setNewCompany(false)}
+          onCreated={(company) => {
+            setDealerList((list) =>
+              [...list, company].sort((a, b) => a.name.localeCompare(b.name))
+            );
+            setDealerChoice(company.id);
+            setNewCompany(false);
+          }}
+        />
+      )}
     </>
+  );
+}
+
+/**
+ * Compact nested company form for the Add-user drawer — asks only for the
+ * essentials; the rest of the record is filled in later from Admin → Dealers.
+ * The half-typed user form stays mounted underneath, untouched on cancel.
+ */
+function NewCompanyDialog({
+  onClose,
+  onCreated,
+}: {
+  onClose: () => void;
+  onCreated: (company: Option) => void;
+}) {
+  const [name, setName] = useState('');
+  const [contactName, setContactName] = useState('');
+  const [contactEmail, setContactEmail] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function create() {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/admin/dealers', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          values: {
+            name: name.trim(),
+            primary_contact_name: contactName.trim() || null,
+            primary_contact_email: contactEmail.trim(),
+          },
+        }),
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.id) {
+        setError(json?.error ?? `Could not create the company (${res.status}).`);
+        return;
+      }
+      onCreated({ id: json.id, name: name.trim() });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="dialog-backdrop">
+      <div className="dialog" role="dialog" aria-modal>
+        <h2>Add dealer company</h2>
+        {error && (
+          <p className="notice error" role="alert">
+            {error}
+          </p>
+        )}
+        <label className="field">
+          <span>Company name *</span>
+          <input value={name} onChange={(e) => setName(e.target.value)} />
+        </label>
+        <label className="field">
+          <span>Primary contact name</span>
+          <input value={contactName} onChange={(e) => setContactName(e.target.value)} />
+        </label>
+        <label className="field">
+          <span>Primary contact email *</span>
+          <input type="email" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} />
+        </label>
+        <div className="dialog-actions">
+          <button className="btn secondary" type="button" onClick={onClose}>
+            Cancel
+          </button>
+          <button
+            className="btn"
+            type="button"
+            disabled={busy || !name.trim() || !contactEmail.trim()}
+            onClick={create}
+          >
+            {busy ? 'Creating…' : 'Create & select'}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }

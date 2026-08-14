@@ -76,7 +76,8 @@ export const DETAIL_BLOCKS: DetailBlock[] = [
     key: 'sales',
     title: 'Sales & commercial',
     fields: [
-      { name: 'dealer_id', label: 'Dealer', type: 'ref', refKey: 'dealers', table: 'project', required: true },
+      { name: 'dealer_id', label: 'Dealer', type: 'ref', refKey: 'dealers', table: 'project', required: true,
+        addNew: true, note: 'Adding a company inline is admin-only' },
       { name: 'sales_rep_id', label: 'Sales rep', type: 'ref', refKey: 'salesReps', table: 'project',
         addNew: true, note: 'Pick from the Sales Reps list — consistent per-rep reporting' },
       { name: 'contract_value', label: 'Contract total ($)', type: 'currency', table: 'project',

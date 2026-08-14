@@ -94,19 +94,8 @@ export const ADMIN_ENTITIES: Record<string, EntityDef> = {
     ],
     listColumns: ['contact_person', 'email', 'phone', 'lead_time_days'],
   },
-  dealers: {
-    table: 'dealers',
-    title: 'Dealers',
-    blurb: 'Dealer companies whose book of projects flows through the pipeline.',
-    nameColumn: 'name',
-    fields: [
-      { name: 'name', label: 'Company name', type: 'text', required: true },
-      { name: 'code', label: 'Code', type: 'text' },
-      { name: 'email', label: 'Email', type: 'email' },
-      { name: 'phone', label: 'Phone', type: 'text' },
-    ],
-    listColumns: ['code', 'email', 'phone'],
-  },
+  // Dealer companies have a dedicated page (/admin/dealers) with counts,
+  // the users tab, and the guarded delete — not the generic RecordManager.
   finance_partners: {
     table: 'finance_partners',
     title: 'Finance partners',
