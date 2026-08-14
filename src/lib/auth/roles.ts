@@ -35,6 +35,7 @@ export const ROUTE_ACCESS: Record<string, readonly UserRole[]> = {
   '/api/reports': ['admin', 'ops', 'finance'],
   '/designer': ['admin', 'designer'],
   '/portal': ['customer'],
+  '/api/portal': ['customer'],
   '/dealers': ['dealer'],
   '/api/invites': ['admin'],
   '/api/admin': ['admin'],

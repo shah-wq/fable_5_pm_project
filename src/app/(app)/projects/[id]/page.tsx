@@ -7,6 +7,7 @@ import { STAGE_LABELS, isStageKey } from '@/lib/stages/definitions';
 import { loadBundles } from '@/lib/stages/service';
 import { evaluateStage } from '@/lib/stages/requirements';
 import { CommissionPanel, type CommissionValue } from './CommissionPanel';
+import { CustomerPanel } from './CustomerPanel';
 import { DetailsPanel } from './DetailsPanel';
 import { ProjectActions } from './ProjectActions';
 import { Stepper } from './Stepper';
@@ -61,7 +62,32 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
     );
     const refs = await loadDetailRefs(c);
     const commission = await c.query(`select * from public.commissions where project_id = $1`, [id]);
-    return { project: rows[0], events: events.rows, refs, commission: commission.rows[0] ?? null };
+    const requests = await c.query(
+      `select id, kind, message, preferred_dates, time_window, contact_phone, contact_email,
+              document_id, status, pm_reply, created_at
+       from public.customer_requests where project_id = $1 order by created_at desc limit 30`,
+      [id]
+    );
+    const documents = await c.query(
+      `select id, title, category, customer_visible, created_at from public.documents
+       where project_id = $1 order by created_at desc limit 100`,
+      [id]
+    );
+    const portalUser = await c.query<{ n: number }>(
+      `select count(*)::int as n from public.clients cl
+       where cl.id = (select client_id from public.projects where id = $1)
+         and cl.user_id is not null`,
+      [id]
+    );
+    return {
+      project: rows[0],
+      events: events.rows,
+      refs,
+      commission: commission.rows[0] ?? null,
+      requests: requests.rows,
+      documents: documents.rows,
+      hasPortalAccess: (portalUser.rows[0]?.n ?? 0) > 0,
+    };
   });
 
   if (!data) notFound();
@@ -151,6 +177,34 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
       />
 
       <div className="detail-grid">
+        {['admin', 'ops'].includes(session.role) && (
+          <CustomerPanel
+            projectId={id}
+            estimate={p.customer_estimate ?? null}
+            hasPortalAccess={data.hasPortalAccess}
+            customerEmail={p.client_email ?? null}
+            requests={data.requests.map((r) => ({
+              id: r.id,
+              kind: String(r.kind),
+              message: r.message,
+              preferredDates: r.preferred_dates,
+              timeWindow: r.time_window,
+              contactPhone: r.contact_phone,
+              contactEmail: r.contact_email,
+              documentId: r.document_id,
+              status: String(r.status),
+              reply: r.pm_reply,
+              created: new Date(String(r.created_at)).toLocaleDateString(),
+            }))}
+            documents={data.documents.map((d) => ({
+              id: d.id,
+              title: d.title ?? String(d.category ?? 'file'),
+              category: String(d.category ?? ''),
+              customerVisible: d.customer_visible === true,
+              created: new Date(String(d.created_at)).toLocaleDateString(),
+            }))}
+          />
+        )}
         {['admin', 'ops'].includes(session.role) && (
           <CommissionPanel
             projectId={id}

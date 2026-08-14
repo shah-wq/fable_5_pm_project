@@ -1529,6 +1529,162 @@ a {
   cursor: default;
 }
 
+/* --------------------------------------------------- customer portal */
+
+.portal {
+  max-width: 860px;
+}
+
+.portal-head h1 {
+  margin-bottom: 2px;
+}
+
+.portal-status {
+  background: #e9edf6;
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin: 12px 0;
+}
+
+.portal-status h2 {
+  margin: 0 0 6px;
+  font-size: 19px;
+  line-height: 1.35;
+}
+
+.portal-status p {
+  margin: 4px 0;
+  font-size: 14.5px;
+}
+
+.notice.hold {
+  background: #fdf3e0;
+  border: 1px solid var(--amber);
+  color: #6b4b00;
+}
+
+.tracker {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 14px 0;
+}
+
+.tracker-stage {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--card);
+  overflow: hidden;
+}
+
+.tracker-stage.done .tracker-num {
+  background: #e3ece3;
+  color: var(--green, #1d6b3c);
+}
+
+.tracker-stage.current {
+  border-color: var(--navy);
+  box-shadow: 0 0 0 1px var(--navy) inset;
+}
+
+.tracker-stage.current .tracker-num {
+  background: var(--navy);
+  color: #fff;
+}
+
+.tracker-stage.upcoming .tracker-head {
+  color: var(--ink-soft);
+}
+
+.tracker-head {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+  padding: 12px 14px;
+  background: none;
+  border: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  color: var(--ink);
+}
+
+.tracker-num {
+  flex: 0 0 26px;
+  height: 26px;
+  border-radius: 999px;
+  background: #eeece7;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.tracker-label {
+  flex: 1;
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.tracker-now {
+  color: var(--navy);
+  font-weight: 700;
+}
+
+.tracker-caret {
+  color: var(--ink-soft);
+}
+
+.tracker-body {
+  padding: 0 14px 14px 50px;
+  font-size: 14.5px;
+  line-height: 1.5;
+}
+
+.tracker-body table {
+  margin-top: 8px;
+}
+
+.portal-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 12px;
+}
+
+.photo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 8px;
+}
+
+.photo-grid img {
+  width: 100%;
+  height: 110px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+}
+
+.portal-actions .action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+@media (max-width: 480px) {
+  .portal-status h2 {
+    font-size: 17px;
+  }
+  .tracker-body {
+    padding-left: 14px;
+  }
+  .portal-actions .action-row .btn {
+    width: 100%;
+  }
+}
+
 /* --------------------------------------------------- report builder */
 
 .report-builder {

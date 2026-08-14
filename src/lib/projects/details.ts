@@ -117,6 +117,9 @@ export const DETAIL_BLOCKS: DetailBlock[] = [
         note: 'Drives the milestone field labels on the stage forms' },
       { name: 'financing_notes', label: 'Financing Notes', type: 'textarea', table: 'project',
         note: 'Split-deal detail: amounts, rates, terms, down payments' },
+      { name: 'customer_estimate', label: 'Estimated completion (shown to the customer)',
+        type: 'text', table: 'project',
+        note: 'Free text, e.g. “October 2026”. Blank shows nothing rather than a guess.' },
     ],
   },
 ];
