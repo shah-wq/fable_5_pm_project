@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { logAuditEvent } from '@/lib/audit';
 import { getSession } from '@/lib/auth/session';
+import { dbErrorResponse } from '@/lib/db-error';
 import { withUser } from '@/lib/db';
 import { DETAIL_FIELDS, coerceDetail } from '@/lib/projects/details';
 
@@ -49,7 +50,9 @@ export async function PATCH(
     return NextResponse.json({ error: 'nothing to save' }, { status: 400 });
   }
 
-  const result = await withUser(session, async (c) => {
+  let result: 'ok' | 'not_found' | 'locked' | 'reason';
+  try {
+    result = await withUser(session, async (c) => {
     const { rows } = await c.query(
       `select id, status, client_id from public.projects where id = $1`,
       [id]
@@ -78,7 +81,10 @@ export async function PATCH(
       ]);
     }
     return 'ok' as const;
-  });
+    });
+  } catch (e) {
+    return dbErrorResponse(e, 'Saving the project details');
+  }
 
   if (result === 'not_found') return NextResponse.json({ error: 'project not found' }, { status: 404 });
   if (result === 'locked') {

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { tryLogAuditEvent } from '@/lib/audit';
 import { getSession } from '@/lib/auth/session';
+import { dbErrorResponse } from '@/lib/db-error';
 import { withUser } from '@/lib/db';
 import { DETAIL_FIELDS, coerceDetail } from '@/lib/projects/details';
 
@@ -70,48 +71,43 @@ export async function POST(request: Request) {
   let projectId: string;
   try {
     projectId = await withUser(session, async (client) => {
-    const client_ = await client.query<{ id: string }>(
-      `insert into public.clients (dealer_id, first_name, last_name, email, phone)
-       values ($1, $2, $3, $4, $5) returning id`,
-      [p.dealerId, first, last, p.customerEmail?.trim() || null, p.customerPhone?.trim() || null]
-    );
-    const baseVals = [
-      `${first} ${last}`,
-      p.address!.trim(),
-      p.dealerId,
-      client_.rows[0].id,
-      p.financePartnerId || null,
-      p.systemSizeKw ?? null,
-      p.contractValue ?? null,
-      p.assignedPm || session.userId,
-      session.userId,
-    ];
-    const extraCols = detailCols.map((c) => `, "${c}"`).join('');
-    const extraPh = detailVals.map((_, i) => `, $${baseVals.length + i + 1}`).join('');
-    const project = await client.query<{ id: string }>(
-      `insert into public.projects
-         (name, address, dealer_id, client_id, finance_partner_id,
-          system_size_kw, contract_value, assigned_pm, created_by${extraCols})
-       values ($1, $2, $3, $4, $5, $6, $7, $8, $9${extraPh})
-       returning id`,
-      [...baseVals, ...detailVals]
-    );
-    return project.rows[0].id;
+      const client_ = await client.query<{ id: string }>(
+        `insert into public.clients (dealer_id, first_name, last_name, email, phone)
+         values ($1, $2, $3, $4, $5) returning id`,
+        [p.dealerId, first, last, p.customerEmail?.trim() || null, p.customerPhone?.trim() || null]
+      );
+      const baseVals = [
+        `${first} ${last}`,
+        p.address!.trim(),
+        p.dealerId,
+        client_.rows[0].id,
+        p.financePartnerId || null,
+        p.systemSizeKw ?? null,
+        p.contractValue ?? null,
+        p.assignedPm || session.userId,
+        session.userId,
+      ];
+      const extraCols = detailCols.map((c) => `, "${c}"`).join('');
+      const extraPh = detailVals.map((_, i) => `, $${baseVals.length + i + 1}`).join('');
+      const project = await client.query<{ id: string }>(
+        `insert into public.projects
+           (name, address, dealer_id, client_id, finance_partner_id,
+            system_size_kw, contract_value, assigned_pm, created_by${extraCols})
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9${extraPh})
+         returning id`,
+        [...baseVals, ...detailVals]
+      );
+      // RETURNING is filtered by the SELECT policy, so an empty result means
+      // the row was written but this user cannot read it back.
+      if (!project.rows[0]) {
+        throw new Error(
+          'the project row was created but is not visible to your account (row-level security) — check projects_select'
+        );
+      }
+      return project.rows[0].id;
     });
   } catch (e) {
-    // 42P01 = missing table, 42703 = missing column: the deployed code is
-    // newer than the database — the migrations haven't been applied yet.
-    const code = (e as { code?: string }).code;
-    if (code === '42P01' || code === '42703') {
-      return NextResponse.json(
-        {
-          error:
-            'The database is missing recent migrations — open /api/health to see which ones, then run them in the Neon SQL editor.',
-        },
-        { status: 500 }
-      );
-    }
-    throw e;
+    return dbErrorResponse(e, 'Creating the project');
   }
 
   await tryLogAuditEvent(session, {

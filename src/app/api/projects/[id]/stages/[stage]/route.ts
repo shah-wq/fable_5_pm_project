@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth/session';
+import { dbErrorResponse } from '@/lib/db-error';
 import { withUser } from '@/lib/db';
 import { isStageKey } from '@/lib/stages/definitions';
 import { STAGE_FORMS, STAGE_TABLES, type StageField } from '@/lib/stages/fields';
@@ -95,7 +96,9 @@ export async function PATCH(
     return NextResponse.json({ error: 'nothing to save' }, { status: 400 });
   }
 
-  const saved = await withUser(session, async (client) => {
+  let saved: boolean;
+  try {
+    saved = await withUser(session, async (client) => {
     const project = await client.query('select id from public.projects where id = $1', [id]);
     if (!project.rows[0]) return false;
 
@@ -122,8 +125,11 @@ export async function PATCH(
         [id, ...byTable.project.map((u) => u.value)]
       );
     }
-    return true;
-  });
+      return true;
+    });
+  } catch (e) {
+    return dbErrorResponse(e, `Saving the ${stage} form`);
+  }
 
   if (!saved) return NextResponse.json({ error: 'project not found' }, { status: 404 });
   return NextResponse.json({ ok: true });
