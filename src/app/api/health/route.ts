@@ -9,6 +9,20 @@ export const dynamic = 'force-dynamic';
  * and whether the database is reachable with the schema applied.
  */
 export async function GET() {
+  // Which build is answering. Without this, a stale deployment and a broken one
+  // look identical from the outside — and a Vercel deployment URL is frozen to
+  // one build forever, so "I pushed a fix" and "the page is fixed" are not the
+  // same statement until you can compare commits.
+  const build = {
+    commit: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? 'local',
+    branch: process.env.VERCEL_GIT_COMMIT_REF ?? null,
+    message: process.env.VERCEL_GIT_COMMIT_MESSAGE?.split('\n')[0] ?? null,
+    /** 'production' for the live domain; 'preview' for a per-deployment URL. */
+    target: process.env.VERCEL_ENV ?? 'self-hosted',
+    deploymentUrl: process.env.VERCEL_URL ?? null,
+    appVersion: process.env.NEXT_PUBLIC_APP_VERSION ?? null,
+  };
+
   const env = {
     DATABASE_URL: Boolean(process.env.DATABASE_URL),
     SMTP_HOST: Boolean(process.env.SMTP_HOST),
@@ -97,6 +111,7 @@ export async function GET() {
   return NextResponse.json(
     {
       ok,
+      build,
       env,
       database,
       migrations,
