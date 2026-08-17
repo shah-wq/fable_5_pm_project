@@ -38,6 +38,14 @@ export function SettingsForm({
           defaultDesignTurnaroundHours: Number(f.get('turnaround')) || 48,
           coPrefix: f.get('coPrefix'),
           coNextNumber: Number(f.get('coNext')) || 1,
+          privacyPolicyUrl: f.get('privacyPolicyUrl'),
+          termsUrl: f.get('termsUrl'),
+          supportEmail: f.get('supportEmail'),
+          supportPhone: f.get('supportPhone'),
+          appStoreUrl: f.get('appStoreUrl'),
+          playStoreUrl: f.get('playStoreUrl'),
+          minAppVersion: f.get('minAppVersion'),
+          latestAppVersion: f.get('latestAppVersion'),
         }),
       });
       const json = await res.json().catch(() => null);
@@ -103,6 +111,66 @@ export function SettingsForm({
           />
         </label>
       </div>
+      <h2>Customer app</h2>
+      <p className="dim">
+        The App Store and Play Store both reject an app without a public privacy
+        policy URL, and both show these support details on the listing. The minimum
+        version is the floor below which the app refuses to run and asks the customer
+        to update — leave it blank until you actually need to force one.
+      </p>
+      <div className="form-grid">
+        <label className="field">
+          <span>Privacy policy URL</span>
+          <input
+            name="privacyPolicyUrl"
+            type="url"
+            placeholder="https://…"
+            defaultValue={String(settings.privacy_policy_url ?? '')}
+          />
+        </label>
+        <label className="field">
+          <span>Terms of service URL</span>
+          <input
+            name="termsUrl"
+            type="url"
+            placeholder="https://…"
+            defaultValue={String(settings.terms_url ?? '')}
+          />
+        </label>
+        <label className="field">
+          <span>Support email</span>
+          <input name="supportEmail" type="email" defaultValue={String(settings.support_email ?? '')} />
+        </label>
+        <label className="field">
+          <span>Support phone</span>
+          <input name="supportPhone" defaultValue={String(settings.support_phone ?? '')} />
+        </label>
+        <label className="field">
+          <span>App Store listing URL</span>
+          <input name="appStoreUrl" type="url" defaultValue={String(settings.app_store_url ?? '')} />
+        </label>
+        <label className="field">
+          <span>Play Store listing URL</span>
+          <input name="playStoreUrl" type="url" defaultValue={String(settings.play_store_url ?? '')} />
+        </label>
+        <label className="field">
+          <span>Minimum app version</span>
+          <input
+            name="minAppVersion"
+            placeholder="e.g. 1.2.0"
+            defaultValue={String(settings.min_app_version ?? '')}
+          />
+        </label>
+        <label className="field">
+          <span>Latest app version</span>
+          <input
+            name="latestAppVersion"
+            placeholder="e.g. 1.3.0"
+            defaultValue={String(settings.latest_app_version ?? '')}
+          />
+        </label>
+      </div>
+
       <button className="btn" type="submit" disabled={busy}>
         {busy ? 'Saving…' : 'Save settings'}
       </button>

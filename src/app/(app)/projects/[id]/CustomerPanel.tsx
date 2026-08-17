@@ -25,11 +25,20 @@ export interface ProjectDocumentRow {
   created: string;
 }
 
+export interface CustomerAskRow {
+  id: string;
+  kind: string;
+  label: string;
+  detail: string | null;
+  created: string;
+}
+
 const KIND_LABELS: Record<string, string> = {
   availability: 'Availability offered',
   question: 'Question',
   contact_update: 'Contact details changed',
   document: 'Document sent',
+  account_deletion: 'ACCOUNT DELETION REQUESTED',
 };
 
 /**
@@ -44,6 +53,7 @@ export function CustomerPanel({
   estimate,
   hasPortalAccess,
   customerEmail,
+  asks,
 }: {
   projectId: string;
   requests: CustomerRequestRow[];
@@ -51,6 +61,7 @@ export function CustomerPanel({
   estimate: string | null;
   hasPortalAccess: boolean;
   customerEmail: string | null;
+  asks: CustomerAskRow[];
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -58,8 +69,31 @@ export function CustomerPanel({
   const [replyTo, setReplyTo] = useState<CustomerRequestRow | null>(null);
   const [reply, setReply] = useState('');
   const [estimateDraft, setEstimateDraft] = useState(estimate ?? '');
+  const [askLabel, setAskLabel] = useState('');
+  const [askDetail, setAskDetail] = useState('');
 
   const open = requests.filter((r) => r.status === 'open');
+
+  async function post(url: string, body: unknown) {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok) {
+        setError(json?.error ?? `Failed (${res.status}).`);
+        return false;
+      }
+      router.refresh();
+      return true;
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function call(url: string, body: unknown) {
     setBusy(true);
@@ -126,6 +160,71 @@ export function CustomerPanel({
       >
         Save estimate
       </button>
+
+      <h3 className="drawer-sub">Ask the customer for something</h3>
+      <p className="dim">
+        This is the only thing that sends them an &lsquo;action needed&rsquo; notification, and it
+        shows on their Home screen until they send it. Write it as you would say it to them.
+      </p>
+      <label className="field">
+        <span>What you need</span>
+        <input
+          value={askLabel}
+          onChange={(e) => setAskLabel(e.target.value)}
+          placeholder="e.g. A photo of your electricity meter"
+          maxLength={200}
+        />
+      </label>
+      <label className="field">
+        <span>Any extra detail (optional)</span>
+        <input
+          value={askDetail}
+          onChange={(e) => setAskDetail(e.target.value)}
+          placeholder="e.g. we need to read the serial number"
+          maxLength={1000}
+        />
+      </label>
+      <button
+        className="btn secondary small"
+        type="button"
+        disabled={busy || askLabel.trim().length < 4}
+        onClick={() =>
+          post(`/api/projects/${projectId}/asks`, {
+            kind: 'photo',
+            label: askLabel.trim(),
+            detail: askDetail.trim() || null,
+          }).then((ok) => {
+            if (ok) {
+              setAskLabel('');
+              setAskDetail('');
+            }
+          })
+        }
+      >
+        Ask the customer
+      </button>
+
+      {asks.length > 0 && (
+        <ul className="activity">
+          {asks.map((a) => (
+            <li key={a.id}>
+              <span className="dim">{a.created}</span> <strong>{a.label}</strong>
+              {a.detail && <span className="dim"> — {a.detail}</span>}
+              <span className="hold-chip"> waiting</span>
+              <span className="ref-row">
+                <button
+                  className="btn secondary small"
+                  type="button"
+                  disabled={busy}
+                  onClick={() => call(`/api/projects/${projectId}/asks`, { askId: a.id })}
+                >
+                  Withdraw
+                </button>
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
 
       <h3 className="drawer-sub">Requests from the customer</h3>
       {requests.length === 0 ? (

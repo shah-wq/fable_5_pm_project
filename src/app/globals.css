@@ -2175,3 +2175,483 @@ a {
   border-color: var(--navy);
   color: #fff;
 }
+
+/* --------------------------------------------------- customer app shell
+   The installable/mobile surface: a title bar, a scrolling body, and five
+   fixed tabs. Built mobile-first because the app is this page in a native
+   wrapper — every hour spent making it good at 380px is an hour of app work
+   not repeated (mobile spec §10). */
+
+.customer-app {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--paper);
+}
+
+.app-bar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 14px;
+  /* env() keeps the bar clear of the notch when installed full-screen. */
+  padding-top: calc(10px + env(safe-area-inset-top));
+  background: var(--navy);
+  color: #fff;
+}
+
+.app-bar-logo {
+  display: inline-flex;
+  color: #fff;
+}
+
+.app-body {
+  flex: 1;
+  /* Room for the tab bar plus the sticky call button above it. */
+  padding-bottom: calc(132px + env(safe-area-inset-bottom));
+}
+
+.app-page {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 14px;
+}
+
+.app-page > h1 {
+  font-size: 21px;
+  margin: 4px 0 10px;
+}
+
+/* --- tab bar --- */
+
+.tab-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 30;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  background: var(--card);
+  border-top: 1px solid var(--line);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.tab-bar a {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  /* 56px of height: a thumb target, not a link. */
+  padding: 8px 2px 6px;
+  min-height: 56px;
+  text-decoration: none;
+  color: var(--ink-soft);
+  font-size: 11px;
+}
+
+.tab-bar a.active {
+  color: var(--navy);
+  font-weight: 700;
+  box-shadow: inset 0 2px 0 var(--navy);
+}
+
+.tab-icon {
+  font-size: 18px;
+  line-height: 1;
+}
+
+/* --- status card: the reason the app exists --- */
+
+.status-card {
+  background: var(--navy);
+  color: #fff;
+  border-radius: 14px;
+  padding: 16px;
+  margin: 0 0 12px;
+}
+
+.status-card .eyebrow {
+  margin: 0 0 4px;
+  font-size: 11.5px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--amber);
+  font-weight: 700;
+}
+
+.status-card h1 {
+  margin: 0 0 8px;
+  font-size: 20px;
+  line-height: 1.3;
+}
+
+.status-card p {
+  margin: 4px 0;
+  font-size: 14.5px;
+}
+
+.status-card .status-estimate strong {
+  color: var(--amber);
+}
+
+.status-card .dim {
+  color: #c9d3e6;
+}
+
+.panel.attention {
+  border-left: 4px solid var(--amber);
+}
+
+.panel.optin {
+  border-left: 4px solid var(--navy);
+}
+
+/* --- sticky 'call my project manager' --- */
+
+.call-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(56px + env(safe-area-inset-bottom));
+  z-index: 25;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 14px;
+  background: var(--card);
+  border-top: 1px solid var(--line);
+}
+
+.call-who {
+  font-weight: 600;
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.call-actions {
+  display: flex;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.property-picker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.property-picker select {
+  flex: 1;
+}
+
+/* --- offline + blocking overlays --- */
+
+.offline-bar {
+  margin: 0 0 10px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: #fdf3e0;
+  border: 1px solid var(--amber);
+  color: #6b4b00;
+  font-size: 13.5px;
+}
+
+.app-block {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: var(--navy);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.app-block-card {
+  background: var(--card);
+  border-radius: 14px;
+  padding: 20px;
+  max-width: 22rem;
+  text-align: center;
+}
+
+.app-block-card h2 {
+  margin-top: 0;
+}
+
+/* --- documents --- */
+
+.doc-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.doc-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid var(--line);
+  padding: 4px 0;
+}
+
+.doc-list li:last-child {
+  border-bottom: none;
+}
+
+.doc-open {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  background: none;
+  border: none;
+  font: inherit;
+  color: var(--ink);
+  text-align: left;
+  padding: 8px 0;
+  cursor: pointer;
+}
+
+.doc-title {
+  font-weight: 600;
+  font-size: 14.5px;
+}
+
+/* In-app viewer: the customer never gets bounced out to a browser. */
+.viewer,
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: #0b1b33;
+  display: flex;
+  flex-direction: column;
+}
+
+.viewer-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 12px;
+  padding-top: calc(8px + env(safe-area-inset-top));
+  background: var(--navy);
+  color: #fff;
+}
+
+.viewer-title {
+  flex: 1;
+  text-align: center;
+  font-size: 13.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.viewer-frame {
+  flex: 1;
+  width: 100%;
+  border: 0;
+  background: #fff;
+}
+
+/* --- photos --- */
+
+.photo-grid button {
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+
+.lightbox-track {
+  flex: 1;
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+}
+
+.lightbox-slide {
+  flex: 0 0 100%;
+  scroll-snap-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Pinch-zoom is the platform's, not a JavaScript imitation of it. */
+  touch-action: pinch-zoom;
+}
+
+.lightbox-slide img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.upload-queue {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.upload-queue li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: #f1efe9;
+}
+
+.upload-queue li.failed {
+  background: #fbeceb;
+  color: var(--danger);
+}
+
+.upload-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.upload-state {
+  color: var(--ink-soft);
+}
+
+.upload-queue li.failed .upload-state {
+  color: var(--danger);
+}
+
+/* --- More tab --- */
+
+.more-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.more-row {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.more-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 52px;
+  padding: 12px 14px;
+  background: none;
+  border: none;
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.more-body {
+  padding: 0 14px 14px;
+  border-top: 1px solid var(--line);
+}
+
+.more-row form {
+  padding: 12px 14px;
+}
+
+.faq dt {
+  font-weight: 600;
+  margin-top: 12px;
+}
+
+.faq dd {
+  margin: 4px 0 0;
+  color: var(--ink-soft);
+  font-size: 14.5px;
+}
+
+.thread {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.bubble {
+  border-radius: 12px;
+  padding: 8px 12px;
+  font-size: 14.5px;
+}
+
+.bubble p {
+  margin: 2px 0 0;
+}
+
+.bubble.mine {
+  background: #e9edf6;
+}
+
+.bubble.theirs {
+  background: #eef4ee;
+  margin: 6px 0 0 16px;
+}
+
+.danger-details {
+  margin-top: 12px;
+}
+
+.danger-details summary {
+  cursor: pointer;
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.version-foot {
+  text-align: center;
+  font-size: 12.5px;
+  margin: 16px 0 0;
+}
+
+.btn.small {
+  padding: 5px 10px;
+  font-size: 13px;
+}
+
+.row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+@media (min-width: 720px) {
+  /* On a desktop browser the same five tabs still work; the app just stops
+     pretending to be a phone. */
+  .app-page {
+    padding: 20px;
+  }
+  .call-bar {
+    justify-content: center;
+  }
+}

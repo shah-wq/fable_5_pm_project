@@ -62,6 +62,13 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
     );
     const refs = await loadDetailRefs(c);
     const commission = await c.query(`select * from public.commissions where project_id = $1`, [id]);
+    // What the PM has asked this customer for and not yet received.
+    const asks = await c.query(
+      `select id, kind, label, detail, created_at from public.customer_asks
+       where project_id = $1 and fulfilled_at is null and cancelled_at is null
+       order by created_at desc`,
+      [id]
+    );
     const requests = await c.query(
       `select id, kind, message, preferred_dates, time_window, contact_phone, contact_email,
               document_id, status, pm_reply, created_at
@@ -85,6 +92,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
       refs,
       commission: commission.rows[0] ?? null,
       requests: requests.rows,
+      asks: asks.rows,
       documents: documents.rows,
       hasPortalAccess: (portalUser.rows[0]?.n ?? 0) > 0,
     };
@@ -195,6 +203,13 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
               status: String(r.status),
               reply: r.pm_reply,
               created: new Date(String(r.created_at)).toLocaleDateString(),
+            }))}
+            asks={data.asks.map((a) => ({
+              id: a.id,
+              kind: String(a.kind),
+              label: String(a.label),
+              detail: a.detail,
+              created: new Date(String(a.created_at)).toLocaleDateString(),
             }))}
             documents={data.documents.map((d) => ({
               id: d.id,

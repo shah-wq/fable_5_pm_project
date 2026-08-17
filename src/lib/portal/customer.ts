@@ -77,6 +77,19 @@ export interface CustomerProject {
   stages: CustomerStage[];
   updates: Array<{ date: string; text: string }>;
   needed: string[];
+  /** Specific things the PM has asked this customer for, still outstanding. */
+  asks: Array<{ id: string; kind: string; label: string; detail: string | null }>;
+  /** System information, for the Project tab's equipment card. */
+  system: {
+    sizeKw: number | null;
+    systemType: string | null;
+    modules: number | null;
+    moduleType: string | null;
+    inverters: number | null;
+    inverterType: string | null;
+    batteries: number | null;
+    batteryType: string | null;
+  };
   team: {
     pmName: string | null;
     pmPhone: string | null;
@@ -127,7 +140,6 @@ export async function loadCustomerProject(
            st.name as system_type, mt.name as module_type,
            it.name as inverter_type, bt.name as battery_type,
            fc.name as financing_company,
-           coalesce(pmp.full_name, pmp.email) as pm_name, pmp.phone as pm_phone, pmp.email as pm_email,
            sr.name as rep_name, sr.email as rep_email
     from public.projects p
     left join public.system_types st on st.id = p.system_type_id
@@ -135,7 +147,6 @@ export async function loadCustomerProject(
     left join public.inverter_types it on it.id = p.inverter_type_id
     left join public.battery_types bt on bt.id = p.battery_type_id
     left join public.financing_companies fc on fc.id = p.financing_company_id
-    left join public.profiles pmp on pmp.id = p.assigned_pm
     left join public.sales_reps sr on sr.id = p.sales_rep_id
     ${projectId ? 'where p.id = $1' : ''}
     order by p.created_at desc
@@ -143,6 +154,17 @@ export async function loadCustomerProject(
   const { rows } = await client.query(projectSql, projectId ? [projectId] : []);
   const p = rows[0];
   if (!p) return null;
+
+  // The PM's name and number. profiles is self-or-admin under RLS, so this
+  // comes through a definer function that returns those three fields for one
+  // project the caller can already see — otherwise 'call my project manager',
+  // the most-used control on the app's Home screen, has nothing to show.
+  const contact = (
+    await client.query<{ pm_name: string | null; pm_phone: string | null; pm_email: string | null }>(
+      `select * from public.project_contact($1)`,
+      [p.id]
+    )
+  ).rows[0] ?? { pm_name: null, pm_phone: null, pm_email: null };
 
   const one = async (table: string, columns: string) =>
     (
@@ -193,6 +215,18 @@ export async function loadCustomerProject(
       [p.id]
     )
   ).rows.map((a) => ({ name: a.name, amount: Number(a.amount) }));
+
+  // What the PM has actually asked this person for. Fulfilled and withdrawn
+  // asks drop out, so the card empties itself instead of nagging someone who
+  // has already sent the photo.
+  const asks = (
+    await client.query<{ id: string; kind: string; label: string; detail: string | null }>(
+      `select id, kind, label, detail from public.customer_asks
+       where project_id = $1 and fulfilled_at is null and cancelled_at is null
+       order by created_at`,
+      [p.id]
+    )
+  ).rows;
 
   const docs = (
     await client.query(
@@ -325,6 +359,9 @@ export async function loadCustomerProject(
       break;
     }
   }
+  // Anything the PM asked for directly goes at the top of the list: it is the
+  // one item on this card that is genuinely blocking somebody.
+  needed.unshift(...asks.map((a) => a.label));
 
   const contractTotal = p.contract_value === null ? null : Number(p.contract_value);
   const adderTotal = adders.reduce((sum, a) => sum + a.amount, 0);
@@ -363,10 +400,26 @@ export async function loadCustomerProject(
       }))
       .slice(0, 12),
     needed,
+    asks: asks.map((a) => ({
+      id: a.id,
+      kind: String(a.kind),
+      label: a.label,
+      detail: a.detail,
+    })),
+    system: {
+      sizeKw: p.system_size_kw === null ? null : Number(p.system_size_kw),
+      systemType: p.system_type ?? null,
+      modules: p.module_quantity === null ? null : Number(p.module_quantity),
+      moduleType: p.module_type ?? null,
+      inverters: p.inverter_quantity === null ? null : Number(p.inverter_quantity),
+      inverterType: p.inverter_type ?? null,
+      batteries: p.battery_quantity === null ? null : Number(p.battery_quantity),
+      batteryType: p.battery_type ?? null,
+    },
     team: {
-      pmName: p.pm_name ?? null,
-      pmPhone: p.pm_phone ?? null,
-      pmEmail: p.pm_email ?? null,
+      pmName: contact.pm_name ?? null,
+      pmPhone: contact.pm_phone ?? null,
+      pmEmail: contact.pm_email ?? null,
       repName: p.rep_name ?? null,
       repEmail: p.rep_email ?? null,
     },

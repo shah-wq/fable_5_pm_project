@@ -4,6 +4,7 @@ import { Logo } from '@/app/(auth)/_components/AuthUi';
 import { getSession } from '@/lib/auth/session';
 import type { UserRole } from '@/lib/auth/roles';
 import { SideNav, type NavItem } from './_components/SideNav';
+import { TabBar } from './portal/_components/TabBar';
 
 const NAV: Record<UserRole, NavItem[]> = {
   admin: [
@@ -46,6 +47,23 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const session = await getSession();
   if (!session) redirect('/login');
   if (!session.isActive) redirect('/auth/signout?reason=deactivated');
+
+  // Customers get the app shell instead of the staff sidebar: a title bar and
+  // five bottom tabs. It is the same code either way — the mobile app is this
+  // surface in a native wrapper, not a second product (mobile spec §0).
+  if (session.role === 'customer') {
+    return (
+      <div className="customer-app">
+        <header className="app-bar">
+          <Link href="/portal" className="app-bar-logo" aria-label="SolarFlow home">
+            <Logo />
+          </Link>
+        </header>
+        <main className="app-body">{children}</main>
+        <TabBar />
+      </div>
+    );
+  }
 
   return (
     <div className="app-shell">

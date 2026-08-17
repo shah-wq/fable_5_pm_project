@@ -14,9 +14,20 @@ in the database and the app server. Built so far:
   flows (ADM-02), password recovery, and REQ-SEC-01 no-login upload links
   with a 7-day cap. See `docs/auth.md`.
 
+- **Customer mobile app**: the customer portal delivered as an installable app —
+  five tabs (Home · Project · Documents · Photos · More), web push with deferred
+  permission and deep links, an offline read cache with a visible "last updated"
+  stamp, camera upload with on-device compression and a retrying queue, in-app
+  PDF viewing and the native share sheet, biometric app lock, in-app account
+  deletion, and a forced-update floor. **One database, one API, one set of RLS
+  policies** — the app is this web surface in a native shell, never a second
+  backend. `capacitor.config.ts` wraps it for the stores; see
+  `docs/mobile-store-submission.md`.
+
 Requirements to run: **Node.js 20+** and **PostgreSQL 15+** (anywhere — a
 VPS, a managed database, or localhost) plus SMTP credentials for outbound
-email. The app cannot be exported as a static site (sessions, API routes,
+email. Push notifications additionally need a VAPID key pair
+(`npm run make:vapid`). The app cannot be exported as a static site (sessions, API routes,
 and role gating are server-side).
 
 ## Layout

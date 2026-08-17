@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { CustomerStage } from '@/lib/portal/customer';
 
 /**
@@ -8,15 +8,29 @@ import type { CustomerStage } from '@/lib/portal/customer';
  * green with the date they were reached, the current stage is highlighted and
  * expanded by default, and future stages are grey. On a phone it stacks
  * vertically rather than squeezing a desktop row.
+ *
+ * Each stage is an anchor, so a push notification about the permit opens the
+ * permit stage expanded rather than dropping the customer at the top of a list
+ * to hunt for it (mobile spec §4).
  */
 export function StageTracker({ stages }: { stages: CustomerStage[] }) {
   const currentIndex = Math.max(0, stages.findIndex((s) => s.state === 'current'));
   const [open, setOpen] = useState<number>(currentIndex === -1 ? 0 : currentIndex);
 
+  useEffect(() => {
+    const key = window.location.hash.replace('#', '');
+    if (!key) return;
+    const index = stages.findIndex((s) => s.key === key);
+    if (index >= 0) {
+      setOpen(index);
+      document.getElementById(key)?.scrollIntoView({ block: 'center' });
+    }
+  }, [stages]);
+
   return (
     <section className="tracker">
       {stages.map((stage, i) => (
-        <div key={stage.key} className={`tracker-stage ${stage.state}`}>
+        <div key={stage.key} id={stage.key} className={`tracker-stage ${stage.state}`}>
           <button
             className="tracker-head"
             type="button"

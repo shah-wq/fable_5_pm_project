@@ -25,6 +25,8 @@ export async function POST(request: Request) {
   const file = form?.get('file');
   const projectId = String(form?.get('projectId') ?? '');
   const note = String(form?.get('note') ?? '').trim().slice(0, 500) || null;
+  // Which specific thing the PM asked for this satisfies, if any.
+  const askId = String(form?.get('askId') ?? '');
 
   if (!UUID_RE.test(projectId)) {
     return NextResponse.json({ error: 'projectId is required' }, { status: 400 });
@@ -62,6 +64,11 @@ export async function POST(request: Request) {
            values ($1, $2, 'document', $3, $4)`,
           [projectId, project.rows[0].client_id, note ?? `Sent ${file.name}`, id]
         );
+      }
+      // Close the ask, so 'Needs your attention' empties itself rather than
+      // nagging someone who has already sent the photo.
+      if (UUID_RE.test(askId)) {
+        await client.query(`select public.fulfil_customer_ask($1, $2)`, [askId, id]);
       }
       return id;
     });

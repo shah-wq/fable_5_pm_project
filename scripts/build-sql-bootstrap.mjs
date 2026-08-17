@@ -122,3 +122,44 @@ for (let n = 1; n <= 2; n++) {
   );
   console.log(`wrote db/dist/catch-up-${n}.sql (${names.length} migrations)`);
 }
+
+// --- Per-module top-up ------------------------------------------------------
+// A database that is already current except for the newest module only needs
+// that module. One small paste is less error-prone than re-running ten
+// migrations, and the file is named after the module so a stale copy in a
+// browser cache cannot masquerade as the new one — the commonest failure of
+// this whole workflow.
+const newest = files[files.length - 1];
+const moduleName = newest.replace(/^\d+_/, '').replace(/\.sql$/, '').replaceAll('_', '-');
+const moduleFile = `${newest.slice(0, 14)}-${moduleName}.sql`;
+
+await writeFile(
+  join(distDir, moduleFile),
+  `-- ============================================================================
+-- GENERATED FILE — do not edit. Rebuild with: node scripts/build-sql-bootstrap.mjs
+--
+--   SolarFlow PM · newest module only · ${newest}
+--
+-- For a database that is already up to date apart from this module. Paste the
+-- whole file into a SQL console (e.g. the Neon SQL Editor) and run it once.
+-- Safe to run again: every statement skips work already done, so 'already
+-- exists' errors cannot happen. NOTICE lines saying 'does not exist, skipping'
+-- are normal. The bookkeeping row at the end is included.
+--
+-- Behind by more than this module? Run catch-up-1.sql then catch-up-2.sql
+-- instead — they cover everything from 001400 onwards.
+-- ============================================================================
+
+-- >>> ${newest}
+${await readFile(join(migrationsDir, newest), 'utf8')}
+
+-- >>> migration bookkeeping
+create table if not exists public.schema_migrations (
+  name       text primary key,
+  applied_at timestamptz not null default now()
+);
+insert into public.schema_migrations (name) values ('${newest}')
+on conflict (name) do nothing;
+`
+);
+console.log(`wrote db/dist/${moduleFile} (newest module only)`);

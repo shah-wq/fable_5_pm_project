@@ -1,6 +1,7 @@
 import type { PoolClient } from 'pg';
 import { logAuditEvent } from '../audit';
 import { withUser, type SessionIdentity } from '../db';
+import { notifyOnHold, notifyPowerOn, notifyStageAdvanced } from '../push/events';
 import { isStageKey, nextStage, prevStage, type StageKey } from './definitions';
 import { evaluateStage, type StageBundle } from './requirements';
 
@@ -253,6 +254,9 @@ export async function moveProject(
         [projectId, options.reason, options.notes, options.expectedResumeDate || null, stage, session.userId]
       );
       await client.query(`update public.projects set status = 'on_hold' where id = $1`, [projectId]);
+      // The customer hears it from us rather than noticing the silence. Their
+      // own wording, the reason, no internal notes (spec §4).
+      await notifyOnHold(client, projectId, options.reason!, options.expectedResumeDate || null);
       return { ok: true as const, stage, column: 'hold' };
     }
     if (direction === 'cancel') {
@@ -347,8 +351,10 @@ export async function moveProject(
          values ($1, current_date) on conflict (project_id) do nothing`,
         [projectId]
       );
+      await notifyPowerOn(client, projectId);
       return { ok: true as const, stage: 'complete', column: 'complete' };
     }
+    await notifyStageAdvanced(client, projectId, target);
     return { ok: true as const, stage: target };
   }).then(async (result) => {
     if (result.ok) {

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth/session';
 import { dbErrorResponse } from '@/lib/db-error';
 import { withUser } from '@/lib/db';
+import { notifyAppointment } from '@/lib/push/events';
 import { isStageKey } from '@/lib/stages/definitions';
 import { STAGE_FORMS, STAGE_TABLES, type StageField } from '@/lib/stages/fields';
 
@@ -124,6 +125,19 @@ export async function PATCH(
         `update public.projects set ${sets.join(', ')} where id = $1`,
         [id, ...byTable.project.map((u) => u.value)]
       );
+    }
+
+    // Confirming a date the customer has to be home for is the one save they
+    // want to hear about immediately (spec §4). Deduped on the date itself, so
+    // correcting another field does not re-notify — but re-scheduling does.
+    for (const [col, what] of [
+      ['install_scheduled_date', 'install'],
+      ['inspection_requested_date', 'inspection'],
+    ] as const) {
+      const scheduled = byTable.stage.find((u) => u.col === col);
+      if (scheduled?.value) {
+        await notifyAppointment(client, id, what, String(scheduled.value));
+      }
     }
       return true;
     });

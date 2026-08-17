@@ -10,7 +10,10 @@
     "test:unit": "node --experimental-strip-types --test src/lib/auth/roles.test.ts src/lib/stages/requirements.test.ts",
     "db:verify": "scripts/verify-local.sh",
     "db:migrate": "node scripts/migrate.mjs",
-    "db:create-admin": "node scripts/create-admin.mjs"
+    "db:create-admin": "node scripts/create-admin.mjs",
+    "db:demo-customer": "node scripts/create-demo-customer.mjs",
+    "make:icons": "node scripts/make-icons.mjs",
+    "make:vapid": "node scripts/make-vapid.mjs"
   },
   "dependencies": {
     "exceljs": "^4.4.0",
@@ -18,7 +21,8 @@
     "nodemailer": "^7.0.0",
     "pg": "^8.16.0",
     "react": "^19.1.0",
-    "react-dom": "^19.1.0"
+    "react-dom": "^19.1.0",
+    "web-push": "^3.6.7"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
@@ -26,6 +30,7 @@
     "@types/pg": "^8.15.0",
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
+    "@types/web-push": "^3.6.4",
     "typescript": "^5.9.0"
   }
 }
