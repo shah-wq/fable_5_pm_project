@@ -28,8 +28,10 @@ interface InvitePayload {
 /**
  * ADM-02: admin invites Ops / Designer / Finance / Dealer (and Customer —
  * project creation and lead conversion call the same endpoint to auto-invite
- * the homeowner). Staff/dealers receive a 7-day set-password link; customers
- * a welcome email pointing at the OTP door — they never have passwords.
+ * the homeowner). Everyone receives the same thing: a 7-day, single-use link to
+ * set their own password. Homeowners used to get a welcome email pointing at an
+ * emailed-code door instead; that door is gone (002600) and they now have
+ * passwords like everybody else.
  *
  * User creation and linking run with the ADMIN'S OWN claims, so the
  * in-database guards apply and the audit triggers record the real actor.
@@ -123,7 +125,18 @@ export async function POST(request: Request) {
     : null;
   let emailSent = true;
   try {
-    if (inviteLink) {
+    if (inviteLink && role === 'customer') {
+      // A homeowner is not an employee being onboarded: say what the app is for.
+      await sendEmail({
+        to: email,
+        subject: 'Track your solar project',
+        text:
+          `Your solar project portal is ready.\n\n` +
+          `Choose a password here (the link works once and expires in 7 days):\n${inviteLink}\n\n` +
+          `After that you can sign in any time at ${origin}/portal/login to see where your ` +
+          `installation stands, what happens next, and your documents.\n`,
+      });
+    } else if (inviteLink) {
       await sendEmail({
         to: email,
         subject: "You've been invited to SolarFlow",
@@ -132,8 +145,8 @@ export async function POST(request: Request) {
     } else {
       await sendEmail({
         to: email,
-        subject: 'Your SolarFlow project portal is ready',
-        text: `Your solar project portal is ready.\n\nSign in with your email — we'll send you a 6-digit code, no password needed:\n${origin}/portal/login`,
+        subject: 'Your SolarFlow account is ready',
+        text: `Your account is ready. Sign in at ${origin}/login with the password you were given.`,
       });
     }
   } catch (error) {

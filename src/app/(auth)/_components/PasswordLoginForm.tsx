@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { PasswordInput } from '@/app/_components/PasswordInput';
 import type { DoorId } from '@/lib/auth/roles';
 import { Notice } from './AuthUi';
 
@@ -69,17 +70,14 @@ export function PasswordLoginForm({ door, next }: { door: DoorId; next?: string 
           onChange={(e) => setEmail(e.target.value)}
         />
       </label>
-      <label className="field">
-        <span>Password</span>
-        <input
-          type="password"
-          name="password"
-          autoComplete="current-password"
-          required
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
-      </label>
+      <PasswordInput
+        label="Password"
+        name="password"
+        autoComplete="current-password"
+        required
+        value={password}
+        onChange={setPassword}
+      />
       <button className="btn" type="submit" disabled={busy}>
         {busy ? 'Signing in…' : 'Sign in'}
       </button>

@@ -126,42 +126,40 @@ where lower(email) = 'newops@example.test';
 
 set role authenticated;
 do $t$
-declare inv record; c text; v record; n int; i int;
+declare inv record; acc record; log record; n int;
 begin
+  -- 002600/002700: a homeowner is invited exactly like anyone else and chooses
+  -- their own password. This block used to assert the opposite — that customers
+  -- got no token and signed in with an emailed code.
   select * into inv from auth.create_invited_user('newcust@example.test', 'customer', 'New Customer');
-  if inv.invite_token is not null then
-    raise exception 'FAIL: customers must not get set-password invites';
+  if inv.invite_token is null then
+    raise exception 'FAIL: an invited customer got no set-password token';
   end if;
   insert into public.t2 values ('cust_uid', inv.user_id::text);
 
-  c := (select code from auth.request_otp('newcust@example.test'));
-  if c is null or c !~ '^[0-9]{6}$' then raise exception 'FAIL: no 6-digit OTP issued'; end if;
-
-  select count(*) into n from auth.verify_otp('newcust@example.test', '000000');
-  if n <> 0 and c <> '000000' then raise exception 'FAIL: wrong OTP verified'; end if;
-
-  select * into v from auth.verify_otp('newcust@example.test', c);
-  if v.session_token is null or v.user_role <> 'customer' then
-    raise exception 'FAIL: correct OTP did not sign the customer in';
+  select * into acc from auth.set_password_with_token(inv.invite_token, 'homeowner-pass-1');
+  if acc.session_token is null or acc.user_role <> 'customer' then
+    raise exception 'FAIL: a customer could not set a password from their invitation';
   end if;
 
-  -- Consumed: same code again is dead.
-  select count(*) into n from auth.verify_otp('newcust@example.test', c);
-  if n <> 0 then raise exception 'FAIL: OTP reusable'; end if;
+  select * into log from auth.login_with_password('newcust@example.test', 'homeowner-pass-1');
+  if log.session_token is null or log.user_role <> 'customer' then
+    raise exception 'FAIL: a customer cannot sign in with their own password';
+  end if;
 
-  -- Staff cannot use the OTP door.
-  select count(*) into n from auth.request_otp('newops@example.test');
-  if n <> 0 then raise exception 'FAIL: staff got an OTP'; end if;
+  select count(*) into n from auth.login_with_password('newcust@example.test', 'wrong-pass-99');
+  if n <> 0 then raise exception 'FAIL: a wrong customer password logged in'; end if;
 
-  -- Five wrong attempts burn the code.
-  c := (select code from auth.request_otp('newcust@example.test'));
-  for i in 1..5 loop
-    perform * from auth.verify_otp('newcust@example.test', '999999');
-  end loop;
-  select count(*) into n from auth.verify_otp('newcust@example.test', c);
-  if n <> 0 then raise exception 'FAIL: OTP survived 5 wrong attempts'; end if;
+  -- The emailed-code door is closed at the database, not merely unlinked in the
+  -- app: the app role may no longer call it at all.
+  begin
+    perform * from auth.request_otp('newcust@example.test');
+    raise exception 'FAIL: the OTP door is still callable by the app role';
+  exception when insufficient_privilege then
+    null;  -- expected
+  end;
 
-  raise notice 'PASS: customer OTP flow (issue, verify, consume, attempt cap, staff excluded)';
+  raise notice 'PASS: customer invite -> own password -> login, and the OTP door is revoked';
 end
 $t$;
 

@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { PasswordInput } from '@/app/_components/PasswordInput';
 import type { CustomerRow } from '@/lib/customers/service';
 import { STAGE_LABELS, type StageKey } from '@/lib/stages/definitions';
 
@@ -446,12 +447,13 @@ export function CustomerDrawer({
                   </p>
                 )}
                 <div className="ref-row">
-                  <input
-                    type="password"
+                  <PasswordInput
+                    label="New password"
                     placeholder="At least 10 characters"
                     autoComplete="new-password"
+                    minLength={10}
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    onChange={setPassword}
                   />
                   <button
                     className="btn secondary"

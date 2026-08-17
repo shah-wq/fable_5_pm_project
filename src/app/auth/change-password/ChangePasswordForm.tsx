@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { Notice } from '@/app/(auth)/_components/AuthUi';
+import { PasswordInput } from '@/app/_components/PasswordInput';
 
 function strength(pw: string): { label: string; score: number } {
   let score = 0;
@@ -58,43 +59,34 @@ export function ChangePasswordForm() {
   return (
     <form onSubmit={onSubmit} noValidate>
       {error && <Notice kind="error">{error}</Notice>}
-      <label className="field">
-        <span>Current password</span>
-        <input
-          type="password"
-          autoComplete="current-password"
-          required
-          value={current}
-          onChange={(e) => setCurrent(e.target.value)}
-        />
-      </label>
-      <label className="field">
-        <span>New password</span>
-        <input
-          type="password"
-          autoComplete="new-password"
-          required
-          minLength={8}
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
-      </label>
+      <PasswordInput
+        label="Current password"
+        autoComplete="current-password"
+        required
+        value={current}
+        onChange={setCurrent}
+      />
+      <PasswordInput
+        label="New password"
+        autoComplete="new-password"
+        required
+        minLength={8}
+        value={password}
+        onChange={setPassword}
+      />
       {password && (
         <div className={`pw-meter s${meter.score}`}>
           <span style={{ width: `${(meter.score / 5) * 100}%` }} />
           <em>{meter.label}</em>
         </div>
       )}
-      <label className="field">
-        <span>Confirm new password</span>
-        <input
-          type="password"
-          autoComplete="new-password"
-          required
-          value={confirm}
-          onChange={(e) => setConfirm(e.target.value)}
-        />
-      </label>
+      <PasswordInput
+        label="Confirm new password"
+        autoComplete="new-password"
+        required
+        value={confirm}
+        onChange={setConfirm}
+      />
       <button className="btn" type="submit" disabled={busy}>
         {busy ? 'Saving…' : 'Save new password'}
       </button>

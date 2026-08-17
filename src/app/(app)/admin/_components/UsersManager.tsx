@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
+import { PasswordInput } from '@/app/_components/PasswordInput';
 import type { UserRole } from '@/lib/auth/roles';
 
 export interface UserRow {
@@ -320,26 +321,27 @@ export function UsersManager({
                       </select>
                     </label>
                   )}
-                  {mode === 'password' && role !== 'customer' && (
+                  {mode === 'password' && (
                     <>
-                      <label className="field">
-                        <span>Password * (min 8 characters)</span>
-                        <input name="password" type="password" required minLength={8} />
-                      </label>
-                      <label className="field">
-                        <span>Confirm password *</span>
-                        <input name="confirm" type="password" required />
-                      </label>
+                      <PasswordInput
+                        label="Password * (min 8 characters)"
+                        name="password"
+                        autoComplete="new-password"
+                        required
+                        minLength={8}
+                        hint="Use the eye to check it before you read it out."
+                      />
+                      <PasswordInput
+                        label="Confirm password *"
+                        name="confirm"
+                        autoComplete="new-password"
+                        required
+                      />
                       <label className="check-inline">
                         <input name="forceChange" type="checkbox" defaultChecked />
                         Force password change on first login
                       </label>
                     </>
-                  )}
-                  {role === 'customer' && (
-                    <p className="dim">
-                      Customers sign in with an emailed 6-digit code — no password to set.
-                    </p>
                   )}
                   <div className="drawer-actions">
                     <span className="spacer" />

@@ -2655,3 +2655,57 @@ a {
     justify-content: center;
   }
 }
+
+/* --------------------------------------------------- password fields
+   One show/hide control for every password box in the app. Sized as a real
+   target (36px) rather than a decorative glyph, because it gets used on a
+   phone while reading a password aloud. */
+
+.password-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.password-wrap input {
+  width: 100%;
+  /* Room for the button, so a long password never runs underneath it. */
+  padding-right: 42px;
+}
+
+.password-toggle {
+  position: absolute;
+  right: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+
+.password-toggle:hover:not(:disabled) {
+  color: var(--ink);
+  background: #f1efe9;
+}
+
+.password-toggle:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Pressed = the password is currently visible; worth showing at a glance. */
+.password-toggle[aria-pressed='true'] {
+  color: var(--navy);
+}
+
+/* The field wrapper inside a ref-row (the customer drawer) must still flex. */
+.ref-row .field {
+  flex: 1;
+  margin: 0;
+}
