@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { Logo } from '@/app/(auth)/_components/AuthUi';
 import { getSession } from '@/lib/auth/session';
 import type { UserRole } from '@/lib/auth/roles';
+import { isAppShell } from '@/lib/native/shell';
 import { SideNav, type NavItem } from './_components/SideNav';
 import { TabBar } from './portal/_components/TabBar';
 
@@ -47,6 +48,46 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const session = await getSession();
   if (!session) redirect('/login');
   if (!session.isActive) redirect('/auth/signout?reason=deactivated');
+
+  // The store app is the homeowner's portal and nothing else. A staff member
+  // signing in through it is told to use a browser rather than being handed the
+  // pipeline on a 5-inch screen it was never designed for. This is a
+  // presentation decision, not a security one — the user agent is
+  // client-supplied, and what anyone may actually read is still decided by
+  // guardPath() and RLS.
+  if (session.role !== 'customer' && (await isAppShell())) {
+    return (
+      <div className="customer-app">
+        <header className="app-bar">
+          <span className="app-bar-logo">
+            <Logo />
+          </span>
+        </header>
+        <main className="app-body">
+          <div className="app-page">
+            <section className="panel">
+              <h1>This app is for homeowners</h1>
+              <p>
+                You are signed in as <strong>{session.fullName ?? session.email}</strong> ({session.role}).
+                The SolarFlow app shows a customer their own installation — it is not the staff
+                tool.
+              </p>
+              <p>
+                Everything you need is on a computer: the pipeline, projects, stage forms, reports
+                and admin all live in the browser at your normal address. They need a screen wide
+                enough to work on.
+              </p>
+              <form action="/auth/signout" method="post">
+                <button className="btn" type="submit">
+                  Sign out
+                </button>
+              </form>
+            </section>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   // Customers get the app shell instead of the staff sidebar: a title bar and
   // five bottom tabs. It is the same code either way — the mobile app is this

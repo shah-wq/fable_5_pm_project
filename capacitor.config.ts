@@ -31,8 +31,17 @@ const config: CapacitorConfig = {
   // Not used when server.url is set, but Capacitor requires it to exist.
   webDir: 'public',
 
+  // Marks every request from the native shell, so the server can keep this app
+  // to the homeowner's portal and nothing else. The app is for customers: a
+  // staff member who signs in here gets told to use a browser rather than being
+  // handed the pipeline on a phone screen it was never designed for.
+  appendUserAgent: 'SolarFlowApp/1',
+
   server: {
-    url: APP_URL,
+    // '/portal' rather than the site root: the root is a router that sends an
+    // unauthenticated visitor to the *staff* login door, which is the wrong
+    // first screen for an app that only ever belongs to a homeowner.
+    url: `${APP_URL.replace(/\/+$/, '')}/portal`,
     // No cleartext, ever: the Android network config must not permit it and
     // certificate validation stays on (spec §6).
     cleartext: false,
