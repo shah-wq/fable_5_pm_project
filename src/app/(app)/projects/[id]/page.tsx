@@ -7,6 +7,7 @@ import { STAGE_LABELS, isStageKey } from '@/lib/stages/definitions';
 import { loadBundles } from '@/lib/stages/service';
 import { evaluateStage } from '@/lib/stages/requirements';
 import { CommissionPanel, type CommissionValue } from './CommissionPanel';
+import { optionalRows } from '@/lib/db-optional';
 import { CustomerPanel } from './CustomerPanel';
 import { DetailsPanel } from './DetailsPanel';
 import { ProjectActions } from './ProjectActions';
@@ -62,8 +63,12 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
     );
     const refs = await loadDetailRefs(c);
     const commission = await c.query(`select * from public.commissions where project_id = $1`, [id]);
-    // What the PM has asked this customer for and not yet received.
-    const asks = await c.query(
+    // What the PM has asked this customer for and not yet received. Optional:
+    // until the mobile-app migration is applied the table does not exist, and
+    // one missing panel must not take the whole project page down.
+    const asks = await optionalRows(
+      c,
+      'customer asks',
       `select id, kind, label, detail, created_at from public.customer_asks
        where project_id = $1 and fulfilled_at is null and cancelled_at is null
        order by created_at desc`,
@@ -92,7 +97,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
       refs,
       commission: commission.rows[0] ?? null,
       requests: requests.rows,
-      asks: asks.rows,
+      asks,
       documents: documents.rows,
       hasPortalAccess: (portalUser.rows[0]?.n ?? 0) > 0,
     };

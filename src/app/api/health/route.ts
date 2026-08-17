@@ -30,10 +30,12 @@ export async function GET() {
           ? 'ok'
           : 'error: schema missing (run: npm run db:migrate)';
 
-      // Which migrations this database has actually applied — the first
-      // thing to compare when the deployed code errors on missing tables
-      // or columns. Bookkeeping inserts may lag the real state, so key
-      // objects are probed directly.
+      // Which migrations this database has actually applied — the first thing
+      // to compare when the deployed code errors on a missing table or column.
+      // Bookkeeping inserts can lag the real state, so each module is probed by
+      // an object it creates, and anything missing is named with the file to
+      // run. This is the readout that turns "Application error" into a
+      // one-paste fix.
       const probes = await withAnon((c) =>
         c.query(
           `select
@@ -46,17 +48,40 @@ export async function GET() {
              to_regclass('public.commissions')::text          as m_001900,
              (select count(*) from information_schema.columns
                where table_schema = 'public' and table_name = 'dealers'
-                 and column_name = 'default_commission_basis') as m_002000`
+                 and column_name = 'default_commission_basis') as m_002000,
+             to_regclass('public.report_definitions')::text    as m_002200,
+             to_regclass('public.customer_phrases')::text      as m_002300,
+             (select count(*) from information_schema.columns
+               where table_schema = 'public' and table_name = 'clients'
+                 and column_name = 'is_archived')             as m_002400,
+             to_regclass('public.customer_asks')::text        as m_002500`
         )
       );
       const p = probes.rows[0];
+      const applied: Record<string, boolean> = {
+        '20260803001400_stage_fields.sql': Boolean(p.m_001400),
+        '20260803001500_complete_hold_cancel.sql': Boolean(p.m_001500),
+        '20260803001700_project_details.sql': Boolean(p.m_001700),
+        '20260803001800_equipment_quantities.sql': Number(p.m_001800) === 2,
+        '20260803001900_dealer_portal.sql': Boolean(p.m_001900),
+        '20260803002000_dealer_companies.sql': Number(p.m_002000) === 1,
+        '20260803002200_report_builder.sql': Boolean(p.m_002200),
+        '20260803002300_customer_portal.sql': Boolean(p.m_002300),
+        '20260803002400_customer_management.sql': Number(p.m_002400) === 1,
+        '20260803002500_mobile_app.sql': Boolean(p.m_002500),
+      };
+      const behind = Object.entries(applied)
+        .filter(([, present]) => !present)
+        .map(([name]) => name);
+
       migrations = {
-        '001400_stage_fields': Boolean(p.m_001400),
-        '001500_complete_hold_cancel': Boolean(p.m_001500),
-        '001700_project_details': Boolean(p.m_001700),
-        '001800_equipment_quantities': Number(p.m_001800) === 2,
-        '001900_dealer_portal': Boolean(p.m_001900),
-        '002000_dealer_companies': Number(p.m_002000) === 1,
+        applied,
+        behind,
+        fix: behind.length === 0
+          ? 'up to date'
+          : behind.length === 1
+            ? `run db/dist/${behind[0].slice(0, 14)}-${behind[0].slice(15).replace(/_/g, '-').replace(/\.sql$/, '')}.sql in the SQL editor`
+            : 'run db/dist/catch-up-1.sql then db/dist/catch-up-2.sql in the SQL editor',
       };
     } catch (cause) {
       database = `unreachable: ${cause instanceof Error ? cause.message : String(cause)}`;

@@ -1,4 +1,5 @@
 import type { PoolClient } from 'pg';
+import { optionalRows } from '../db-optional';
 import type { SessionIdentity } from '../db';
 import { STAGES, stageIndex, type StageKey } from '../stages/definitions';
 
@@ -160,11 +161,13 @@ export async function loadCustomerProject(
   // project the caller can already see — otherwise 'call my project manager',
   // the most-used control on the app's Home screen, has nothing to show.
   const contact = (
-    await client.query<{ pm_name: string | null; pm_phone: string | null; pm_email: string | null }>(
+    await optionalRows<{ pm_name: string | null; pm_phone: string | null; pm_email: string | null }>(
+      client,
+      'project contact',
       `select * from public.project_contact($1)`,
       [p.id]
     )
-  ).rows[0] ?? { pm_name: null, pm_phone: null, pm_email: null };
+  )[0] ?? { pm_name: null, pm_phone: null, pm_email: null };
 
   const one = async (table: string, columns: string) =>
     (
@@ -219,14 +222,16 @@ export async function loadCustomerProject(
   // What the PM has actually asked this person for. Fulfilled and withdrawn
   // asks drop out, so the card empties itself instead of nagging someone who
   // has already sent the photo.
-  const asks = (
-    await client.query<{ id: string; kind: string; label: string; detail: string | null }>(
-      `select id, kind, label, detail from public.customer_asks
-       where project_id = $1 and fulfilled_at is null and cancelled_at is null
-       order by created_at`,
-      [p.id]
-    )
-  ).rows;
+  const asks = await optionalRows<{
+    id: string; kind: string; label: string; detail: string | null;
+  }>(
+    client,
+    'customer asks',
+    `select id, kind, label, detail from public.customer_asks
+     where project_id = $1 and fulfilled_at is null and cancelled_at is null
+     order by created_at`,
+    [p.id]
+  );
 
   const docs = (
     await client.query(
