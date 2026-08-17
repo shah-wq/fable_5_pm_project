@@ -55,14 +55,18 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
       [id]
     );
     if (!rows[0]) return null;
-    const events = await c.query(
+    const events = await optionalRows(
+      c,
+      'project activity',
       `select occurred_at, action, actor_role, context
        from public.audit_log where project_id = $1
        order by occurred_at desc limit 12`,
       [id]
     );
     const refs = await loadDetailRefs(c);
-    const commission = await c.query(`select * from public.commissions where project_id = $1`, [id]);
+    const commission = await optionalRows(
+      c, 'commission', `select * from public.commissions where project_id = $1`, [id]
+    );
     // What the PM has asked this customer for and not yet received. Optional:
     // until the mobile-app migration is applied the table does not exist, and
     // one missing panel must not take the whole project page down.
@@ -74,13 +78,17 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
        order by created_at desc`,
       [id]
     );
-    const requests = await c.query(
+    const requests = await optionalRows(
+      c,
+      'customer requests',
       `select id, kind, message, preferred_dates, time_window, contact_phone, contact_email,
               document_id, status, pm_reply, created_at
        from public.customer_requests where project_id = $1 order by created_at desc limit 30`,
       [id]
     );
-    const documents = await c.query(
+    const documents = await optionalRows(
+      c,
+      'project documents',
       `select id, title, category, customer_visible, created_at from public.documents
        where project_id = $1 order by created_at desc limit 100`,
       [id]
@@ -93,12 +101,12 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
     );
     return {
       project: rows[0],
-      events: events.rows,
+      events,
       refs,
-      commission: commission.rows[0] ?? null,
-      requests: requests.rows,
+      commission: commission[0] ?? null,
+      requests,
       asks,
-      documents: documents.rows,
+      documents,
       hasPortalAccess: (portalUser.rows[0]?.n ?? 0) > 0,
     };
   });
