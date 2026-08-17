@@ -12,6 +12,17 @@ import { evaluateStage, type StageBundle } from './requirements';
  * path, as the spec demands.
  */
 
+/**
+ * pg returns a timestamptz as a JS Date, so a field typed `string` that is
+ * assigned one straight from a row is a lie the compiler cannot catch — and it
+ * stays invisible until something calls a string method on it. That is exactly
+ * how the Projects tab came to throw 'a.createdAt.localeCompare is not a
+ * function' as soon as there were two rows to sort: with one row the comparator
+ * never ran. Convert at the boundary, once.
+ */
+const asIso = (value: unknown): string =>
+  value instanceof Date ? value.toISOString() : String(value ?? '');
+
 export interface ProjectCard {
   id: string;
   code: string;
@@ -172,7 +183,7 @@ export async function loadProjectCards(
         dealerName: r.dealer_name,
         jurisdictionName: r.jurisdiction_name,
         pmName: r.pm_name,
-        createdAt: r.created_at,
+        createdAt: asIso(r.created_at),
       };
     });
   });
