@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 import { ROLE_HOME } from '@/lib/auth/roles';
 import { getSession } from '@/lib/auth/session';
 import { Notice } from '../_components/AuthUi';
-import { StaffLoginForm } from '../_components/StaffLoginForm';
+import { PasswordLoginForm } from '../_components/PasswordLoginForm';
 
 const ERRORS: Record<string, string> = {
   account_disabled: 'This account has been deactivated. Contact your administrator.',
@@ -25,7 +25,7 @@ export default async function LoginPage({
       <h1>Sign in</h1>
       <p className="sub">Staff access — admins, project managers, designers, finance.</p>
       {error && ERRORS[error] && <Notice kind="error">{ERRORS[error]}</Notice>}
-      <StaffLoginForm door="staff" next={next} />
+      <PasswordLoginForm door="staff" next={next} />
       <div className="auth-links">
         <Link href="/login/reset">Forgot your password?</Link>
         <span>

@@ -120,15 +120,24 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
       }
 
       case 'set_password': {
-        if (!customer.user_id) {
-          return NextResponse.json({ error: 'This customer has no login yet — use Invite.' }, { status: 400 });
+        // Works whether or not they already have a login: the function creates
+        // one for a customer who has never been invited, which is the answer for
+        // 'they are on the phone now and want to see their project'.
+        if (!customer.email) {
+          return NextResponse.json(
+            { error: 'Add an email address to this customer first — it is their login name.' },
+            { status: 400 }
+          );
         }
-        if ((body?.password?.length ?? 0) < 8) {
-          return NextResponse.json({ error: 'password must be at least 8 characters' }, { status: 400 });
+        if ((body?.password?.length ?? 0) < 10) {
+          return NextResponse.json(
+            { error: 'The password must be at least 10 characters.' },
+            { status: 400 }
+          );
         }
         await withUser(session, (c) =>
-          c.query('select auth.admin_set_password($1, $2, $3)',
-            [customer.user_id, body!.password, body?.forceChange ?? true])
+          c.query('select public.customer_portal_set_initial_password($1, $2, $3)',
+            [id, body!.password, body?.forceChange ?? true])
         );
         await tryLogAuditEvent(session, {
           action: 'customer.portal_password_set', entityType: 'clients', entityId: id,

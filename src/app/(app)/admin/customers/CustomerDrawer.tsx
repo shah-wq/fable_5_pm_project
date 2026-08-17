@@ -431,23 +431,32 @@ export function CustomerDrawer({
               )}
             </div>
 
-            {isAdmin && customer.portal !== 'none' && (
+            {isAdmin && (
               <>
                 <h3>Set a password directly</h3>
                 <p className="dim">
-                  For customers who cannot manage an email link — you set it and pass it on.
+                  For the customer on the phone who wants a password now, or who never received
+                  the invitation. You set it, read it to them, and they are asked to choose their
+                  own the first time they sign in.
+                  {customer.portal === 'none' && ' This also creates their login.'}
                 </p>
+                {!customer.email && (
+                  <p className="notice hold">
+                    Add an email address on the Details tab first — it is the login name.
+                  </p>
+                )}
                 <div className="ref-row">
                   <input
                     type="password"
-                    placeholder="At least 8 characters"
+                    placeholder="At least 10 characters"
+                    autoComplete="new-password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                   />
                   <button
                     className="btn secondary"
                     type="button"
-                    disabled={busy || password.length < 8}
+                    disabled={busy || password.length < 10 || !customer.email}
                     onClick={() =>
                       portalAction('set_password', 'Password set — hand it to the customer.',
                         { password, forceChange: true }).then(() => setPassword(''))
@@ -456,6 +465,10 @@ export function CustomerDrawer({
                     Set password
                   </button>
                 </div>
+                <p className="dim">
+                  Setting a password signs them out of any device they were already using, and
+                  cancels an unused invitation.
+                </p>
               </>
             )}
           </>

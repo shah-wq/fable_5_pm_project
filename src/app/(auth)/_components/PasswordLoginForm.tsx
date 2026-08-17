@@ -6,12 +6,12 @@ import type { DoorId } from '@/lib/auth/roles';
 import { Notice } from './AuthUi';
 
 /**
- * Email + password form used by both password doors (staff and dealer).
+ * Email + password form, used by all three doors — staff, dealer and homeowner.
  * POSTs to /api/auth/login; the server decides the destination from
- * profiles.role — never from which door was used. Right credentials at the
- * wrong door come back as a pointer to the correct one.
+ * profiles.role, never from which door was used. Right credentials at the wrong
+ * door come back as a pointer to the correct one.
  */
-export function StaffLoginForm({ door, next }: { door: DoorId; next?: string }) {
+export function PasswordLoginForm({ door, next }: { door: DoorId; next?: string }) {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');

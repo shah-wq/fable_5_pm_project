@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { ROLE_HOME } from '@/lib/auth/roles';
 import { getSession } from '@/lib/auth/session';
-import { StaffLoginForm } from '../../_components/StaffLoginForm';
+import { PasswordLoginForm } from '../../_components/PasswordLoginForm';
 
 /** Dealer door. Same password form; only the 'dealer' role may pass. */
 export default async function DealerLoginPage({
@@ -18,7 +18,7 @@ export default async function DealerLoginPage({
     <>
       <h1>Dealer sign in</h1>
       <p className="sub">Track every project in your book, from intake to PTO.</p>
-      <StaffLoginForm door="dealer" next={next} />
+      <PasswordLoginForm door="dealer" next={next} />
       <div className="auth-links">
         <Link href="/login/reset">Forgot your password?</Link>
         <span>

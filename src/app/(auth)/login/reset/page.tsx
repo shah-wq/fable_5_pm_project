@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { ResetForm } from '../../_components/ResetForm';
 
-/** Request a password-recovery email (staff and dealer accounts). */
+/** Request a password-recovery email. Every door uses this one page. */
 export default function ResetPage() {
   return (
     <>
@@ -11,7 +11,8 @@ export default function ResetPage() {
       </p>
       <ResetForm />
       <div className="auth-links">
-        <Link href="/login">Back to sign in</Link>
+        <Link href="/login">Staff sign-in</Link> · <Link href="/dealers/login">Dealer</Link> ·{' '}
+        <Link href="/portal/login">Homeowner</Link>
       </div>
     </>
   );

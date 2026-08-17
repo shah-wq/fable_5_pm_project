@@ -54,7 +54,9 @@ export async function GET() {
              (select count(*) from information_schema.columns
                where table_schema = 'public' and table_name = 'clients'
                  and column_name = 'is_archived')             as m_002400,
-             to_regclass('public.customer_asks')::text        as m_002500`
+             to_regclass('public.customer_asks')::text        as m_002500,
+             to_regprocedure('public.customer_portal_set_initial_password(uuid,text,boolean)')::text
+                                                              as m_002600`
         )
       );
       const p = probes.rows[0];
@@ -69,6 +71,7 @@ export async function GET() {
         '20260803002300_customer_portal.sql': Boolean(p.m_002300),
         '20260803002400_customer_management.sql': Number(p.m_002400) === 1,
         '20260803002500_mobile_app.sql': Boolean(p.m_002500),
+        '20260803002600_customer_passwords.sql': Boolean(p.m_002600),
       };
       const behind = Object.entries(applied)
         .filter(([, present]) => !present)

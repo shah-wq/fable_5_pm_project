@@ -4,9 +4,9 @@ import { sendEmail } from '@/lib/email';
 import { siteOrigin } from '@/lib/site';
 
 /**
- * Password recovery, step 1. Always answers 200 — no account oracle. Tokens
- * are only issued for active password-based accounts (staff/dealer);
- * customers are OTP-only and never get one.
+ * Password recovery, step 1. Always answers 200 — no account oracle. Tokens are
+ * issued for any active account, homeowners included (002600); an inactive or
+ * unknown address simply produces no token and the same reply.
  */
 export async function POST(request: Request) {
   const body = (await request.json().catch(() => null)) as { email?: string } | null;

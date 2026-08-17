@@ -176,8 +176,14 @@ begin
   r := (select recovery_token from auth.request_recovery('newops@example.test'));
   if r is null then raise exception 'FAIL: no recovery token for staff'; end if;
 
+  -- 002600: homeowners have passwords now, so they may reset them too. This
+  -- assertion used to be the opposite; the design changed deliberately.
   select count(*) into n from auth.request_recovery('newcust@example.test');
-  if n <> 0 then raise exception 'FAIL: customer got a recovery token'; end if;
+  if n <> 1 then raise exception 'FAIL: customer did not get a recovery token'; end if;
+
+  -- An address nobody owns is indistinguishable from a refusal.
+  select count(*) into n from auth.request_recovery('nobody@example.test');
+  if n <> 0 then raise exception 'FAIL: an unknown address got a recovery token'; end if;
 
   select * into res from auth.set_password_with_token(r, 'brand-new-pass-42');
   if res.session_token is null then raise exception 'FAIL: recovery did not sign in'; end if;
@@ -191,6 +197,26 @@ begin
   if n <> 1 then raise exception 'FAIL: new password does not work'; end if;
 
   raise notice 'PASS: recovery flow resets password and revokes sessions';
+end
+$t$;
+
+-- A deactivated account gets no recovery token, whatever its role.
+reset role;
+
+do $t$
+declare n int; v_id uuid;
+begin
+  select u.id into v_id from auth.users u where lower(u.email) = 'newcust@example.test';
+  update public.profiles set is_active = false where id = v_id;
+
+  select count(*) into n from auth.request_recovery('newcust@example.test');
+  if n <> 0 then raise exception 'FAIL: a deactivated account got a recovery token'; end if;
+
+  update public.profiles set is_active = true where id = v_id;
+  select count(*) into n from auth.request_recovery('newcust@example.test');
+  if n <> 1 then raise exception 'FAIL: reactivating did not restore recovery'; end if;
+
+  raise notice 'PASS: recovery is refused for a deactivated account, restored when reactivated';
 end
 $t$;
 
