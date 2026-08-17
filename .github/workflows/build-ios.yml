@@ -48,6 +48,25 @@ jobs:
             *) echo "::error::app_url must be an https:// URL — the app cannot load anything else." ; exit 1 ;;
           esac
 
+      # A Vercel *deployment* URL (the ones with a hash segment, e.g.
+      # project-eyfvs4l8j-team.vercel.app) is frozen to one build forever. An app
+      # pinned to it would never see another update — which throws away the whole
+      # reason the shell loads the deployed site — and it may sit behind
+      # deployment protection, so the app would open to a login wall.
+      - name: Reject a pinned deployment URL
+        run: |
+          HOST=$(echo "${{ inputs.app_url }}" | sed -E 's#https://##; s#/.*##')
+          for segment in $(echo "$HOST" | tr '.' ' ' | head -1 | tr '-' ' '); do
+            if [ ${#segment} -ge 8 ] && [ ${#segment} -le 12 ] \
+               && echo "$segment" | grep -qE '[0-9]' \
+               && echo "$segment" | grep -qE '^[a-z0-9]+$' \
+               && ! echo "$segment" | grep -qE '^[a-z]+[0-9]{1,2}$'; then
+              echo "::error::'$segment' in $HOST looks like a Vercel deployment hash. Use the production domain (Vercel → Project → Domains — the one with no hash), or a custom domain. A build pinned to a deployment URL can never be updated without a new store release."
+              exit 1
+            fi
+          done
+          echo "Production host looks stable: $HOST"
+
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
