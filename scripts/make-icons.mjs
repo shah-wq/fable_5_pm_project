@@ -17,7 +17,7 @@
  */
 
 import { deflateSync } from 'node:zlib';
-import { writeFileSync, mkdirSync } from 'node:fs';
+import { writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -118,3 +118,47 @@ write('icon-512.png', 512);
 write('icon-maskable-512.png', 512, { maskable: true });
 write('apple-touch-icon.png', 180);
 write('favicon-32.png', 32);
+
+// --- Native shells ---------------------------------------------------------
+// The same mark at the sizes each platform asks for, written straight into the
+// Capacitor projects, so the store builds do not carry Capacitor's placeholder
+// icon and there is no manual export step to forget.
+
+const ANDROID_RES = join(OUT, '..', 'android', 'app', 'src', 'main', 'res');
+const IOS_ICON = join(
+  OUT, '..', 'ios', 'App', 'App', 'Assets.xcassets', 'AppIcon.appiconset'
+);
+
+/** Android launcher densities: mdpi 48 → xxxhdpi 192. */
+const DENSITIES = [
+  ['mipmap-mdpi', 48],
+  ['mipmap-hdpi', 72],
+  ['mipmap-xhdpi', 96],
+  ['mipmap-xxhdpi', 144],
+  ['mipmap-xxxhdpi', 192],
+];
+
+function writeInto(dir, name, size, opts = {}) {
+  if (!existsSync(dir)) return false;
+  const scale = opts.maskable ? 0.78 : 1;
+  const buf = png(size, (x, y) =>
+    mix(opts.transparent ? [11, 31, 58] : NAVY, SUN, sunCoverage(x, y, size, scale))
+  );
+  writeFileSync(join(dir, name), buf);
+  return true;
+}
+
+let wroteNative = false;
+for (const [dir, size] of DENSITIES) {
+  const target = join(ANDROID_RES, dir);
+  // ic_launcher is the square icon, _round the circular one, and _foreground
+  // the adaptive layer that launchers may crop — so that one gets the inset.
+  wroteNative = writeInto(target, 'ic_launcher.png', size) || wroteNative;
+  writeInto(target, 'ic_launcher_round.png', size);
+  writeInto(target, 'ic_launcher_foreground.png', size, { maskable: true });
+}
+if (wroteNative) console.log(`wrote Android launcher icons (${DENSITIES.length} densities)`);
+
+if (writeInto(IOS_ICON, 'AppIcon-512@2x.png', 1024)) {
+  console.log('wrote ios AppIcon-512@2x.png (1024px)');
+}

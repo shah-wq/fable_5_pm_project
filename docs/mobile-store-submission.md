@@ -29,7 +29,8 @@ times. Everything else on this page can be done in an afternoon.
 | In-app account deletion route | **Done** — More → Privacy and legal |
 | Forced-update check | **Done** — `/api/app/version`, floor set in Admin → Settings |
 | Demo account for reviewers | **Done** — `npm run db:demo-customer` |
-| Capacitor native projects (`ios/`, `android/`) | **Not created** — needs macOS + Xcode and Android Studio; see below |
+| Capacitor native projects (`ios/`, `android/`) | **Created and committed** — real launcher icons, hardened manifest |
+| Cloud build without a Mac | **Done** — GitHub Actions workflows for both platforms |
 | Store listings, screenshots, declarations | **Not started** — needs the accounts above |
 
 The PWA is the recommended first step in the spec (§1, §10): add-to-home-screen
@@ -37,31 +38,58 @@ and Android push cost days rather than weeks and will tell you whether customers
 actually want an app before you commit to two store listings and a release
 cadence. It is already deployed.
 
-## Creating the native shells
+## Building the apps — no Mac required
 
-Run on a Mac with Xcode and Android Studio installed. It cannot be done on the
-server — the platform SDKs are not there.
+The `android/` and `ios/` projects are in the repository, configured and with
+the real launcher icons. Two GitHub Actions workflows build them on hosted
+runners, so everything happens in the browser.
+
+**Actions → Build Android app → Run workflow.** Enter your production URL, leave
+the type as `debug`, and the run produces an installable APK under Artifacts.
+That needs no Apple or Google account at all — download it, open it on an
+Android phone, allow installing from that source. It is the fastest way to hold
+the real app.
+
+**Actions → Build iOS app → Run workflow.** In `check` mode this compiles the
+app on a macOS runner and proves the project builds; it produces nothing
+installable, because Apple will not run unsigned code on a device. In
+`testflight` mode it produces a signed `.ipa` — that needs the Apple Developer
+account and four repository secrets, listed in the workflow file.
+
+Both workflows take the production URL as an input and pass it through
+`npx cap sync`, so the shell always points at the deployed app rather than a
+hard-coded guess. The shell loading the deployed web app (`server.url`) is what
+makes the "web content updates need no release" property in §8 true — only
+native changes (plugins, permissions, icons, target SDK) need a submission.
+
+Signing secrets to add before a release build (Settings → Secrets and variables
+→ Actions):
+
+| Secret | For |
+| --- | --- |
+| `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD` | The Play upload bundle |
+| `IOS_CERTIFICATE_BASE64`, `IOS_CERTIFICATE_PASSWORD`, `IOS_PROVISIONING_PROFILE_BASE64`, `IOS_TEAM_ID` | The App Store `.ipa` |
+
+Neither keystore nor certificate is ever committed — CI writes them from the
+secrets at build time and, on iOS, into a throwaway keychain deleted after the
+run.
+
+**Locally instead** (if someone does have a Mac and prefers Xcode):
 
 ```bash
-npm install --save-dev @capacitor/cli
-npm install @capacitor/core @capacitor/ios @capacitor/android \
-            @capacitor/push-notifications @capacitor/camera \
-            @capacitor/preferences @capacitor/share @capacitor/app
-
-# capacitor.config.ts is already in the repo. Point it at production:
-CAPACITOR_APP_URL=https://your-production-domain npx cap add ios
-CAPACITOR_APP_URL=https://your-production-domain npx cap add android
-npx cap sync
+npm ci
+CAPACITOR_APP_URL=https://your-production-domain npx cap sync
+npx cap open android   # Android Studio
+npx cap open ios       # Xcode
 ```
 
-The shell loads the deployed web app (`server.url`), which is what makes the
-"web content updates need no release" property in §8 true. Only native changes —
-plugins, permissions, icons, target SDK — need a store submission.
-
-Android network security: the generated
-`android/app/src/main/res/xml/network_security_config.xml` must keep
-`cleartextTrafficPermitted="false"`. `capacitor.config.ts` sets
-`cleartext: false` and `allowMixedContent: false` for the same reason.
+Android network security is already hardened:
+`android/app/src/main/res/xml/network_security_config.xml` sets
+`cleartextTrafficPermitted="false"` with system trust anchors only and no
+debug-override block, the manifest references it and sets
+`allowBackup="false"`, and `capacitor.config.ts` sets `cleartext: false` and
+`allowMixedContent: false`. `POST_NOTIFICATIONS` (Android 13+) and `CAMERA` are
+declared.
 
 ## Both stores
 

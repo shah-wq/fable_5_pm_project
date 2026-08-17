@@ -1,0 +1,153 @@
+name: Build iOS app
+
+# Builds the customer app for iOS on a GitHub-hosted macOS runner, so no Mac of
+# your own is needed. Run it from the website: Actions → Build iOS app → Run
+# workflow.
+#
+# Two modes, and the difference matters:
+#
+#   check    — compiles the app without signing it. Proves the project builds
+#              and catches real errors. Produces nothing installable. Needs no
+#              Apple account, so you can run it today.
+#   testflight — a signed .ipa for TestFlight and the App Store. Requires an
+#              Apple Developer account and the four secrets listed below. There
+#              is no way around that: Apple will not run unsigned code on a
+#              device, and no CI service can sign on your behalf.
+#
+# macOS runner minutes bill at a higher rate than Linux ones, so this is
+# deliberately manual rather than on every push.
+
+on:
+  workflow_dispatch:
+    inputs:
+      app_url:
+        description: 'Production URL the app should load — your real Vercel domain, e.g. https://solarflow.vercel.app'
+        required: true
+      mode:
+        description: 'check = compile only (no account needed) · testflight = signed .ipa'
+        type: choice
+        options: [check, testflight]
+        default: check
+      version_name:
+        description: 'Version shown in the app and the store (e.g. 1.0.0)'
+        required: false
+        default: '1.0.0'
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      # The shell loads this URL and nothing else, so a wrong one produces an
+      # app that opens to a blank screen. Fail here, not on a tester's phone.
+      - name: Check the app URL
+        run: |
+          case "${{ inputs.app_url }}" in
+            https://*) echo "Building against ${{ inputs.app_url }}" ;;
+            *) echo "::error::app_url must be an https:// URL — the app cannot load anything else." ; exit 1 ;;
+          esac
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
+      - name: Point the shell at production
+        env:
+          CAPACITOR_APP_URL: ${{ inputs.app_url }}
+        run: npx cap sync ios
+
+      - name: Set the version and build number
+        run: |
+          cd ios/App
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${{ inputs.version_name }}" App/Info.plist
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${{ github.run_number }}" App/Info.plist
+
+      # --- check: does it compile? ------------------------------------------
+      - name: Compile without signing
+        if: inputs.mode == 'check'
+        working-directory: ios/App
+        run: |
+          xcodebuild \
+            -scheme App \
+            -sdk iphoneos \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            build
+
+      # --- testflight: the real thing ---------------------------------------
+      # Repository secrets required (Settings → Secrets and variables → Actions):
+      #   IOS_CERTIFICATE_BASE64      — base64 of your Apple distribution .p12
+      #   IOS_CERTIFICATE_PASSWORD    — its password
+      #   IOS_PROVISIONING_PROFILE_BASE64 — base64 of the App Store .mobileprovision
+      #   IOS_TEAM_ID                 — your 10-character Apple team ID
+      # Getting these needs an Apple Developer account, which for an
+      # organisation needs a D-U-N-S number — start that early, it can take
+      # weeks and it blocks everything here.
+      - name: Install the signing certificate and profile
+        if: inputs.mode == 'testflight'
+        env:
+          CERT: ${{ secrets.IOS_CERTIFICATE_BASE64 }}
+          CERT_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+          PROFILE: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
+        run: |
+          if [ -z "$CERT" ] || [ -z "$PROFILE" ]; then
+            echo "::error::Signing secrets are missing. Apple will not accept an unsigned build — add the four IOS_* secrets, or run this workflow in 'check' mode."
+            exit 1
+          fi
+          # A throwaway keychain that exists only for this run.
+          KEYCHAIN=$RUNNER_TEMP/signing.keychain-db
+          security create-keychain -p runner "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p runner "$KEYCHAIN"
+          echo "$CERT" | base64 -d > $RUNNER_TEMP/cert.p12
+          security import $RUNNER_TEMP/cert.p12 -P "$CERT_PASSWORD" -A \
+            -t cert -f pkcs12 -k "$KEYCHAIN"
+          security set-key-partition-list -S apple-tool:,apple: -k runner "$KEYCHAIN"
+          security list-keychain -d user -s "$KEYCHAIN"
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          echo "$PROFILE" | base64 -d > ~/Library/MobileDevice/Provisioning\ Profiles/app.mobileprovision
+
+      - name: Archive and export the .ipa
+        if: inputs.mode == 'testflight'
+        working-directory: ios/App
+        env:
+          TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
+        run: |
+          cat > ExportOptions.plist <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>teamID</key><string>${TEAM_ID}</string>
+            <key>uploadSymbols</key><true/>
+          </dict>
+          </plist>
+          PLIST
+          xcodebuild -scheme App -sdk iphoneos -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath $RUNNER_TEMP/App.xcarchive \
+            DEVELOPMENT_TEAM="$TEAM_ID" \
+            archive
+          xcodebuild -exportArchive \
+            -archivePath $RUNNER_TEMP/App.xcarchive \
+            -exportOptionsPlist ExportOptions.plist \
+            -exportPath $RUNNER_TEMP/export
+
+      - name: Upload the .ipa
+        if: inputs.mode == 'testflight'
+        uses: actions/upload-artifact@v4
+        with:
+          name: solarflow-ios-${{ inputs.version_name }}-ipa
+          path: ${{ runner.temp }}/export/*.ipa
+          if-no-files-found: error
+
+      - name: Clean up the keychain
+        if: always() && inputs.mode == 'testflight'
+        run: security delete-keychain $RUNNER_TEMP/signing.keychain-db || true

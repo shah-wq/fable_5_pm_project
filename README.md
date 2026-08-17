@@ -21,8 +21,10 @@ in the database and the app server. Built so far:
   PDF viewing and the native share sheet, biometric app lock, in-app account
   deletion, and a forced-update floor. **One database, one API, one set of RLS
   policies** — the app is this web surface in a native shell, never a second
-  backend. `capacitor.config.ts` wraps it for the stores; see
-  `docs/mobile-store-submission.md`.
+  backend. The `android/` and `ios/` Capacitor projects are committed and
+  configured, and two GitHub Actions workflows build them on hosted runners —
+  Actions → **Build Android app** produces an installable APK with no developer
+  account at all. See `docs/mobile-store-submission.md`.
 
 Requirements to run: **Node.js 20+** and **PostgreSQL 15+** (anywhere — a
 VPS, a managed database, or localhost) plus SMTP credentials for outbound

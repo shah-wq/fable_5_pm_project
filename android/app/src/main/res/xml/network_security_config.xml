@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  TLS only, certificate validation enforced (mobile spec §6).
+
+  API 28+ already defaults to no cleartext, but stating it explicitly means a
+  future debug tweak or a library that asks for a plaintext exception has to
+  edit this file to get one, rather than inheriting it silently.
+
+  There is deliberately no debug-overrides block: a device trusting a user-added
+  CA is how traffic gets intercepted, and this app carries homeowners' addresses
+  and documents.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

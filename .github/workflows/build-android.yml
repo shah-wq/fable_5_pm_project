@@ -1,0 +1,137 @@
+name: Build Android app
+
+# Builds the customer app for Android. Run it from the GitHub website —
+# Actions → Build Android app → Run workflow — and download the result from the
+# run's Artifacts section. No Mac, no Android Studio, no terminal.
+#
+# The debug APK needs no developer account and no signing setup: download it,
+# open it on an Android phone, allow installing from this source, done. That is
+# the fastest way to hold the real app in your hand.
+#
+# The release bundle (.aab, the format Play requires) is only produced when the
+# four signing secrets are present, because Play will not accept an unsigned or
+# debug-signed upload.
+
+on:
+  workflow_dispatch:
+    inputs:
+      app_url:
+        description: 'Production URL the app should load — your real Vercel domain, e.g. https://solarflow.vercel.app'
+        required: true
+      build_type:
+        description: 'debug = installable APK for testing · release = signed .aab for Play'
+        type: choice
+        options: [debug, release]
+        default: debug
+      version_name:
+        description: 'Version shown in the app and the store (e.g. 1.0.0)'
+        required: false
+        default: '1.0.0'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # The shell loads this URL and nothing else, so a wrong one produces an
+      # app that opens to a blank screen. Fail here, not on a tester's phone.
+      - name: Check the app URL
+        run: |
+          case "${{ inputs.app_url }}" in
+            https://*) echo "Building against ${{ inputs.app_url }}" ;;
+            *) echo "::error::app_url must be an https:// URL — the app cannot load anything else." ; exit 1 ;;
+          esac
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      # The runner already has the Android SDK; this only accepts licences and
+      # puts the tools on PATH.
+      - uses: android-actions/setup-android@v3
+
+      - run: npm ci
+
+      # The shell loads the deployed web app, so the version numbers baked in
+      # here are what the app reports under More and what the forced-update
+      # check compares against.
+      - name: Point the shell at production
+        env:
+          CAPACITOR_APP_URL: ${{ inputs.app_url }}
+        run: npx cap sync android
+
+      - name: Set the version
+        run: |
+          VERSION="${{ inputs.version_name }}"
+          CODE=${{ github.run_number }}
+          sed -i "s/versionName \".*\"/versionName \"$VERSION\"/" android/app/build.gradle
+          sed -i "s/versionCode [0-9]*/versionCode $CODE/" android/app/build.gradle
+          grep -E "versionName|versionCode" android/app/build.gradle
+
+      # --- debug: installable on any phone, no account needed ---------------
+      - name: Build the debug APK
+        if: inputs.build_type == 'debug'
+        working-directory: android
+        run: ./gradlew --no-daemon assembleDebug
+
+      - name: Upload the APK
+        if: inputs.build_type == 'debug'
+        uses: actions/upload-artifact@v4
+        with:
+          name: solarflow-android-${{ inputs.version_name }}-debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+
+      # --- release: the signed bundle Play requires -------------------------
+      # Set these four repository secrets first (Settings → Secrets and
+      # variables → Actions):
+      #   ANDROID_KEYSTORE_BASE64  — base64 of your upload keystore (.jks)
+      #   ANDROID_KEYSTORE_PASSWORD
+      #   ANDROID_KEY_ALIAS
+      #   ANDROID_KEY_PASSWORD
+      # Losing the keystore is unrecoverable, so let Google manage the app
+      # signing key and keep this one only as the upload key.
+      - name: Restore the signing keystore
+        if: inputs.build_type == 'release'
+        env:
+          KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$KEYSTORE" ]; then
+            echo "::error::No ANDROID_KEYSTORE_BASE64 secret. Play will not accept an unsigned bundle — add the four signing secrets, or build a debug APK instead."
+            exit 1
+          fi
+          echo "$KEYSTORE" | base64 -d > android/app/upload-keystore.jks
+
+      - name: Build the release bundle
+        if: inputs.build_type == 'release'
+        working-directory: android
+        env:
+          SF_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          SF_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          SF_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: ./gradlew --no-daemon bundleRelease
+
+      - name: Upload the bundle
+        if: inputs.build_type == 'release'
+        uses: actions/upload-artifact@v4
+        with:
+          name: solarflow-android-${{ inputs.version_name }}-release-aab
+          path: android/app/build/outputs/bundle/release/app-release.aab
+          if-no-files-found: error
+
+      # Always keep the log of what failed: a Gradle error is unreadable from
+      # the run summary alone.
+      - name: Upload build reports on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-build-reports
+          path: android/app/build/reports
+          if-no-files-found: ignore
