@@ -37,7 +37,7 @@ jobs:
   build:
     runs-on: macos-14
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       # The shell loads this URL and nothing else, so a wrong one produces an
       # app that opens to a blank screen. Fail here, not on a tester's phone.
@@ -67,7 +67,7 @@ jobs:
           done
           echo "Production host looks stable: $HOST"
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: '22'
           cache: npm
@@ -161,7 +161,7 @@ jobs:
 
       - name: Upload the .ipa
         if: inputs.mode == 'testflight'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: solarflow-ios-${{ inputs.version_name }}-ipa
           path: ${{ runner.temp }}/export/*.ipa
