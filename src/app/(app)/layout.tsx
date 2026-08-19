@@ -9,6 +9,7 @@ import { TabBar } from './portal/_components/TabBar';
 
 const NAV: Record<UserRole, NavItem[]> = {
   admin: [
+    { href: '/dashboard', label: 'Dashboard', icon: '◱' },
     { href: '/pipeline', label: 'Pipeline', icon: '▦' },
     { href: '/projects', label: 'Projects', icon: '☰' },
     { href: '/projects/new', label: 'New project', icon: '＋' },
@@ -18,6 +19,7 @@ const NAV: Record<UserRole, NavItem[]> = {
     { href: '/admin/finance', label: 'Finance', icon: '$' },
   ],
   ops: [
+    { href: '/dashboard', label: 'Dashboard', icon: '◱' },
     { href: '/pipeline', label: 'Pipeline', icon: '▦' },
     { href: '/projects', label: 'Projects', icon: '☰' },
     { href: '/projects/new', label: 'New project', icon: '＋' },
@@ -26,6 +28,7 @@ const NAV: Record<UserRole, NavItem[]> = {
   ],
   designer: [{ href: '/designer', label: 'My queue', icon: '▦' }],
   finance: [
+    { href: '/dashboard', label: 'Dashboard', icon: '◱' },
     { href: '/admin/finance', label: 'Finance', icon: '$' },
     { href: '/reports', label: 'Reports', icon: '▤' },
   ],

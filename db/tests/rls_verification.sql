@@ -868,11 +868,243 @@ end
 $t$;
 
 -- =============================================================================
+-- Dashboard module (002800) — the whole point is that role scoping is the view's
+-- RLS, not a filter the page remembers to apply. So: the same query, run as five
+-- different roles, must return five different row sets without anything in the
+-- query changing.
+-- =============================================================================
+
+-- The invariant, for every role: project_metrics returns exactly the projects
+-- that role can already read, no more and no fewer. Compared against
+-- public.projects as the same role rather than against a hardcoded count, so the
+-- check keeps meaning as the fixtures above grow.
+create or replace function public.t_metrics_match(p_who text)
+returns void
+language plpgsql
+as $$
+declare
+  v_metrics int;
+  v_projects int;
+begin
+  select count(*) into v_metrics from public.project_metrics;
+  select count(*) into v_projects from public.projects;
+  if v_metrics <> v_projects then
+    raise exception 'FAIL: % sees % projects but % rows in project_metrics',
+      p_who, v_projects, v_metrics;
+  end if;
+  if exists (select 1 from public.project_metrics m
+             where not exists (select 1 from public.projects p where p.id = m.id)) then
+    raise exception 'FAIL: % sees a project_metrics row for a project it cannot read', p_who;
+  end if;
+end
+$$;
+
+grant execute on function public.t_metrics_match(text) to authenticated;
+
+select t_login(t_id('u_admin'), 'admin');
+set role authenticated;
+do $t$
+declare n int;
+begin
+  perform public.t_metrics_match('admin');
+  select count(*) into n from public.project_metrics;
+  if n < 2 then raise exception 'FAIL: admin expected every project in project_metrics, got %', n; end if;
+
+  -- The derived columns exist and are sane rather than merely present.
+  if exists (select 1 from public.project_metrics where days_in_stage < 0) then
+    raise exception 'FAIL: project_metrics produced a negative days_in_stage';
+  end if;
+  if exists (select 1 from public.project_metrics where age_band not in ('0-14','15-30','31-60','60+')) then
+    raise exception 'FAIL: project_metrics produced an unknown age band';
+  end if;
+  if exists (select 1 from public.project_metrics where attention_days is null) then
+    raise exception 'FAIL: a project has no ageing threshold';
+  end if;
+  raise notice 'PASS: admin sees every project in project_metrics, with sane derived columns';
+end
+$t$;
+reset role;
+
+select t_login(t_id('u_ops'), 'ops');
+set role authenticated;
+do $t$
+begin
+  perform public.t_metrics_match('ops');
+  raise notice 'PASS: ops sees every project in project_metrics';
+end
+$t$;
+reset role;
+
+select t_login(t_id('u_dealer1'), 'dealer');
+set role authenticated;
+do $t$
+begin
+  perform public.t_metrics_match('dealer1');
+  if exists (select 1 from public.project_metrics where dealer_id <> t_id('dealer1')) then
+    raise exception 'FAIL: dealer1 sees another dealer''s project in project_metrics';
+  end if;
+  if not exists (select 1 from public.project_metrics where dealer_id = t_id('dealer1')) then
+    raise exception 'FAIL: dealer1 sees none of their own projects';
+  end if;
+  -- profiles is self-or-staff: a dealer must not learn the PM's name from a view.
+  if exists (select 1 from public.project_metrics where pm_name is not null) then
+    raise exception 'FAIL: dealer can read a PM name through project_metrics';
+  end if;
+  raise notice 'PASS: dealer sees only their own book, without staff names';
+end
+$t$;
+reset role;
+
+select t_login(t_id('u_customer1'), 'customer');
+set role authenticated;
+do $t$
+begin
+  perform public.t_metrics_match('customer1');
+  -- Their own houses and nobody else's. t_metrics_match already pins the row set
+  -- to what public.projects gives this customer; this pins the ownership.
+  if exists (select 1 from public.project_metrics where client_id <> t_id('client1')) then
+    raise exception 'FAIL: customer1 sees a project belonging to someone else';
+  end if;
+  if not exists (select 1 from public.project_metrics) then
+    raise exception 'FAIL: customer1 sees none of their own projects';
+  end if;
+  raise notice 'PASS: customer sees only their own projects in project_metrics';
+end
+$t$;
+reset role;
+
+-- Finance cannot read public.projects at all, so project_metrics is empty for it
+-- and the financial slice is where its dashboard reads from.
+select t_login(t_id('u_finance'), 'finance');
+set role authenticated;
+do $t$
+declare n int;
+begin
+  select count(*) into n from public.project_metrics;
+  if n <> 0 then
+    raise exception 'FAIL: finance must see no rows in project_metrics, saw %', n;
+  end if;
+  select count(*) into n from public.project_financial_metrics;
+  if n < 2 then
+    raise exception 'FAIL: finance expected every project in project_financial_metrics, got %', n;
+  end if;
+  -- The same two contract values project_financials reports, through the newer
+  -- view: the finance dashboard and the finance list cannot disagree about money.
+  if (select coalesce(sum(contract_value), 0) from public.project_financial_metrics)
+     <> (select coalesce(sum(contract_value), 0) from public.project_financials) then
+    raise exception 'FAIL: the two finance views disagree about contract value';
+  end if;
+  raise notice 'PASS: finance reads the financial slice, and nothing from project_metrics';
+end
+$t$;
+reset role;
+
+-- §8: "no workload or stage-detail charts" must hold because the data is
+-- unreachable, not because a component was left out.
+do $t$
+begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'project_financial_metrics'
+      and column_name in ('assigned_pm', 'pm_name', 'survey_days', 'design_days',
+                          'permit_days', 'install_days', 'days_in_stage', 'is_ageing')
+  ) then
+    raise exception 'FAIL: the finance slice exposes workload or stage-detail columns';
+  end if;
+  raise notice 'PASS: the finance slice cannot answer a workload or stage-timing question';
+end
+$t$;
+
+-- A dealer must not reach the financial slice either.
+select t_login(t_id('u_dealer1'), 'dealer');
+set role authenticated;
+do $t$
+declare n int;
+begin
+  select count(*) into n from public.project_financial_metrics;
+  if n <> 0 then
+    raise exception 'FAIL: dealer can read project_financial_metrics (% rows)', n;
+  end if;
+  raise notice 'PASS: project_financial_metrics is finance/admin only';
+end
+$t$;
+reset role;
+
+-- Both dashboard views are read-only.
+select t_login(t_id('u_admin'), 'admin');
+set role authenticated;
+do $t$
+begin
+  begin
+    update public.project_metrics set name = 'nope' where id = t_id('project1');
+    raise exception 'FAIL: project_metrics is writable';
+  exception when insufficient_privilege or feature_not_supported or wrong_object_type
+    or object_not_in_prerequisite_state then
+    raise notice 'PASS: project_metrics is read-only';
+  end;
+end
+$t$;
+reset role;
+
+-- Thresholds: readable by everyone signed in (a dealer's own ageing list uses
+-- them), writable only by an admin.
+select t_login(t_id('u_dealer1'), 'dealer');
+set role authenticated;
+do $t$
+declare n int;
+begin
+  select count(*) into n from public.stage_thresholds;
+  if n < 6 then raise exception 'FAIL: stage_thresholds not readable by a dealer (% rows)', n; end if;
+  begin
+    update public.stage_thresholds set attention_days = 1 where stage = 'permits';
+    if found then raise exception 'FAIL: a dealer changed an ageing threshold'; end if;
+  exception when insufficient_privilege then
+    null;  -- also acceptable
+  end;
+  raise notice 'PASS: thresholds readable by all, not writable by a dealer';
+end
+$t$;
+reset role;
+
+select t_login(t_id('u_admin'), 'admin');
+set role authenticated;
+do $t$
+begin
+  update public.stage_thresholds set attention_days = 12 where stage = 'permits';
+  if (select attention_days from public.stage_thresholds where stage = 'permits') <> 12 then
+    raise exception 'FAIL: admin could not change an ageing threshold';
+  end if;
+  -- And the view picks the new number up immediately: the threshold is config,
+  -- not a value copied into the data.
+  if exists (select 1 from public.project_metrics where stage = 'permits' and attention_days <> 12) then
+    raise exception 'FAIL: project_metrics did not pick up the new threshold';
+  end if;
+  update public.stage_thresholds set attention_days = 30 where stage = 'permits';
+  raise notice 'PASS: an admin retunes a threshold and every chart follows on the next read';
+end
+$t$;
+reset role;
+
+-- The check constraint is real: a threshold of zero days would put every project
+-- in the attention list forever.
+do $t$
+begin
+  begin
+    update public.stage_thresholds set attention_days = 0 where stage = 'design';
+    raise exception 'FAIL: a zero-day threshold was accepted';
+  exception when check_violation then
+    raise notice 'PASS: thresholds must be at least one day';
+  end;
+end
+$t$;
+
+-- =============================================================================
 -- Cleanup of test-only helpers
 -- =============================================================================
 
 drop function public.t_login(uuid, text);
 drop function public.t_id(text);
+drop function public.t_metrics_match(text);
 drop table public.t_fix;
 drop table public.t_tokens;
 

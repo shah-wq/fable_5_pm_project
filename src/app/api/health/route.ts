@@ -70,7 +70,15 @@ export async function GET() {
                  and column_name = 'is_archived')             as m_002400,
              to_regclass('public.customer_asks')::text        as m_002500,
              to_regprocedure('public.customer_portal_set_initial_password(uuid,text,boolean)')::text
-                                                              as m_002600`
+                                                              as m_002600,
+             -- 002700 revoked the emailed-code login. Nothing is created, so the
+             -- probe is the revocation itself: false once it has been applied.
+             -- has_function_privilege raises if the function is absent, hence the
+             -- guard — an absent function is also a closed door.
+             (to_regprocedure('auth.request_otp(text)') is not null
+              and has_function_privilege('authenticated', 'auth.request_otp(text)', 'execute'))
+                                                              as m_002700_otp_open,
+             to_regclass('public.project_metrics')::text      as m_002800`
         )
       );
       const p = probes.rows[0];
@@ -86,6 +94,8 @@ export async function GET() {
         '20260803002400_customer_management.sql': Number(p.m_002400) === 1,
         '20260803002500_mobile_app.sql': Boolean(p.m_002500),
         '20260803002600_customer_passwords.sql': Boolean(p.m_002600),
+        '20260803002700_invite_customers_with_tokens.sql': p.m_002700_otp_open === false,
+        '20260803002800_dashboard.sql': Boolean(p.m_002800),
       };
       const behind = Object.entries(applied)
         .filter(([, present]) => !present)

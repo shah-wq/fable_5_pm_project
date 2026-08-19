@@ -7,7 +7,18 @@ import { ProjectsTable } from './ProjectsTable';
 
 export const dynamic = 'force-dynamic';
 
-const STATUSES = ['active', 'on_hold', 'complete', 'cancelled'] as const;
+// 'open' is a filter, not a stored status: everything not complete or cancelled.
+// It is what the dashboard's "Active projects" card counts, so the drill-down
+// from that card lands on the same rows.
+const STATUSES = ['open', 'active', 'on_hold', 'complete', 'cancelled'] as const;
+
+const STATUS_LABELS: Record<string, string> = {
+  open: 'open (active or on hold)',
+  active: 'active',
+  on_hold: 'on hold',
+  complete: 'complete',
+  cancelled: 'cancelled',
+};
 
 type Search = {
   q?: string;
@@ -100,7 +111,7 @@ export default async function ProjectsPage({ searchParams }: { searchParams: Pro
           <option value="">All statuses</option>
           {STATUSES.map((s) => (
             <option key={s} value={s}>
-              {s.replace('_', ' ')}
+              {STATUS_LABELS[s]}
             </option>
           ))}
         </select>

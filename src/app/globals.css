@@ -2709,3 +2709,503 @@ a {
   flex: 1;
   margin: 0;
 }
+
+/* --------------------------------------------------- dashboard
+   Analytics dashboard (Dashboard Module spec). Four bands on one scrolling
+   page, densest at the top, with a sticky filter bar so the active filter set
+   is always visible. Charts are server-rendered SVG, so almost everything here
+   is layout rather than chart styling. */
+
+.dashboard {
+  padding: 20px 24px 48px;
+}
+
+/* The filter bar sticks, because §2 wants the active set visible while you
+   scroll past ten charts. */
+.filter-bar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--paper);
+  padding: 8px 0 10px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.filter-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.active-period {
+  font-weight: 600;
+  margin-right: 4px;
+}
+
+.toggle-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 11px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--ink-soft);
+  text-decoration: none;
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.toggle-chip:hover {
+  border-color: var(--navy);
+  color: var(--ink);
+}
+
+/* On = this filter is currently changing the numbers. Worth being obvious. */
+.toggle-chip.on {
+  background: var(--navy);
+  border-color: var(--navy);
+  color: #fff;
+}
+
+.toggle-pair {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.toggle-chip.clear {
+  color: var(--danger);
+}
+
+.section-title {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-soft);
+  margin: 26px 0 10px;
+}
+
+.band-caption {
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  margin: 0 0 8px;
+}
+
+/* --- stat cards ---------------------------------------------------------- */
+
+.stat-link {
+  text-decoration: none;
+  color: inherit;
+}
+
+.stat-link:hover {
+  border-color: var(--navy);
+}
+
+.stat-card.tone-amber {
+  border-color: var(--amber);
+  box-shadow: inset 3px 0 0 var(--amber);
+}
+
+.stat-card.tone-danger {
+  border-color: var(--danger);
+  box-shadow: inset 3px 0 0 var(--danger);
+}
+
+.stat-card.tone-danger .stat-value {
+  color: var(--danger);
+}
+
+.stat-card.tone-ok {
+  box-shadow: inset 3px 0 0 var(--ok);
+}
+
+.stat-change {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.stat-change.good {
+  color: var(--ok);
+}
+
+.stat-change.bad {
+  color: var(--danger);
+}
+
+.stat-change.flat {
+  color: var(--ink-soft);
+  font-weight: 400;
+}
+
+.stat-hint {
+  font-size: 11.5px;
+  color: var(--ink-soft);
+}
+
+.sparkline {
+  width: 108px;
+  height: 26px;
+  display: block;
+}
+
+/* --- chart frames -------------------------------------------------------- */
+
+.chart-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.panel.chart {
+  margin-bottom: 14px;
+}
+
+.chart-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.chart-head h2 {
+  margin: 0;
+}
+
+/* The period and filter, drawn as part of the chart: a screenshot of this ends
+   up in an email and has to still make sense there (§9). */
+.chart-caption {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
+.chart-note {
+  margin: 10px 0 0;
+  font-size: 12px;
+  color: var(--ink-soft);
+  line-height: 1.45;
+}
+
+/* Honest empty states (§9): 'no completed projects yet', never a zero that
+   looks like a failure. */
+.chart-empty {
+  margin: 6px 0;
+  font-size: 13px;
+  color: var(--ink-soft);
+  background: #f2f0ea;
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+
+.chart-empty.ok {
+  color: var(--ok);
+  background: #eef6f1;
+}
+
+.chart-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  overflow: visible;
+}
+
+.chart-svg a text {
+  text-decoration: none;
+}
+
+.chart-legend {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 10px 0 0;
+  padding: 0;
+  font-size: 11.5px;
+  color: var(--ink-soft);
+}
+
+.chart-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.chart-legend .swatch {
+  width: 11px;
+  height: 11px;
+  border-radius: 3px;
+  display: inline-block;
+}
+
+.chart-png {
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--ink-soft);
+  border-radius: 8px;
+  padding: 4px 9px;
+  font: inherit;
+  font-size: 11.5px;
+  cursor: pointer;
+  flex: none;
+}
+
+.chart-png:hover:not(:disabled) {
+  border-color: var(--navy);
+  color: var(--ink);
+}
+
+.funnel-aside {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  /* Visually detached from the flow, per §4 — these are not stages. */
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--line);
+}
+
+.stage-detail {
+  margin-top: 12px;
+  font-size: 13px;
+}
+
+.stage-detail summary {
+  cursor: pointer;
+  color: var(--ink-soft);
+  font-size: 12.5px;
+}
+
+.mini-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  margin-top: 8px;
+}
+
+.mini-table th,
+.mini-table td {
+  text-align: left;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.mini-table thead th {
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-soft);
+}
+
+/* An inline bar inside a table cell, so outliers are visible without reading
+   the numbers (§6). */
+.cell-bar {
+  display: block;
+  height: 4px;
+  background: #e9e6de;
+  border-radius: 2px;
+  margin-bottom: 3px;
+  min-width: 40px;
+}
+
+.cell-bar > span {
+  display: block;
+  height: 100%;
+  background: #4b86b4;
+  border-radius: 2px;
+}
+
+.rate {
+  color: var(--ink-soft);
+  font-size: 12px;
+}
+
+.rate.bad {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+/* --- heat map ------------------------------------------------------------ */
+
+.heat-wrap {
+  overflow-x: auto;
+}
+
+.heat {
+  border-collapse: separate;
+  border-spacing: 2px;
+  font-size: 12px;
+  min-width: 560px;
+}
+
+.heat th[scope='col'] {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--ink-soft);
+  text-align: center;
+  padding: 2px 4px;
+  font-weight: 600;
+}
+
+.heat th[scope='row'] {
+  text-align: left;
+  font-weight: 400;
+  white-space: nowrap;
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding-right: 8px;
+}
+
+.heat th[scope='row'] a {
+  color: var(--navy);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.heat td {
+  text-align: center;
+  min-width: 46px;
+  padding: 5px 4px;
+  border-radius: 4px;
+  background: #f4f2ec;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- attention lists ---------------------------------------------------- */
+
+.attention-band {
+  margin-top: 8px;
+  scroll-margin-top: 90px;
+}
+
+.panel.attention h3 {
+  font-size: 14px;
+  margin: 0 0 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.panel.attention .count {
+  background: var(--navy);
+  color: #fff;
+  border-radius: 999px;
+  padding: 1px 8px;
+  font-size: 12px;
+}
+
+.panel.attention .activity li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.panel.attention .activity a {
+  color: var(--navy);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.panel.attention .over {
+  color: var(--danger);
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.panel.skeleton {
+  min-height: 96px;
+  display: flex;
+  align-items: center;
+}
+
+/* --- responsive, down to 380px (§9) ------------------------------------- */
+
+@media (max-width: 560px) {
+  .dashboard {
+    padding: 14px 12px 40px;
+  }
+  /* The filter bar collapses into a stack rather than a sheet: it is four
+     selects, and a sheet would add a control to open it. */
+  .filter-bar .filters {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+  .filter-bar .filters input[type='search'] {
+    grid-column: 1 / -1;
+  }
+  .chart-grid {
+    grid-template-columns: 1fr;
+  }
+  .chart-head {
+    flex-direction: column;
+  }
+}
+
+/* --- print / PDF (§10) -------------------------------------------------- */
+
+@media print {
+  .dashboard {
+    padding: 0;
+  }
+  .filter-bar .filters,
+  .filter-toggles .toggle-chip,
+  .chart-png,
+  .board-actions {
+    display: none !important;
+  }
+  .filter-bar {
+    position: static;
+    border: none;
+  }
+  /* The period and filter must survive into the PDF, or a printed chart is
+     unattributable. */
+  .filter-toggles .active-period {
+    display: inline;
+    font-size: 12px;
+  }
+  .chart-grid {
+    display: block;
+  }
+  .panel {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    margin-bottom: 10px;
+  }
+  .stat-cards {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .heat-wrap {
+    overflow: visible;
+  }
+  .stage-detail[open] summary {
+    display: none;
+  }
+  @page {
+    size: portrait;
+    margin: 12mm;
+  }
+}
+
+/* A checkbox with a sentence beside it, aligned on the first line of text. */
+.check-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  font-size: 13.5px;
+  margin: 4px 0 8px;
+  max-width: 640px;
+}
+
+.check-row input[type='checkbox'] {
+  margin-top: 3px;
+  flex: none;
+}

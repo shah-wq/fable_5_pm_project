@@ -30,6 +30,9 @@ export const ROUTE_ACCESS: Record<string, readonly UserRole[]> = {
   '/admin': ['admin'],
   '/pipeline': ['admin', 'ops'],
   '/projects': ['admin', 'ops'],
+  // Finance gets its own, much smaller, dashboard (Dashboard spec §8). Customers
+  // get none — there is deliberately no entry that admits them.
+  '/dashboard': ['admin', 'ops', 'finance'],
   '/leads': ['admin', 'ops'],
   '/reports': ['admin', 'ops', 'finance'],
   '/api/reports': ['admin', 'ops', 'finance'],

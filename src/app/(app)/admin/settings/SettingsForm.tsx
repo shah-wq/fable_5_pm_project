@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { STAGES, STAGE_LABELS } from '@/lib/stages/definitions';
 
 interface Option {
   id: string;
@@ -11,9 +12,12 @@ interface Option {
 export function SettingsForm({
   settings,
   signers,
+  thresholds,
 }: {
   settings: Record<string, unknown>;
   signers: Option[];
+  /** Per-stage ageing thresholds; empty until the dashboard migration is run. */
+  thresholds: Record<string, number>;
 }) {
   const router = useRouter();
   const [notice, setNotice] = useState<string | null>(null);
@@ -46,6 +50,11 @@ export function SettingsForm({
           playStoreUrl: f.get('playStoreUrl'),
           minAppVersion: f.get('minAppVersion'),
           latestAppVersion: f.get('latestAppVersion'),
+          onHoldAlertThreshold: Number(f.get('onHoldAlertThreshold')) || 5,
+          opsSeeFinancials: f.get('opsSeeFinancials') === 'on',
+          stageThresholds: Object.fromEntries(
+            Object.keys(thresholds).map((stage) => [stage, Number(f.get(`threshold_${stage}`)) || 0])
+          ),
         }),
       });
       const json = await res.json().catch(() => null);
@@ -53,7 +62,15 @@ export function SettingsForm({
         setError(json?.error ?? `Save failed (${res.status}).`);
         return;
       }
-      setNotice('Settings saved.');
+      // A partial save is reported, not glossed over: on a database that has not
+      // run the newest migration some of these fields have nowhere to go, and
+      // "Settings saved" would be a lie the admin only discovers later.
+      const skipped: string[] | undefined = json?.skipped;
+      setNotice(
+        skipped?.length
+          ? `Saved, except for ${skipped.join(' and ')}. Those fields need the newest SQL file from db/dist run in the SQL editor.`
+          : 'Settings saved.'
+      );
       router.refresh();
     } finally {
       setBusy(false);
@@ -170,6 +187,53 @@ export function SettingsForm({
           />
         </label>
       </div>
+
+      {Object.keys(thresholds).length > 0 && (
+        <>
+          <h2>Dashboard</h2>
+          <p className="dim">
+            How many days a project may sit in each stage before the dashboard calls it out. These
+            drive the Needs attention list and the ageing colours on the funnel, and they are meant to
+            be re-tuned — a week in Procurement is fine, a week in Installation is not. Set them from
+            what your own projects actually do, not from what you hope they do.
+          </p>
+          <div className="form-grid">
+            {STAGES.filter((s) => s !== 'complete').map((stage) => (
+              <label className="field" key={stage}>
+                <span>{STAGE_LABELS[stage]} — attention after</span>
+                <input
+                  name={`threshold_${stage}`}
+                  type="number"
+                  min={1}
+                  max={3650}
+                  defaultValue={thresholds[stage] ?? 21}
+                />
+              </label>
+            ))}
+            <label className="field">
+              <span>On-hold card turns amber above</span>
+              <input
+                name="onHoldAlertThreshold"
+                type="number"
+                min={1}
+                max={999}
+                defaultValue={Number(settings.on_hold_alert_threshold ?? 5)}
+              />
+            </label>
+          </div>
+          <label className="check-row">
+            <input
+              name="opsSeeFinancials"
+              type="checkbox"
+              defaultChecked={Boolean(settings.ops_see_financials)}
+            />
+            <span>
+              Show the money figures to the PM (ops) role — pipeline value on the dashboard and the
+              dealer pipeline column. Admins and the finance role always see them.
+            </span>
+          </label>
+        </>
+      )}
 
       <button className="btn" type="submit" disabled={busy}>
         {busy ? 'Saving…' : 'Save settings'}

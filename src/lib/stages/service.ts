@@ -39,6 +39,8 @@ export interface ProjectCard {
   dealerName: string | null;
   jurisdictionName: string | null;
   pmName: string | null;
+  /** Needed by the dashboard's per-PM filter; the name alone is ambiguous. */
+  assignedPm: string | null;
   createdAt: string;
 }
 
@@ -120,7 +122,13 @@ export async function loadProjectCards(
     };
 
     if (!filters.includeCompleted && !filters.status) where.push(`p.status <> 'complete'`);
-    if (filters.status) add('p.status = ?::public.project_status', filters.status);
+    // 'open' is not a project_status value — it is the dashboard's definition of
+    // an active project ("everything not Complete or Cancelled", Dashboard spec
+    // §3), so that clicking the Active projects card lands on exactly the rows
+    // that were counted. Without it the card and the list would differ by
+    // however many projects are on hold.
+    if (filters.status === 'open') where.push(`p.status not in ('complete', 'cancelled')`);
+    else if (filters.status) add('p.status = ?::public.project_status', filters.status);
     if (filters.stage) add('p.stage = ?::public.project_stage', filters.stage);
     if (filters.jurisdictionId) add('p.jurisdiction_id = ?', filters.jurisdictionId);
     if (filters.dealerId) add('p.dealer_id = ?', filters.dealerId);
@@ -133,7 +141,7 @@ export async function loadProjectCards(
 
     const { rows } = await client.query(
       `select p.id, p.code, p.name, p.address, p.stage, p.status, p.system_size_kw,
-              p.created_at,
+              p.created_at, p.assigned_pm,
               c.first_name || ' ' || c.last_name as client_name,
               dl.name as dealer_name,
               j.name as jurisdiction_name,
@@ -183,6 +191,7 @@ export async function loadProjectCards(
         dealerName: r.dealer_name,
         jurisdictionName: r.jurisdiction_name,
         pmName: r.pm_name,
+        assignedPm: r.assigned_pm,
         createdAt: asIso(r.created_at),
       };
     });

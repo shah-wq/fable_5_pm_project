@@ -60,6 +60,19 @@ const PROBES: Probe[] = [
   { name: 'project_contact()', usedBy: 'App: call my project manager', sql: `select count(*) from public.project_contact('00000000-0000-0000-0000-000000000000')` },
   { name: 'app_public_settings()', usedBy: 'App: legal links, version floor', sql: 'select count(*) from public.app_public_settings()' },
   { name: 'customer_portal_set_initial_password()', usedBy: 'Admin → Customers: set password', sql: `select pg_get_functiondef('public.customer_portal_set_initial_password(uuid,text,boolean)'::regprocedure) is not null` },
+  // Dashboard module. The first probe names the columns the charts read, so a
+  // half-applied 002800 reports 42703 rather than looking healthy.
+  { name: 'project_metrics', usedBy: 'Dashboard (every chart)', sql: 'select count(*) from public.project_metrics' },
+  {
+    name: 'project_metrics columns',
+    usedBy: 'Dashboard (funnel, cycle time, attention lists)',
+    sql: `select m.is_ageing, m.hold_overdue, m.age_band, m.attention_days,
+                 m.total_days_ex_hold, m.survey_done_on, m.pto_done_on, m.sales_rep_id
+          from public.project_metrics m limit 1`,
+  },
+  { name: 'stage_thresholds', usedBy: 'Dashboard attention lists, Admin → Settings', sql: 'select count(*) from public.stage_thresholds' },
+  { name: 'project_financial_metrics', usedBy: 'Dashboard (finance view)', sql: 'select count(*) from public.project_financial_metrics' },
+  { name: 'app_settings.on_hold_alert_threshold', usedBy: 'Dashboard headline cards', sql: 'select on_hold_alert_threshold, ops_see_financials from public.app_settings where id' },
 ];
 
 export async function GET() {

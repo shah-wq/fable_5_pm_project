@@ -1,5 +1,6 @@
 import { guardPath } from '@/lib/auth/session';
 import { withUser } from '@/lib/db';
+import { optionalRows } from '@/lib/db-optional';
 import { AdminTabs } from '../_components/AdminTabs';
 import { SettingsForm } from './SettingsForm';
 
@@ -15,8 +16,19 @@ export default async function AdminSettingsPage() {
       `select id, coalesce(full_name, email) as name from public.profiles
        where role in ('admin', 'ops') and is_active and deleted_at is null order by 2`
     );
-    return { settings: settings.rows[0], signers: signers.rows };
+    // Arrives with the dashboard migration; an empty list simply leaves that
+    // section out rather than taking the settings page down (see db-optional.ts).
+    const thresholds = await optionalRows<{ stage: string; attention_days: number }>(
+      c,
+      'the per-stage ageing thresholds (public.stage_thresholds)',
+      `select stage::text as stage, attention_days from public.stage_thresholds`
+    );
+    return { settings: settings.rows[0], signers: signers.rows, thresholds };
   });
+
+  const thresholds = Object.fromEntries(
+    data.thresholds.map((t) => [t.stage, Number(t.attention_days)])
+  );
 
   return (
     <main className="table-page">
@@ -27,7 +39,7 @@ export default async function AdminSettingsPage() {
         Company details print on work orders and change orders; the turnaround default pre-fills
         Stage 2 due dates; the CO numbering feeds change orders.
       </p>
-      <SettingsForm settings={data.settings} signers={data.signers} />
+      <SettingsForm settings={data.settings} signers={data.signers} thresholds={thresholds} />
     </main>
   );
 }
