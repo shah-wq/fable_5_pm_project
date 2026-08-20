@@ -61,18 +61,41 @@ export async function CycleBand({
   const trendWindow = `12 months to ${shortDate(ctx.period.current.to)}`;
   const completions = trend.reduce((n, p) => n + p.completed, 0);
 
+  // How much history the per-stage columns actually rest on.
+  const biggestSample = Math.max(0, ...durations.map((d) => d.count));
+  const thinSample = biggestSample > 0 && biggestSample <= 2;
+
   return (
     <>
       <Chart
         title={`${stat} days per stage`}
         caption={`${caption} · stages finished in the period`}
-        empty="No stage has been completed in this period yet — the columns fill in as projects move."
+        empty="No stage has been completed in this period yet — the columns fill in as projects move. Widen the date range at the top of the page to see the stages your finished projects went through."
         isEmpty={durations.every((d) => d.value === null)}
         wide
         note={
-          f.exHold
-            ? 'Hold time is recorded per project, not per stage, so there is no honest way to subtract "the hold days that happened during Permit". With the toggle on, projects that were ever held are left out of these seven figures instead.'
-            : 'Each column counts only projects that finished that stage inside the period, so a stage nobody completed shows no data rather than a zero.'
+          <>
+            {/* A median of one project is that project, not a median. Saying so
+                is the difference between a figure someone can use and a figure
+                that quietly misleads — and the fix is a wider date range, which
+                the reader will not think of unless told. */}
+            {thinSample && (
+              <>
+                <strong>
+                  {biggestSample === 1
+                    ? 'Only one project finished a stage in this period'
+                    : `At most ${biggestSample} projects finished any one stage in this period`}
+                  , so these are single measurements rather than typical times.
+                </strong>{' '}
+                A solar project takes longer than a month, so a short date range rarely contains
+                many finished stages — widen it at the top of the page for a figure worth acting
+                on.{' '}
+              </>
+            )}
+            {f.exHold
+              ? 'Hold time is recorded per project, not per stage, so there is no honest way to subtract "the hold days that happened during Permit". With the toggle on, projects that were ever held are left out of these seven figures instead.'
+              : 'Each column counts only projects that finished that stage inside the period, so a stage nobody completed shows no data rather than a zero.'}
+          </>
         }
       >
         <Columns
@@ -82,7 +105,15 @@ export async function CycleBand({
             label: d.label,
             value: d.value,
             colour: STAGE_COLOURS[DURATION_STAGE[d.key] ?? 'design'],
-            sub: d.count > 0 ? `n=${d.count}` : undefined,
+            // Plain words, not 'n=4'. The count is how much to trust the column
+            // above it, which is exactly the sort of thing nobody reads if it is
+            // written in statistics notation.
+            sub:
+              d.count === 0
+                ? undefined
+                : d.count === 1
+                  ? '1 project'
+                  : `${fmtInt(d.count)} projects`,
           }))}
         />
       </Chart>

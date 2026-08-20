@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { STAGES, STAGE_LABELS, type StageKey } from '@/lib/stages/definitions';
 import { AGE_BANDS, type AgeBand } from '@/lib/dashboard/queries';
+import { axisTick, niceAxis } from '@/lib/dashboard/axis';
 import { ChartPng } from './ChartPng';
 
 /**
@@ -219,6 +220,14 @@ const Text = ({
 /** Trim a long label to fit the label gutter without overlapping the bar. */
 const clip = (s: string, max = 20): string => (s.length > max ? s.slice(0, max - 1) + '…' : s);
 
+/**
+ * Every label below is built as ONE template string rather than adjacent JSX
+ * expressions. React separates adjacent children with comment nodes in the
+ * rendered output, so `{value}{unit}` becomes `7<!-- -->d` — which breaks
+ * copying a figure out of a chart, and breaks anything reading the markup.
+ */
+const tick = axisTick;
+
 // --- segmented horizontal bars --------------------------------------------
 
 export interface Segment {
@@ -374,19 +383,19 @@ export function Columns({
   const H = 210;
   const base = H - 34;
   const top = 16;
-  const peak = Math.max(1, ...rows.map((r) => r.value ?? 0));
+  const { max: peak, step } = niceAxis(Math.max(...rows.map((r) => r.value ?? 0)));
   const colW = W / rows.length;
   const barW = Math.min(64, colW * 0.56);
 
   return (
     <Svg height={H} label={label}>
-      {/* Three gridlines: enough to read a height, few enough to stay quiet. */}
+      {/* Four gridlines at whole steps: enough to read a height off, few enough
+          to stay quiet. */}
       {[0.25, 0.5, 0.75, 1].map((f) => (
         <g key={f}>
           <line x1={0} x2={W} y1={base - (base - top) * f} y2={base - (base - top) * f} stroke={GRID} />
           <Text x={2} y={base - (base - top) * f - 7} size={10} colour={INK_SOFT}>
-            {Math.round(peak * f)}
-            {unit}
+            {`${tick(step * f * 4)}${unit}`}
           </Text>
         </g>
       ))}
@@ -406,8 +415,7 @@ export function Columns({
                   <title>{`${r.label}: ${r.value}${unit}${r.sub ? ` (${r.sub})` : ''}`}</title>
                 </rect>
                 <Text x={cx} y={base - h - 9} anchor="middle" size={11} weight={600}>
-                  {r.value}
-                  {unit}
+                  {`${r.value}${unit}`}
                 </Text>
               </>
             )}
@@ -449,7 +457,7 @@ export function LineChart({
   const base = H - 30;
   const top = 20;
   const left = 34;
-  const peak = Math.max(1, ...points.map((p) => p.value ?? 0));
+  const { max: peak, step: tickStep } = niceAxis(Math.max(...points.map((p) => p.value ?? 0)));
   const step = points.length > 1 ? (W - left - 14) / (points.length - 1) : 0;
   const x = (i: number) => left + i * step;
   const y = (v: number) => base - ((base - top) * v) / peak;
@@ -463,8 +471,7 @@ export function LineChart({
         <g key={f}>
           <line x1={left} x2={W} y1={base - (base - top) * f} y2={base - (base - top) * f} stroke={GRID} />
           <Text x={0} y={base - (base - top) * f} size={10} colour={INK_SOFT}>
-            {Math.round(peak * f)}
-            {unit}
+            {`${tick(tickStep * f * 4)}${unit}`}
           </Text>
         </g>
       ))}
@@ -480,8 +487,7 @@ export function LineChart({
       {drawn.length > 0 && (
         <>
           <Text x={x(drawn[0].i)} y={y(drawn[0].value!) - 12} anchor="middle" size={11} weight={600}>
-            {drawn[0].value}
-            {unit}
+            {`${drawn[0].value}${unit}`}
           </Text>
           {drawn.length > 1 && (
             <Text
@@ -491,8 +497,7 @@ export function LineChart({
               size={11}
               weight={600}
             >
-              {drawn[drawn.length - 1].value}
-              {unit}
+              {`${drawn[drawn.length - 1].value}${unit}`}
             </Text>
           )}
         </>
@@ -533,7 +538,7 @@ export function MultiLine({
   const base = H - 30;
   const top = 16;
   const left = 30;
-  const peak = Math.max(1, ...series.flatMap((s) => s.values));
+  const { max: peak, step: tickStep } = niceAxis(Math.max(0, ...series.flatMap((s) => s.values)));
   const step = months.length > 1 ? (W - left - 12) / (months.length - 1) : 0;
   const x = (i: number) => left + i * step;
   const y = (v: number) => base - ((base - top) * v) / peak;
@@ -544,7 +549,7 @@ export function MultiLine({
         <g key={f}>
           <line x1={left} x2={W} y1={base - (base - top) * f} y2={base - (base - top) * f} stroke={GRID} />
           <Text x={0} y={base - (base - top) * f} size={10} colour={INK_SOFT}>
-            {Math.round(peak * f)}
+            {tick(tickStep * f * 4)}
           </Text>
         </g>
       ))}

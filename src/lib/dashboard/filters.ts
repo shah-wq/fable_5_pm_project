@@ -57,6 +57,20 @@ const isoDate = (v: string | null): string | null =>
 const uuid = (v: string | null): string | null =>
   v && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v) ? v : null;
 
+/**
+ * This quarter, not this month.
+ *
+ * A solar project takes longer than a month — the seven stage durations in the
+ * fixture data alone add up to around ninety days — so a one-month window
+ * usually contains one or two finished stages and no completions at all. The
+ * cycle-time band then reads "no data" across six of its seven columns and a
+ * median over a single project, which looks like a broken dashboard rather than
+ * a short date range. A quarter is roughly one project cycle, so the band has
+ * something to say the first time anyone opens the page. The month is still one
+ * click away.
+ */
+const DEFAULT_PERIOD: Period = 'quarter';
+
 export function parseFilters(search: RawSearch): DashboardFilters {
   const period = one(search.period);
   const stage = one(search.stage);
@@ -72,7 +86,7 @@ export function parseFilters(search: RawSearch): DashboardFilters {
         ? period === 'custom' && !from && !to
           ? 'all'
           : (period as Period)
-        : 'month',
+        : DEFAULT_PERIOD,
     customFrom: from,
     customTo: to,
     pm: uuid(one(search.pm)),
@@ -92,7 +106,7 @@ export function filterQuery(
   override: Partial<Record<string, string | null>> = {}
 ): string {
   const params = new URLSearchParams();
-  if (f.period !== 'month') params.set('period', f.period);
+  if (f.period !== DEFAULT_PERIOD) params.set('period', f.period);
   if (f.period === 'custom') {
     if (f.customFrom) params.set('from', f.customFrom);
     if (f.customTo) params.set('to', f.customTo);

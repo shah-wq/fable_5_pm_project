@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { niceAxis } from './axis.ts';
 import {
   buildWhere,
   captionFor,
@@ -21,7 +22,7 @@ import {
  */
 
 const base = (over: Partial<DashboardFilters> = {}): DashboardFilters => ({
-  period: 'month',
+  period: 'quarter',
   customFrom: null,
   customTo: null,
   pm: null,
@@ -36,9 +37,12 @@ const base = (over: Partial<DashboardFilters> = {}): DashboardFilters => ({
 
 const UUID = '11111111-2222-3333-4444-555555555555';
 
-test('parseFilters defaults to this month and median', () => {
+test('parseFilters defaults to this quarter and median', () => {
   const f = parseFilters({});
-  assert.equal(f.period, 'month');
+  // A quarter, not a month: a solar project takes about ninety days, so a
+  // one-month window holds one or two finished stages and no completions, and
+  // the cycle-time band reads as broken rather than as a narrow date range.
+  assert.equal(f.period, 'quarter');
   assert.equal(f.stat, 'median', 'median is the default — one 90-day permit drags an average');
   assert.equal(f.exHold, false);
   assert.equal(f.mine, false);
@@ -54,7 +58,7 @@ test('parseFilters drops anything not on the allowlist', () => {
     from: '2026-13-45x',
     stat: 'mean',
   });
-  assert.equal(f.period, 'month');
+  assert.equal(f.period, 'quarter');
   assert.equal(f.stage, null);
   assert.equal(f.status, null);
   assert.equal(f.pm, null);
@@ -92,15 +96,15 @@ test('a custom period with no dates is all time, not an empty range', () => {
 });
 
 test('resolvePeriod: this month', () => {
-  const p = resolvePeriod(base(), '2026-08-19');
+  const p = resolvePeriod(base({ period: 'month' }), '2026-08-19');
   assert.deepEqual(p.current, { from: '2026-08-01', to: '2026-08-19' });
   assert.equal(p.label, 'August 2026');
 });
 
 test('resolvePeriod: quarter and year', () => {
-  assert.equal(resolvePeriod(base({ period: 'quarter' }), '2026-08-19').current.from, '2026-07-01');
-  assert.equal(resolvePeriod(base({ period: 'quarter' }), '2026-08-19').label, 'Q3 2026');
-  assert.equal(resolvePeriod(base({ period: 'quarter' }), '2026-01-05').current.from, '2026-01-01');
+  assert.equal(resolvePeriod(base(), '2026-08-19').current.from, '2026-07-01');
+  assert.equal(resolvePeriod(base(), '2026-08-19').label, 'Q3 2026');
+  assert.equal(resolvePeriod(base(), '2026-01-05').current.from, '2026-01-01');
   assert.equal(resolvePeriod(base({ period: 'year' }), '2026-08-19').current.from, '2026-01-01');
 });
 
@@ -108,7 +112,7 @@ test('the previous period is the same number of days, not the previous calendar 
   // 1–19 August is 19 days, so the comparison is the 19 days before it: 13–31
   // July. Comparing a 19-day slice against a 31-day month would report a fall
   // in completions that never happened.
-  const p = resolvePeriod(base(), '2026-08-19');
+  const p = resolvePeriod(base({ period: 'month' }), '2026-08-19');
   assert.deepEqual(p.previous, { from: '2026-07-13', to: '2026-07-31' });
 });
 
@@ -127,7 +131,7 @@ test('a custom range given backwards is corrected, not left empty', () => {
 test('resolvePeriod is timezone-proof at the month boundary', () => {
   // Parsed as UTC throughout: on the 1st, 'this month' must start on the 1st,
   // not on the last day of the previous month in some local offset.
-  const p = resolvePeriod(base(), '2026-03-01');
+  const p = resolvePeriod(base({ period: 'month' }), '2026-03-01');
   assert.deepEqual(p.current, { from: '2026-03-01', to: '2026-03-01' });
   assert.deepEqual(p.previous, { from: '2026-02-28', to: '2026-02-28' });
 });
@@ -209,6 +213,9 @@ test('filterQuery round-trips through parseFilters', () => {
 
 test('filterQuery omits the defaults so a plain link stays plain', () => {
   assert.equal(filterQuery(base()), '');
+  // A non-default period is carried, so narrowing to one month survives a click
+  // on any other control.
+  assert.equal(filterQuery(base({ period: 'month' })), 'period=month');
 });
 
 test('filterQuery overrides replace and can delete', () => {
@@ -223,6 +230,24 @@ test('projectsLink carries the drill-down into the Projects tab', () => {
   assert.equal(projectsLink(f, { stage: 'permits' }), `/projects?stage=permits&dealer=${UUID}`);
   assert.equal(projectsLink(base(), { status: 'on_hold' }), '/projects?status=on_hold');
   assert.equal(projectsLink(base()), '/projects');
+});
+
+test('the y-axis top is round, and its quarters are whole steps', () => {
+  // The bug this prevents: scaling the axis to the tallest bar labelled the
+  // gridlines with quarters of that peak, so a 7-day peak read 2d / 4d / 5d /
+  // 7d — a chart that looks like it cannot do arithmetic.
+  for (const peak of [1, 3, 7, 14, 28, 45, 105, 366, 1200]) {
+    const { max, step } = niceAxis(peak);
+    assert.ok(max >= peak, `axis top ${max} is below the peak ${peak}`);
+    assert.equal(step * 4, max, `quarters of ${max} are not ${step}`);
+    // Not more than double the peak: an axis with the bars squashed into the
+    // bottom half is as unreadable as one with no room at all.
+    assert.ok(max <= peak * 2, `axis top ${max} wastes too much room over ${peak}`);
+  }
+  assert.deepEqual(niceAxis(7), { max: 8, step: 2 });
+  assert.deepEqual(niceAxis(28), { max: 32, step: 8 });
+  // No data at all still needs an axis to draw.
+  assert.deepEqual(niceAxis(0), { max: 4, step: 1 });
 });
 
 test('every chart can state its period and its filter', () => {

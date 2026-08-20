@@ -111,7 +111,9 @@ export function FilterBar({
       </form>
 
       <div className="filter-toggles">
-        <span className="active-period">Showing: {period.label}</span>
+        {/* One text node: this line is the only attribution on a printed page,
+            and React would otherwise split it around a comment node. */}
+        <span className="active-period">{`Showing: ${period.label}`}</span>
         {view.mineToggle && (
           <Link className={`toggle-chip${filters.mine ? ' on' : ''}`} href={toggle('mine', filters.mine)}>
             My projects
