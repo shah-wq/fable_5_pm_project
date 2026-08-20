@@ -97,7 +97,8 @@ export async function FinanceBand({
               key: m.label,
               label: m.label,
               total: m.received + m.pending + m.na,
-              valueLabel: `${fmtInt(m.received)} in`,
+              valueLabel: fmtInt(m.received),
+              valueSub: 'received',
               segments: [
                 { key: 'received', value: m.received, colour: OK, label: 'Received' },
                 { key: 'pending', value: m.pending, colour: AMBER, label: 'Outstanding' },

@@ -2718,6 +2718,11 @@ a {
 
 .dashboard {
   padding: 20px 24px 48px;
+  /* Capped, because a chart is not improved by being 2000px wide. Without this
+     the panels stretch to the full window on a large monitor and every chart's
+     type scales up with them (the charts are SVG with a viewBox, so their text
+     grows in proportion to the box). */
+  max-width: 1320px;
 }
 
 /* The filter bar sticks, because §2 wants the active set visible while you
@@ -2908,11 +2913,24 @@ a {
   background: #eef6f1;
 }
 
+/* A viewBox plus width:100% is the whole responsive story — the chart shrinks to
+   380px with no media query. The cap is the other half of it: the type scales
+   with the box, so an uncapped chart in a wide panel renders 12px labels at
+   20px+ and a count and its percentage start to read as one number. 960px keeps
+   the labels near their design size while still filling a two-column grid cell. */
 .chart-svg {
   width: 100%;
   height: auto;
   display: block;
   overflow: visible;
+  max-width: 960px;
+  margin-inline: auto;
+}
+
+/* The full-width charts — funnel, stage durations, stage breakdown — earn a
+   little more room, but not unlimited. */
+.chart-wide .chart-svg {
+  max-width: 1040px;
 }
 
 .chart-svg a text {

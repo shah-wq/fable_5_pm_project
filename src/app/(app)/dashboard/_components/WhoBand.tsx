@@ -238,7 +238,10 @@ export async function WhoBand({
                   key: p.id ?? p.name,
                   label: p.name,
                   value: p.avgDays!,
-                  valueLabel: `${p.avgDays}d (${p.completed})`,
+                  // The figure and how many projects it averages, as two fields —
+                  // the sample size is what stops this being read as a ranking.
+                  valueLabel: `${p.avgDays}d`,
+                  valueSub: `n=${p.completed}`,
                 }))}
             />
           </Chart>

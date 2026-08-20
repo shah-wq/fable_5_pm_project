@@ -153,7 +153,9 @@ const W = 720;
 const ROW_H = 26;
 const ROW_GAP = 6;
 const LABEL_W = 138;
-const VALUE_W = 74;
+/** Room for a count and a second figure beside it, without them colliding. */
+const SUB_W = 48;
+const VALUE_W = 96;
 const BAR_W = W - LABEL_W - VALUE_W;
 
 /**
@@ -233,6 +235,15 @@ export interface BarRow {
   segments: Segment[];
   /** Right-hand figure. Defaults to the total. */
   valueLabel?: string;
+  /**
+   * A second figure beside the first — a share, or a sample size.
+   *
+   * It is a separate field rather than more text in valueLabel because putting
+   * two numbers in one string produces "3 75%", which reads as one number:
+   * three hundred and seventy-five percent. Kept apart they are drawn in
+   * different weights and colours, which is what makes them two facts.
+   */
+  valueSub?: string;
   href?: string;
 }
 
@@ -289,9 +300,23 @@ export function StackedBars({
                 x += w;
                 return rect;
               })}
-            <Text x={W} y={y + ROW_H / 2} anchor="end" weight={600}>
+            {/* Two right-hand fields on their own baselines: the count bold at a
+                fixed column, the secondary figure lighter and smaller against
+                the right edge. Both are right-aligned so the numbers line up
+                down the chart instead of drifting with their width. */}
+            <Text
+              x={row.valueSub ? W - SUB_W : W}
+              y={y + ROW_H / 2}
+              anchor="end"
+              weight={600}
+            >
               {row.valueLabel ?? fmtInt(row.total)}
             </Text>
+            {row.valueSub && (
+              <Text x={W} y={y + ROW_H / 2} anchor="end" size={11.5} colour={INK_SOFT}>
+                {row.valueSub}
+              </Text>
+            )}
           </Row>
         );
       })}
@@ -305,7 +330,13 @@ export function Bars({
   label,
   colour = STAGE_COLOURS.design,
 }: {
-  rows: Array<{ key: string; label: string; value: number; valueLabel?: string }>;
+  rows: Array<{
+    key: string;
+    label: string;
+    value: number;
+    valueLabel?: string;
+    valueSub?: string;
+  }>;
   label: string;
   colour?: string;
 }) {
@@ -317,6 +348,7 @@ export function Bars({
         label: r.label,
         total: r.value,
         valueLabel: r.valueLabel,
+        valueSub: r.valueSub,
         segments: [{ key: r.key, value: r.value, colour, label: r.label }],
       }))}
     />

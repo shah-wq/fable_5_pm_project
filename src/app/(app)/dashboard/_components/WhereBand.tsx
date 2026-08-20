@@ -50,7 +50,10 @@ export async function WhereBand({
     label: s.label,
     total: s.count,
     href: projectsLink(f, { stage: s.stage, status: 'active' }),
-    valueLabel: s.count === 0 ? '0' : `${fmtInt(s.count)}  ${fmtPct(s.share)}`,
+    // The count and its share of the active book are two facts, so they are two
+    // fields: "3" and "75%", not the string "3 75%".
+    valueLabel: fmtInt(s.count),
+    valueSub: s.count === 0 ? undefined : fmtPct(s.share),
     segments: AGE_BANDS.map((band) => ({
       key: band,
       value: s.bands[band],
