@@ -122,7 +122,9 @@ export function Chart({
         </div>
         {png && !isEmpty && <ChartPng name={title} />}
       </header>
-      {isEmpty ? <p className="chart-empty">{empty}</p> : children}
+      {/* The body scrolls sideways on a narrow screen rather than shrinking the
+          chart's type — a chart nobody can read is worse than one they scroll. */}
+      {isEmpty ? <p className="chart-empty">{empty}</p> : <div className="chart-body">{children}</div>}
       {note && !isEmpty && <p className="chart-note">{note}</p>}
     </section>
   );
@@ -150,14 +152,34 @@ export const bandLegend = () =>
 
 // --- geometry --------------------------------------------------------------
 
-const W = 720;
+/**
+ * Design widths, in viewBox units.
+ *
+ * An SVG with a viewBox scales everything inside it, type included, so the
+ * design width decides how big the labels look: a 720-unit chart stretched
+ * across a 1500px panel renders 12px text at 25px. The fix is not to stop the
+ * chart filling the screen — it is to design it at roughly the width it will be
+ * shown at, so the scale factor stays near 1.
+ *
+ * So: CHART_W for a chart sharing a row, WIDE_W for one that spans the page.
+ * Anything wider than these caps out in CSS rather than growing further.
+ */
+export const CHART_W = 720;
+/**
+ * 1320 is a compromise, and worth naming as one. A viewBox scales its type, so
+ * no single design width is right for both a 1280 laptop and a 1920 monitor:
+ * this one renders ~14px labels at 1920 (filling the panel) and ~9px at 1280
+ * (small print, still legible). Designing narrower left a third of a full-width
+ * panel empty; designing wider made the labels shout on the common case.
+ */
+export const WIDE_W = 1320;
+
 const ROW_H = 26;
 const ROW_GAP = 6;
 const LABEL_W = 138;
 /** Room for a count and a second figure beside it, without them colliding. */
 const SUB_W = 48;
 const VALUE_W = 96;
-const BAR_W = W - LABEL_W - VALUE_W;
 
 /**
  * The SVG shell. A viewBox plus width:100% is the whole responsive story: the
@@ -165,10 +187,12 @@ const BAR_W = W - LABEL_W - VALUE_W;
  * its design width so the type never becomes a poster.
  */
 function Svg({
+  width,
   height,
   label,
   children,
 }: {
+  width: number;
   height: number;
   label: string;
   children: React.ReactNode;
@@ -176,7 +200,8 @@ function Svg({
   return (
     <svg
       className="chart-svg"
-      viewBox={`0 0 ${W} ${height}`}
+      style={{ maxWidth: width }}
+      viewBox={`0 0 ${width} ${height}`}
       role="img"
       aria-label={label}
       preserveAspectRatio="xMinYMin meet"
@@ -194,6 +219,7 @@ const Text = ({
   size = 12,
   colour = INK,
   weight,
+  cls,
 }: {
   x: number;
   y: number;
@@ -202,8 +228,11 @@ const Text = ({
   size?: number;
   colour?: string;
   weight?: number;
+  /** Marks a role, e.g. an axis gridline label, for CSS and for the tests. */
+  cls?: string;
 }) => (
   <text
+    className={cls}
     x={x}
     y={y}
     fontSize={size}
@@ -268,16 +297,21 @@ export function StackedBars({
   rows,
   label,
   max,
+  width = CHART_W,
 }: {
   rows: BarRow[];
   label: string;
   max?: number;
+  /** CHART_W when sharing a row, WIDE_W when spanning the page. */
+  width?: number;
 }) {
+  const W = width;
+  const BAR_W = W - LABEL_W - VALUE_W;
   const peak = Math.max(1, max ?? Math.max(...rows.map((r) => r.total), 1));
   const height = rows.length * (ROW_H + ROW_GAP) + 4;
 
   return (
-    <Svg height={height} label={label}>
+    <Svg width={W} height={height} label={label}>
       {rows.map((row, i) => {
         const y = i * (ROW_H + ROW_GAP) + 2;
         let x = LABEL_W;
@@ -338,6 +372,7 @@ export function Bars({
   rows,
   label,
   colour = STAGE_COLOURS.design,
+  width,
 }: {
   rows: Array<{
     key: string;
@@ -348,10 +383,12 @@ export function Bars({
   }>;
   label: string;
   colour?: string;
+  width?: number;
 }) {
   return (
     <StackedBars
       label={label}
+      width={width}
       rows={rows.map((r) => ({
         key: r.key,
         label: r.label,
@@ -375,11 +412,14 @@ export function Columns({
   rows,
   label,
   unit = 'd',
+  width = CHART_W,
 }: {
   rows: Array<{ key: string; label: string; value: number | null; colour: string; sub?: string }>;
   label: string;
   unit?: string;
+  width?: number;
 }) {
+  const W = width;
   const H = 210;
   const base = H - 34;
   const top = 16;
@@ -388,13 +428,13 @@ export function Columns({
   const barW = Math.min(64, colW * 0.56);
 
   return (
-    <Svg height={H} label={label}>
+    <Svg width={W} height={H} label={label}>
       {/* Four gridlines at whole steps: enough to read a height off, few enough
           to stay quiet. */}
       {[0.25, 0.5, 0.75, 1].map((f) => (
         <g key={f}>
           <line x1={0} x2={W} y1={base - (base - top) * f} y2={base - (base - top) * f} stroke={GRID} />
-          <Text x={2} y={base - (base - top) * f - 7} size={10} colour={INK_SOFT}>
+          <Text x={2} y={base - (base - top) * f - 7} size={10} colour={INK_SOFT} cls="axis-tick">
             {`${tick(step * f * 4)}${unit}`}
           </Text>
         </g>
@@ -447,12 +487,15 @@ export function LineChart({
   label,
   unit = 'd',
   colour = STAGE_COLOURS.design,
+  width = CHART_W,
 }: {
   points: Array<{ label: string; value: number | null; sub?: string }>;
   label: string;
   unit?: string;
   colour?: string;
+  width?: number;
 }) {
+  const W = width;
   const H = 200;
   const base = H - 30;
   const top = 20;
@@ -466,11 +509,11 @@ export function LineChart({
   const path = drawn.map((p, n) => `${n === 0 ? 'M' : 'L'}${x(p.i)},${y(p.value!)}`).join(' ');
 
   return (
-    <Svg height={H} label={label}>
+    <Svg width={W} height={H} label={label}>
       {[0, 0.5, 1].map((f) => (
         <g key={f}>
           <line x1={left} x2={W} y1={base - (base - top) * f} y2={base - (base - top) * f} stroke={GRID} />
-          <Text x={0} y={base - (base - top) * f} size={10} colour={INK_SOFT}>
+          <Text x={0} y={base - (base - top) * f} size={10} colour={INK_SOFT} cls="axis-tick">
             {`${tick(tickStep * f * 4)}${unit}`}
           </Text>
         </g>
@@ -529,11 +572,14 @@ export function MultiLine({
   months,
   series,
   label,
+  width = CHART_W,
 }: {
   months: string[];
   series: Array<{ key: string; label: string; values: number[]; colour: string }>;
   label: string;
+  width?: number;
 }) {
+  const W = width;
   const H = 220;
   const base = H - 30;
   const top = 16;
@@ -544,11 +590,11 @@ export function MultiLine({
   const y = (v: number) => base - ((base - top) * v) / peak;
 
   return (
-    <Svg height={H} label={label}>
+    <Svg width={W} height={H} label={label}>
       {[0, 0.5, 1].map((f) => (
         <g key={f}>
           <line x1={left} x2={W} y1={base - (base - top) * f} y2={base - (base - top) * f} stroke={GRID} />
-          <Text x={0} y={base - (base - top) * f} size={10} colour={INK_SOFT}>
+          <Text x={0} y={base - (base - top) * f} size={10} colour={INK_SOFT} cls="axis-tick">
             {tick(tickStep * f * 4)}
           </Text>
         </g>
@@ -586,11 +632,14 @@ export function StackedColumns({
   points,
   label,
   keys,
+  width = CHART_W,
 }: {
   points: Array<{ label: string; values: Record<string, number> }>;
   label: string;
   keys: Array<{ key: string; label: string; colour: string }>;
+  width?: number;
 }) {
+  const W = width;
   const H = 210;
   const base = H - 26;
   const top = 14;
@@ -600,7 +649,7 @@ export function StackedColumns({
   const barW = Math.min(52, colW * 0.6);
 
   return (
-    <Svg height={H} label={label}>
+    <Svg width={W} height={H} label={label}>
       <line x1={0} x2={W} y1={base} y2={base} stroke={LINE} />
       {points.map((p, i) => {
         const cx = i * colW + colW / 2;

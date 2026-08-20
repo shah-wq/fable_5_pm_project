@@ -17,6 +17,7 @@ import {
   LineChart,
   STAGE_COLOURS,
   StackedColumns,
+  WIDE_W,
   fmtDays,
   fmtInt,
 } from './charts';
@@ -100,6 +101,7 @@ export async function CycleBand({
       >
         <Columns
           label={`${stat} days per stage`}
+          width={WIDE_W}
           rows={durations.map((d) => ({
             key: d.key,
             label: d.label,
@@ -161,6 +163,7 @@ export async function CycleBand({
       >
         <StackedColumns
           label="Days per stage for projects completed each month"
+          width={WIDE_W}
           points={trend.map((p) => ({ label: p.label, values: p.byStage }))}
           keys={STAGE_DURATIONS.map((s) => ({
             key: s.key === 'procurement' ? 'procurement' : s.key,

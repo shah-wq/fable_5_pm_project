@@ -9,6 +9,7 @@ import {
   Legend,
   STAGE_COLOURS,
   StackedBars,
+  WIDE_W,
   bandLegend,
   fmtInt,
   fmtPct,
@@ -91,7 +92,7 @@ export async function WhereBand({
           </>
         }
       >
-        <StackedBars rows={funnelRows} label="Projects per stage, segmented by age" />
+        <StackedBars rows={funnelRows} label="Projects per stage, segmented by age" width={WIDE_W} />
         <Legend items={bandLegend()} />
         {/* Hold and Cancelled sit apart from the flow, per §4: they are not
             stages projects pass through. */}
