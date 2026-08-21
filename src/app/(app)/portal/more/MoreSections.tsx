@@ -31,6 +31,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   action_needed: 'When you need something from me',
   on_hold: 'If my project is paused',
   power_on: 'When my system is switched on',
+  chat_message: 'When my project manager sends me a message',
 };
 
 /**

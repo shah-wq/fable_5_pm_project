@@ -34,6 +34,10 @@ export const ROUTE_ACCESS: Record<string, readonly UserRole[]> = {
   // get none — there is deliberately no entry that admits them.
   '/dashboard': ['admin', 'ops', 'finance'],
   '/leads': ['admin', 'ops'],
+  // The global chat inbox is a staff instrument; the thread API is shared with
+  // the customer, who reaches only their own project (enforced in the database).
+  '/messages': ['admin', 'ops'],
+  '/api/chat': ['admin', 'ops', 'customer'],
   '/reports': ['admin', 'ops', 'finance'],
   '/api/reports': ['admin', 'ops', 'finance'],
   '/designer': ['admin', 'designer'],

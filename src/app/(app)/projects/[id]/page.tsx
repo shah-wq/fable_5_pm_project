@@ -8,6 +8,7 @@ import { loadBundles } from '@/lib/stages/service';
 import { evaluateStage } from '@/lib/stages/requirements';
 import { CommissionPanel, type CommissionValue } from './CommissionPanel';
 import { optionalRows } from '@/lib/db-optional';
+import { loadSummaries } from '@/lib/chat/service';
 import { CustomerPanel } from './CustomerPanel';
 import { DetailsPanel } from './DetailsPanel';
 import { ProjectActions } from './ProjectActions';
@@ -93,6 +94,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
        where project_id = $1 order by created_at desc limit 100`,
       [id]
     );
+    const chat = await loadSummaries(c, [id]);
     const portalUser = await c.query<{ n: number }>(
       `select count(*)::int as n from public.clients cl
        where cl.id = (select client_id from public.projects where id = $1)
@@ -107,6 +109,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
       requests,
       asks,
       documents,
+      chat: chat.get(id) ?? null,
       hasPortalAccess: (portalUser.rows[0]?.n ?? 0) > 0,
     };
   });
@@ -139,6 +142,14 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
           </p>
         </div>
         <div className="board-actions">
+          {['admin', 'ops'].includes(session.role) && (
+            <Link className="btn-link primary" href={`/projects/${id}/chat`}>
+              Chat
+              {data.chat && data.chat.unread > 0 && (
+                <span className="badge">{data.chat.unread}</span>
+              )}
+            </Link>
+          )}
           <Link className="btn-link" href="/pipeline">
             Board
           </Link>

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { logAuditEvent } from '@/lib/audit';
 import { getSession } from '@/lib/auth/session';
+import { postSystemMessage } from '@/lib/chat/service';
 import { withUser } from '@/lib/db';
 
 /**
@@ -41,6 +42,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'nothing to set' }, { status: 400 });
   }
 
+  const pmChange = sets.find((s) => s.col === 'assigned_pm');
+
   const updated = await withUser(session, async (client) => {
     const clauses = sets.map((s, i) => `"${s.col}" = $${i + 2}`).join(', ');
     const { rows } = await client.query<{ id: string }>(
@@ -49,6 +52,27 @@ export async function POST(request: Request) {
        returning id`,
       [ids, ...sets.map((s) => s.value)]
     );
+
+    // Project Chat §2: a handover is marked in the thread by name, so the
+    // customer is never quietly handed to a stranger mid-conversation, and the
+    // new PM inherits a history that says how they got there.
+    if (pmChange && rows.length > 0) {
+      const who = await client.query<{ name: string | null }>(
+        `select coalesce(full_name, email) as name from public.profiles where id = $1`,
+        [pmChange.value]
+      );
+      const name = who.rows[0]?.name;
+      if (name) {
+        for (const row of rows) {
+          await postSystemMessage(
+            client,
+            row.id,
+            `${name} is now the project manager for this project`,
+            false
+          ).catch(() => undefined);
+        }
+      }
+    }
     return rows.map((r) => r.id);
   });
 

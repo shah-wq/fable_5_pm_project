@@ -193,6 +193,19 @@ export const ADMIN_ENTITIES: Record<string, EntityDef> = {
     ],
     listColumns: ['stage', 'name'],
   },
+  canned_replies: {
+    table: 'canned_replies',
+    title: 'Canned replies',
+    blurb:
+      'Reusable answers the PM inserts into a customer message with one click, then edits before sending. Project Chat §5: this is what makes chat survivable at forty projects. Deactivate one instead of deleting it and it disappears from the composer while past messages keep their wording.',
+    nameColumn: 'title',
+    fields: [
+      { name: 'title', label: 'Title', type: 'text', required: true },
+      { name: 'body', label: 'Message', type: 'textarea', required: true },
+      { name: 'sort_order', label: 'Order', type: 'number' },
+    ],
+    listColumns: ['sort_order'],
+  },
 };
 
 export type EntityKey = keyof typeof ADMIN_ENTITIES;

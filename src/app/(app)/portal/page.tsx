@@ -116,6 +116,22 @@ export default async function PortalHome({
         </Link>
       </section>
 
+      {/* Project Chat §1: a contextual way into the thread. Written before
+          'Call my project manager' on purpose — a message is answered in the
+          PM's own time, and a phone call is the thing this feature exists to
+          reduce. */}
+      <section className="panel">
+        <h2>Ask a question</h2>
+        <p className="dim">
+          {p.team.pmName
+            ? `Send ${p.team.pmName} a message about your project and it stays with the job, so anyone covering can pick it up.`
+            : 'Send your project manager a message about your project.'}
+        </p>
+        <Link className="btn" href="/portal/messages">
+          Open messages
+        </Link>
+      </section>
+
       <NotificationOptIn />
 
       <CallMyPm

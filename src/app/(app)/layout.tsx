@@ -3,6 +3,8 @@ import { redirect } from 'next/navigation';
 import { Logo } from '@/app/(auth)/_components/AuthUi';
 import { getSession } from '@/lib/auth/session';
 import type { UserRole } from '@/lib/auth/roles';
+import { withUser } from '@/lib/db';
+import { optionalRows } from '@/lib/db-optional';
 import { isAppShell } from '@/lib/native/shell';
 import { SideNav, type NavItem } from './_components/SideNav';
 import { TabBar } from './portal/_components/TabBar';
@@ -10,6 +12,7 @@ import { TabBar } from './portal/_components/TabBar';
 const NAV: Record<UserRole, NavItem[]> = {
   admin: [
     { href: '/dashboard', label: 'Dashboard', icon: '◱' },
+    { href: '/messages', label: 'Messages', icon: '✉' },
     { href: '/pipeline', label: 'Pipeline', icon: '▦' },
     { href: '/projects', label: 'Projects', icon: '☰' },
     { href: '/projects/new', label: 'New project', icon: '＋' },
@@ -20,6 +23,7 @@ const NAV: Record<UserRole, NavItem[]> = {
   ],
   ops: [
     { href: '/dashboard', label: 'Dashboard', icon: '◱' },
+    { href: '/messages', label: 'Messages', icon: '✉' },
     { href: '/pipeline', label: 'Pipeline', icon: '▦' },
     { href: '/projects', label: 'Projects', icon: '☰' },
     { href: '/projects/new', label: 'New project', icon: '＋' },
@@ -96,6 +100,24 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // five bottom tabs. It is the same code either way — the mobile app is this
   // surface in a native wrapper, not a second product (mobile spec §0).
   if (session.role === 'customer') {
+    // Their unread count for the Messages tab badge. Savepoint-guarded and
+    // defaulted to zero: a missing badge is nothing, a broken portal is not.
+    const unread = await withUser(
+      { userId: session.userId, email: session.email, role: session.role },
+      async (client) => {
+        const rows = await optionalRows<{ n: string }>(
+          client,
+          'the unread message count for the tab bar',
+          `select count(*) as n
+           from public.project_messages m
+           join public.projects p on p.id = m.project_id
+           where m.sender_role = 'staff' and not m.is_internal and m.read_at is null
+             and p.client_id in (select app.current_client_ids())`
+        );
+        return Number(rows[0]?.n ?? 0);
+      }
+    ).catch(() => 0);
+
     return (
       <div className="customer-app">
         <header className="app-bar">
@@ -104,7 +126,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           </Link>
         </header>
         <main className="app-body">{children}</main>
-        <TabBar />
+        <TabBar unread={unread} />
       </div>
     );
   }

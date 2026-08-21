@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { loadPortalPage, NO_PROJECT_MESSAGE } from '@/lib/portal/page';
 import { StageTracker } from '../StageTracker';
 import { AvailabilityRequest } from '../_components/AvailabilityRequest';
@@ -63,6 +64,20 @@ export default async function PortalProject({
       </p>
 
       <StageTracker stages={p.stages} />
+
+      {/* §1: 'Ask a question' with a stage reference pre-attached, "so the PM
+          knows what they are asking about". The current stage is the one a
+          customer almost always means. */}
+      <section className="panel">
+        <h2>A question about this stage?</h2>
+        <p className="dim">
+          Your message will be tagged with the stage your project is in now, so your project
+          manager can see straight away what it is about.
+        </p>
+        <Link className="btn" href={`/portal/messages?about=${p.stageKey}`}>
+          Ask about this stage
+        </Link>
+      </section>
 
       {/* Only while there is a visit still to arrange — a completed project
           does not need an appointment form. */}

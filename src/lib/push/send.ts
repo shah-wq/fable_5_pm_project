@@ -22,7 +22,14 @@ export type PushCategory =
   | 'appointment'
   | 'action_needed'
   | 'on_hold'
-  | 'power_on';
+  | 'power_on'
+  /**
+   * Chat (Project Chat spec §4). The only category that is not deduped and not
+   * rate-limited by the restraint rule above: every message is news, and a
+   * customer who wrote a question expects the reply to reach them. Quiet hours
+   * apply instead — see src/lib/chat/notify.ts.
+   */
+  | 'chat_message';
 
 export interface PushMessage {
   projectId: string;

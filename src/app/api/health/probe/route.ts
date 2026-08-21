@@ -73,6 +73,16 @@ const PROBES: Probe[] = [
   { name: 'stage_thresholds', usedBy: 'Dashboard attention lists, Admin → Settings', sql: 'select count(*) from public.stage_thresholds' },
   { name: 'project_financial_metrics', usedBy: 'Dashboard (finance view)', sql: 'select count(*) from public.project_financial_metrics' },
   { name: 'app_settings.on_hold_alert_threshold', usedBy: 'Dashboard headline cards', sql: 'select on_hold_alert_threshold, ops_see_financials from public.app_settings where id' },
+  // Project chat. The summary view feeds the unread badge on every project
+  // surface, so it is the one to check when badges vanish.
+  { name: 'project_messages', usedBy: 'Project chat, portal Messages', sql: 'select count(*) from public.project_messages' },
+  { name: 'project_chat_summary', usedBy: 'Unread badges, Messages inbox', sql: 'select count(*) from public.project_chat_summary' },
+  { name: 'message_attachments', usedBy: 'Chat attachments', sql: 'select count(*) from public.message_attachments' },
+  { name: 'canned_replies', usedBy: 'Chat composer, Admin → Canned replies', sql: 'select count(*) from public.canned_replies' },
+  { name: 'chat_response_times', usedBy: 'Dashboard reply-time chart', sql: 'select count(*) from public.chat_response_times' },
+  { name: 'chat_notification_queue', usedBy: 'Chat quiet hours', sql: 'select count(*) from public.chat_notification_queue' },
+  { name: 'chat_quiet_until()', usedBy: 'Chat notifications', sql: 'select public.chat_quiet_until() is not null as quiet' },
+  { name: 'app_settings.chat_reply_promise', usedBy: 'Customer thread header', sql: 'select chat_reply_promise, company_timezone, chat_digest_hours from public.app_settings where id' },
 ];
 
 export async function GET() {

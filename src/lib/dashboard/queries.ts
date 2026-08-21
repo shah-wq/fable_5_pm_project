@@ -732,6 +732,13 @@ export interface PmRow {
   ageing: number;
   completed: number;
   avgDays: number | null;
+  /**
+   * Median hours to first reply on a customer message (Project Chat §5).
+   * "Worth tracking, worth being careful with — it should inform staffing, not
+   * rank people", which is why it sits beside the workload rather than alone.
+   */
+  replyHours: number | null;
+  replied: number;
 }
 
 export async function loadPmStats(client: PoolClient, ctx: DashboardContext): Promise<PmRow[]> {
@@ -755,6 +762,25 @@ export async function loadPmStats(client: PoolClient, ctx: DashboardContext): Pr
     [...f.params, ctx.period.current.from, ctx.period.current.to]
   );
 
+  // First-response time, from the chat view. Its own query and savepoint-guarded:
+  // the chat module's migration lands after this one, and a missing column must
+  // not take the dashboard's PM band down.
+  const reply = await optionalRows<{
+    assigned_pm: string | null;
+    hours: string | null;
+    replied: string;
+  }>(
+    client,
+    'chat response times (public.chat_response_times)',
+    `select assigned_pm,
+            percentile_cont(0.5) within group (order by hours_to_reply) as hours,
+            count(*) filter (where replied_at is not null) as replied
+     from public.chat_response_times
+     where replied_at is not null
+     group by assigned_pm`
+  );
+  const byPm = new Map(reply.map((r) => [r.assigned_pm, r]));
+
   return rows
     .map((r) => ({
       id: r.assigned_pm,
@@ -763,6 +789,11 @@ export async function loadPmStats(client: PoolClient, ctx: DashboardContext): Pr
       ageing: num(r.ageing),
       completed: num(r.completed),
       avgDays: days(r.avg_days),
+      replyHours:
+        byPm.get(r.assigned_pm)?.hours === undefined || byPm.get(r.assigned_pm)?.hours === null
+          ? null
+          : Math.round(Number(byPm.get(r.assigned_pm)!.hours)),
+      replied: num(byPm.get(r.assigned_pm)?.replied),
     }))
     .filter((r) => r.active > 0 || r.completed > 0 || r.ageing > 0);
 }

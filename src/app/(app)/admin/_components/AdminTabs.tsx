@@ -14,6 +14,7 @@ const GROUPS: Array<{ label?: string; tabs: Array<{ href: string; label: string 
       { href: '/admin/dealers', label: 'Dealers' },
       { href: '/admin/customers', label: 'Customers' },
       { href: '/admin/sales_reps', label: 'Sales reps' },
+      { href: '/admin/canned_replies', label: 'Canned replies' },
       { href: '/admin/settings', label: 'Settings' },
       { href: '/admin/activity', label: 'Activity log' },
     ],

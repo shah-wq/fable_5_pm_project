@@ -223,6 +223,28 @@ export async function WhoBand({
           </Chart>
 
           <Chart
+            title="Median reply time by PM"
+            caption={`${caption} · hours to first reply on a customer message`}
+            empty="No customer messages have been answered yet, so there is no reply time to show."
+            isEmpty={pms.every((p) => p.replyHours === null)}
+            note="From the project chat. Read it as a staffing signal, not a scoreboard: a PM covering for someone on leave will look slower, and that is the system working."
+          >
+            <Bars
+              label="Median hours to first reply per PM"
+              colour={STAGE_COLOURS.inspection_pto}
+              rows={pms
+                .filter((p) => p.replyHours !== null)
+                .map((p) => ({
+                  key: p.id ?? p.name,
+                  label: p.name,
+                  value: p.replyHours!,
+                  valueLabel: `${p.replyHours}h`,
+                  valueSub: `from ${p.replied}`,
+                }))}
+            />
+          </Chart>
+
+          <Chart
             title={`${stat} completion by PM`}
             caption={`${caption} · projects each PM closed in the period`}
             empty="No PM has completed a project in this period yet."

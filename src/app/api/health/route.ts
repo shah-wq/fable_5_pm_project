@@ -78,7 +78,8 @@ export async function GET() {
              (to_regprocedure('auth.request_otp(text)') is not null
               and has_function_privilege('authenticated', 'auth.request_otp(text)', 'execute'))
                                                               as m_002700_otp_open,
-             to_regclass('public.project_metrics')::text      as m_002800`
+             to_regclass('public.project_metrics')::text      as m_002800,
+             to_regclass('public.project_messages')::text     as m_002900`
         )
       );
       const p = probes.rows[0];
@@ -96,6 +97,7 @@ export async function GET() {
         '20260803002600_customer_passwords.sql': Boolean(p.m_002600),
         '20260803002700_invite_customers_with_tokens.sql': p.m_002700_otp_open === false,
         '20260803002800_dashboard.sql': Boolean(p.m_002800),
+        '20260803002900_project_chat.sql': Boolean(p.m_002900),
       };
       const behind = Object.entries(applied)
         .filter(([, present]) => !present)

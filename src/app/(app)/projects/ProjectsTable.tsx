@@ -151,6 +151,15 @@ export function ProjectsTable({
                 )}
                 <td>
                   <Link href={`/projects/${p.id}`}>{p.name}</Link>
+                  {p.unreadMessages > 0 && (
+                    <Link
+                      className="chat-badge"
+                      href={`/projects/${p.id}/chat`}
+                      title="Unread customer messages"
+                    >
+                      {`✉ ${p.unreadMessages}`}
+                    </Link>
+                  )}
                   <div className="dim">{p.code}</div>
                 </td>
                 <td>{p.address ?? '—'}</td>

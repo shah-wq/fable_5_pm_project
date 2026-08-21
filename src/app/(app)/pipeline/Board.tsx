@@ -173,6 +173,14 @@ export function Board({ cards, isAdmin }: { cards: ProjectCard[]; isAdmin: boole
                           {card.missing.length}
                         </span>
                       )}
+                      {/* Project Chat §1: the unread count belongs on the card,
+                          so a message from three days ago is visible without
+                          opening anything. */}
+                      {card.unreadMessages > 0 && (
+                        <span className="chat-badge" title="Unread customer messages">
+                          {`✉ ${card.unreadMessages}`}
+                        </span>
+                      )}
                     </div>
                   </article>
                 ))}

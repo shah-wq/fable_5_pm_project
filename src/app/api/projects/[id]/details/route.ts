@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { logAuditEvent } from '@/lib/audit';
 import { getSession } from '@/lib/auth/session';
 import { dbErrorResponse } from '@/lib/db-error';
+import { postSystemMessage } from '@/lib/chat/service';
 import { withUser } from '@/lib/db';
 import { DETAIL_FIELDS, coerceDetail } from '@/lib/projects/details';
 
@@ -54,7 +55,7 @@ export async function PATCH(
   try {
     result = await withUser(session, async (c) => {
     const { rows } = await c.query(
-      `select id, status, client_id from public.projects where id = $1`,
+      `select id, status, client_id, assigned_pm from public.projects where id = $1`,
       [id]
     );
     const row = rows[0];
@@ -79,6 +80,26 @@ export async function PATCH(
         row.client_id,
         ...client.map((u) => u.value),
       ]);
+    }
+
+    // Project Chat §2: the handover is marked in the thread, by name. Only when
+    // the PM actually changed — re-saving the form with the same PM must not
+    // announce a handover that did not happen.
+    const newPm = project.find((u) => u.col === 'assigned_pm')?.value ?? null;
+    if (newPm && newPm !== row.assigned_pm) {
+      const who = await c.query<{ name: string | null }>(
+        `select coalesce(full_name, email) as name from public.profiles where id = $1`,
+        [newPm]
+      );
+      const name = who.rows[0]?.name;
+      if (name) {
+        await postSystemMessage(
+          c,
+          id,
+          `${name} is now the project manager for this project`,
+          false
+        ).catch(() => undefined);
+      }
     }
     return 'ok' as const;
     });

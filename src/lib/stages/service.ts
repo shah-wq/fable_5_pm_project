@@ -2,8 +2,9 @@ import type { PoolClient } from 'pg';
 import { logAuditEvent } from '../audit';
 import { withUser, type SessionIdentity } from '../db';
 import { notifyOnHold, notifyPowerOn, notifyStageAdvanced } from '../push/events';
-import { isStageKey, nextStage, prevStage, type StageKey } from './definitions';
+import { isStageKey, nextStage, prevStage, STAGE_LABELS, type StageKey } from './definitions';
 import { evaluateStage, type StageBundle } from './requirements';
+import { loadSummaries, postSystemMessage } from '../chat/service';
 
 /**
  * Data loading + the shared move service. Everything runs through the
@@ -41,6 +42,13 @@ export interface ProjectCard {
   pmName: string | null;
   /** Needed by the dashboard's per-PM filter; the name alone is ambiguous. */
   assignedPm: string | null;
+  /**
+   * Unread customer messages on this project's thread (Project Chat §1). On the
+   * card and in the list, because "a PM should never have to open a project to
+   * discover a customer wrote three days ago".
+   */
+  unreadMessages: number;
+  chatFlagged: boolean;
   createdAt: string;
 }
 
@@ -163,6 +171,10 @@ export async function loadProjectCards(
       client,
       rows.map((r) => r.id)
     );
+    // One query for every card's badge. Savepoint-guarded: the chat module's
+    // view arrives with a later migration, and a missing badge must not take the
+    // pipeline board down.
+    const chat = await loadSummaries(client, rows.map((r) => r.id));
 
     const now = Date.now();
     return rows.map((r) => {
@@ -192,6 +204,8 @@ export async function loadProjectCards(
         jurisdictionName: r.jurisdiction_name,
         pmName: r.pm_name,
         assignedPm: r.assigned_pm,
+        unreadMessages: chat.get(r.id)?.unread ?? 0,
+        chatFlagged: chat.get(r.id)?.flagged ?? false,
         createdAt: asIso(r.created_at),
       };
     });
@@ -277,6 +291,16 @@ export async function moveProject(
       // The customer hears it from us rather than noticing the silence. Their
       // own wording, the reason, no internal notes (spec §4).
       await notifyOnHold(client, projectId, options.reason!, options.expectedResumeDate || null);
+      // And the thread carries the project's timeline inline (Chat §3). A system
+      // line, so it reads as a record rather than as somebody talking — and it
+      // never notifies, because the push above already did.
+      await postSystemMessage(
+        client,
+        projectId,
+        `Project paused — ${options.reason}` +
+          (options.expectedResumeDate ? `, expected to resume ${options.expectedResumeDate}` : ''),
+        false
+      ).catch(() => undefined);
       return { ok: true as const, stage, column: 'hold' };
     }
     if (direction === 'cancel') {
@@ -300,6 +324,9 @@ export async function moveProject(
       return { ok: true as const, stage, column: 'cancelled' };
     }
     if (direction === 'resume') {
+      // Written before the status change so the line reads in order with the
+      // pause above it.
+      await postSystemMessage(client, projectId, 'Project resumed', false).catch(() => undefined);
       if (project.status !== 'on_hold') {
         return { ok: false as const, code: 'invalid' as const, message: 'Project is not on hold.' };
       }
@@ -372,9 +399,16 @@ export async function moveProject(
         [projectId]
       );
       await notifyPowerOn(client, projectId);
+      await postSystemMessage(client, projectId, 'Project complete — your system is switched on')
+        .catch(() => undefined);
       return { ok: true as const, stage: 'complete', column: 'complete' };
     }
     await notifyStageAdvanced(client, projectId, target);
+    await postSystemMessage(
+      client,
+      projectId,
+      `Moved to ${STAGE_LABELS[target]} — ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+    ).catch(() => undefined);
     return { ok: true as const, stage: target };
   }).then(async (result) => {
     if (result.ok) {

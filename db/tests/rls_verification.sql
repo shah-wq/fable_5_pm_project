@@ -1099,6 +1099,390 @@ end
 $t$;
 
 -- =============================================================================
+-- Project chat (002900) — the two rules that must hold in the database
+-- =============================================================================
+-- 1. A customer can never see or write an internal note.
+-- 2. A dealer is not in the conversation at all.
+-- Both are checked as the actual roles, against the actual functions, because
+-- both are the kind of rule that a UI can enforce perfectly and still be wrong.
+
+select t_login(t_id('u_ops'), 'ops');
+set role authenticated;
+do $t$
+declare
+  v_msg uuid;
+  v_note uuid;
+begin
+  v_msg := public.post_project_message(t_id('project1'), 'Hello from the PM', false, 'permits');
+  v_note := public.post_project_message(t_id('project1'), 'Customer is anxious — go gently', true);
+
+  if (select sender_role from public.project_messages where id = v_msg) <> 'staff' then
+    raise exception 'FAIL: a PM message was not recorded as staff';
+  end if;
+  if (select is_internal from public.project_messages where id = v_note) is not true then
+    raise exception 'FAIL: an internal note was not marked internal';
+  end if;
+  if (select stage_ref from public.project_messages where id = v_msg) <> 'permits' then
+    raise exception 'FAIL: the stage reference was lost';
+  end if;
+  raise notice 'PASS: a PM posts a customer message and an internal note';
+end
+$t$;
+reset role;
+
+select t_login(t_id('u_customer1'), 'customer');
+set role authenticated;
+do $t$
+declare n int;
+begin
+  -- The customer sees the message meant for them, and not the note about them.
+  select count(*) into n from public.project_messages;
+  if n <> 1 then
+    raise exception 'FAIL: customer1 expected exactly the one customer-visible message, saw %', n;
+  end if;
+  if exists (select 1 from public.project_messages where is_internal) then
+    raise exception 'FAIL: a customer can read an internal note';
+  end if;
+
+  -- And cannot create one, whatever the caller passes.
+  begin
+    perform public.post_project_message(t_id('project1'), 'sneaky', true);
+    raise exception 'FAIL: a customer wrote an internal note';
+  exception when insufficient_privilege or check_violation then
+    null;
+  end;
+
+  -- Their own message is recorded as theirs, not as staff.
+  if (select sender_role from public.project_messages
+      where id = public.post_project_message(t_id('project1'), 'When is my install?', false))
+     <> 'customer' then
+    raise exception 'FAIL: a customer message was not recorded as customer';
+  end if;
+  raise notice 'PASS: a customer reads only customer-visible messages, and cannot write an internal note';
+end
+$t$;
+reset role;
+
+-- Another customer's project is not reachable, even by guessing the id (§7).
+select t_login(t_id('u_customer2'), 'customer');
+set role authenticated;
+do $t$
+begin
+  if exists (select 1 from public.project_messages where project_id = t_id('project1')) then
+    raise exception 'FAIL: customer2 can read customer1''s thread';
+  end if;
+  begin
+    perform public.post_project_message(t_id('project1'), 'not my project', false);
+    raise exception 'FAIL: customer2 posted into customer1''s thread';
+  exception when insufficient_privilege then
+    null;
+  end;
+  raise notice 'PASS: a guessed project id returns nothing and accepts nothing';
+end
+$t$;
+reset role;
+
+-- §2: the dealer is not part of this conversation — not even on their own book.
+select t_login(t_id('u_dealer1'), 'dealer');
+set role authenticated;
+do $t$
+declare n int;
+begin
+  select count(*) into n from public.project_messages;
+  if n <> 0 then
+    raise exception 'FAIL: a dealer can read the customer thread (% rows)', n;
+  end if;
+  begin
+    perform public.post_project_message(t_id('project1'), 'dealer here', false);
+    raise exception 'FAIL: a dealer posted into the customer thread';
+  exception when insufficient_privilege then
+    null;
+  end;
+  if exists (select 1 from public.project_chat_summary) then
+    raise exception 'FAIL: a dealer can read the chat summary';
+  end if;
+  raise notice 'PASS: a dealer can neither read nor write the customer thread';
+end
+$t$;
+reset role;
+
+-- The designer has project access for their queue, and still is not in the chat.
+select t_login(t_id('u_designer1'), 'designer');
+set role authenticated;
+do $t$
+begin
+  if exists (select 1 from public.project_messages) then
+    raise exception 'FAIL: a designer can read the customer thread';
+  end if;
+  raise notice 'PASS: project access is not chat access — the designer is out too';
+end
+$t$;
+reset role;
+
+-- §3: nobody deletes a message. This is a business record.
+select t_login(t_id('u_admin'), 'admin');
+set role authenticated;
+do $t$
+begin
+  begin
+    delete from public.project_messages where project_id = t_id('project1');
+    raise exception 'FAIL: an admin deleted a message';
+  exception when insufficient_privilege then
+    raise notice 'PASS: messages cannot be deleted, by anyone';
+  end;
+end
+$t$;
+reset role;
+
+-- Direct writes are refused as well: the only way in is the definer function,
+-- which is what stops a message claiming to be from someone it is not.
+select t_login(t_id('u_ops'), 'ops');
+set role authenticated;
+do $t$
+begin
+  begin
+    insert into public.project_messages (project_id, sender_role, body)
+    values (t_id('project1'), 'staff', 'straight in');
+    raise exception 'FAIL: a message was inserted around the posting function';
+  exception when insufficient_privilege then
+    raise notice 'PASS: messages can only be written through post_project_message()';
+  end;
+end
+$t$;
+reset role;
+
+-- Read receipts: each side marks the other side's messages, never their own.
+select t_login(t_id('u_ops'), 'ops');
+set role authenticated;
+do $t$
+declare n int;
+begin
+  n := public.mark_thread_read(t_id('project1'));
+  if n < 1 then
+    raise exception 'FAIL: the PM marked no customer message read';
+  end if;
+  if exists (select 1 from public.project_messages
+             where project_id = t_id('project1') and sender_role = 'customer' and read_at is null) then
+    raise exception 'FAIL: a customer message is still unread after the PM opened the thread';
+  end if;
+  -- The PM's own messages are not marked by the PM reading them.
+  if not exists (select 1 from public.project_messages
+                 where project_id = t_id('project1') and sender_role = 'staff'
+                   and not is_internal and read_at is null) then
+    raise exception 'FAIL: the PM marked their own message as read';
+  end if;
+  raise notice 'PASS: each side marks the other side''s messages read';
+end
+$t$;
+reset role;
+
+-- §3: a PM may edit their own message within five minutes, and it is marked.
+select t_login(t_id('u_ops'), 'ops');
+set role authenticated;
+do $t$
+declare v_id uuid;
+begin
+  select id into v_id from public.project_messages
+   where project_id = t_id('project1') and sender_role = 'staff' and not is_internal
+   order by created_at limit 1;
+  if not public.edit_project_message(v_id, 'Hello from the PM (corrected)') then
+    raise exception 'FAIL: a PM could not edit their own new message';
+  end if;
+  if (select edited_at from public.project_messages where id = v_id) is null then
+    raise exception 'FAIL: an edited message is not marked as edited';
+  end if;
+  raise notice 'PASS: a PM edits their own message for five minutes, and it says edited';
+end
+$t$;
+reset role;
+
+-- Age that message past the window. Done as superuser rather than as the PM,
+-- because the PM has no UPDATE on the table at all — which is itself the point
+-- of the check two blocks above.
+update public.project_messages
+set created_at = now() - interval '10 minutes'
+where project_id = t_id('project1') and sender_role = 'staff' and not is_internal;
+
+select t_login(t_id('u_ops'), 'ops');
+set role authenticated;
+do $t$
+declare v_id uuid;
+begin
+  select id into v_id from public.project_messages
+   where project_id = t_id('project1') and sender_role = 'staff' and not is_internal
+   order by created_at limit 1;
+  begin
+    perform public.edit_project_message(v_id, 'too late');
+    raise exception 'FAIL: a message was edited after the five-minute window';
+  exception when raise_exception then
+    raise notice 'PASS: the five-minute edit window closes';
+  end;
+end
+$t$;
+reset role;
+
+-- A customer cannot edit anything at all.
+select t_login(t_id('u_customer1'), 'customer');
+set role authenticated;
+do $t$
+declare v_id uuid;
+begin
+  select id into v_id from public.project_messages where sender_role = 'customer' limit 1;
+  begin
+    perform public.edit_project_message(v_id, 'changed my mind');
+    raise exception 'FAIL: a customer edited a message';
+  exception when insufficient_privilege then
+    raise notice 'PASS: a customer cannot edit a message';
+  end;
+end
+$t$;
+reset role;
+
+-- §6, one layer down: an attachment on an internal note must not become a
+-- customer-visible document. This is the same mistake as posting the note
+-- itself, and much easier to miss.
+select t_login(t_id('u_ops'), 'ops');
+set role authenticated;
+do $t$
+declare
+  v_note uuid;
+  v_msg uuid;
+  v_doc_internal uuid;
+  v_doc_public uuid;
+begin
+  v_note := public.post_project_message(t_id('project1'), 'Internal: quote from supplier', true);
+  v_msg  := public.post_project_message(t_id('project1'), 'Here is your plan set', false);
+  v_doc_internal := public.record_chat_attachment(v_note, 'supplier.pdf', 'application/pdf',
+                      decode('255044462d312e340a', 'hex'));
+  v_doc_public := public.record_chat_attachment(v_msg, 'plans.pdf', 'application/pdf',
+                      decode('255044462d312e340a', 'hex'));
+
+  if (select customer_visible from public.documents where id = v_doc_internal) is not false then
+    raise exception 'FAIL: an internal note''s attachment is visible to the customer';
+  end if;
+  if (select customer_visible from public.documents where id = v_doc_public) is not true then
+    raise exception 'FAIL: a customer message''s attachment is hidden from them';
+  end if;
+  -- §3: filed to the project's documents, marked as coming from chat.
+  if (select category from public.documents where id = v_doc_public) <> 'chat' then
+    raise exception 'FAIL: a chat attachment is not filed with source chat';
+  end if;
+  if not exists (select 1 from public.message_attachments where message_id = v_msg) then
+    raise exception 'FAIL: the attachment is not linked to its message';
+  end if;
+  raise notice 'PASS: attachments are filed as documents, and an internal note''s stays internal';
+end
+$t$;
+reset role;
+
+select t_login(t_id('u_customer1'), 'customer');
+set role authenticated;
+do $t$
+begin
+  if exists (select 1 from public.documents where category = 'chat' and not customer_visible) then
+    raise exception 'FAIL: a customer can see an internal chat attachment';
+  end if;
+  if not exists (select 1 from public.documents where category = 'chat' and customer_visible) then
+    raise exception 'FAIL: a customer cannot see the attachment sent to them';
+  end if;
+  raise notice 'PASS: the customer sees the attachment sent to them and no other';
+end
+$t$;
+reset role;
+
+-- System lines (§3): neutral, never internal, no human sender, and not raised
+-- by a customer.
+select t_login(t_id('u_ops'), 'ops');
+set role authenticated;
+do $t$
+declare v_first uuid; v_again uuid;
+begin
+  v_first := public.post_system_message(t_id('project1'), 'Moved to Permit');
+  v_again := public.post_system_message(t_id('project1'), 'Moved to Permit');
+  if v_first is null then raise exception 'FAIL: no system message was written'; end if;
+  if v_again is not null then
+    raise exception 'FAIL: the same system line was written twice';
+  end if;
+  if (select sender_user_id from public.project_messages where id = v_first) is not null then
+    raise exception 'FAIL: a system message has a human sender';
+  end if;
+  raise notice 'PASS: system lines are written once, with no human sender';
+end
+$t$;
+reset role;
+
+select t_login(t_id('u_customer1'), 'customer');
+set role authenticated;
+do $t$
+begin
+  begin
+    perform public.post_system_message(t_id('project1'), 'Moved to Complete');
+    raise exception 'FAIL: a customer raised a system message';
+  exception when insufficient_privilege then
+    raise notice 'PASS: only staff actions raise system lines';
+  end;
+end
+$t$;
+reset role;
+
+-- Canned replies are a staff tool (§5).
+select t_login(t_id('u_ops'), 'ops');
+set role authenticated;
+do $t$
+begin
+  if (select count(*) from public.canned_replies) < 3 then
+    raise exception 'FAIL: the canned reply library is empty';
+  end if;
+  begin
+    insert into public.canned_replies (title, body) values ('mine', 'body');
+    raise exception 'FAIL: a PM created a canned reply (admin only)';
+  exception when insufficient_privilege then
+    raise notice 'PASS: PMs use canned replies, admins manage them';
+  end;
+end
+$t$;
+reset role;
+
+select t_login(t_id('u_customer1'), 'customer');
+set role authenticated;
+do $t$
+begin
+  if exists (select 1 from public.canned_replies) then
+    raise exception 'FAIL: a customer can read the canned reply library';
+  end if;
+  raise notice 'PASS: the canned reply library is invisible to customers';
+end
+$t$;
+reset role;
+
+-- Anonymisation (§7): the messages survive, the name does not. The thread reads
+-- the name from public.clients at query time rather than storing a copy, which
+-- is what makes this true without touching the messages at all.
+select t_login(t_id('u_admin'), 'admin');
+set role authenticated;
+do $t$
+declare v_before int; v_after int;
+begin
+  select count(*) into v_before from public.project_messages where project_id = t_id('project1');
+  update public.clients set first_name = 'Redacted', last_name = 'Customer'
+   where id = t_id('client1');
+  select count(*) into v_after from public.project_messages where project_id = t_id('project1');
+  if v_after <> v_before then
+    raise exception 'FAIL: redacting a customer changed the message count';
+  end if;
+  if exists (
+    select 1 from public.project_messages m
+    join public.clients c on c.id = (select client_id from public.projects where id = m.project_id)
+    where m.project_id = t_id('project1') and c.first_name <> 'Redacted'
+  ) then
+    raise exception 'FAIL: the thread still resolves the old customer name';
+  end if;
+  raise notice 'PASS: anonymising a customer redacts the thread without losing the record';
+end
+$t$;
+reset role;
+
+-- =============================================================================
 -- Cleanup of test-only helpers
 -- =============================================================================
 

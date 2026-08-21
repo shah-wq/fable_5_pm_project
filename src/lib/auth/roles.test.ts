@@ -50,6 +50,23 @@ test('wrong-role combinations are denied everywhere it matters', () => {
   }
 });
 
+test('the chat is staff and customer only — never a dealer, never a designer', () => {
+  // Project chat §2: "dealers do not participate". The thread carries what the
+  // customer says about price, financing and delays, and a dealer reading it is
+  // the one leak this module cannot take back.
+  for (const path of ['/messages', '/api/chat', '/api/chat/abc/read']) {
+    const allowed = accessForPath(path);
+    assert.ok(allowed, `${path} must have an access rule`);
+    for (const role of ['dealer', 'designer', 'finance'] as UserRole[]) {
+      assert.ok(!allowed.includes(role), `${role} must not reach ${path}`);
+    }
+  }
+  // The inbox is a staff surface; the API is used by both sides of the thread.
+  assert.ok(!accessForPath('/messages')!.includes('customer'));
+  assert.ok(accessForPath('/api/chat')!.includes('customer'));
+  assert.ok(accessForPath('/api/chat')!.includes('ops'));
+});
+
 test('every role has exactly one door', () => {
   const seen = new Map<UserRole, string>();
   for (const door of Object.values(LOGIN_DOORS)) {

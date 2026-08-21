@@ -8,7 +8,10 @@ import { withUser } from '@/lib/db';
  * A missing row means 'not chosen yet', and the default is on — so a customer
  * who never opens this screen still gets told their permit was approved.
  */
-const CATEGORIES = ['stage_advanced', 'appointment', 'action_needed', 'on_hold', 'power_on'];
+// 'chat_message' joins the five from the mobile-app spec: a customer must be
+// able to silence chat pushes like any other kind (Project Chat §4).
+const CATEGORIES = ['stage_advanced', 'appointment', 'action_needed', 'on_hold',
+                    'power_on', 'chat_message'];
 
 export async function GET() {
   const session = await getSession();
