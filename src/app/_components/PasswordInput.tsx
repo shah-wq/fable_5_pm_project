@@ -37,6 +37,8 @@ export function PasswordInput({
   disabled = false,
   autoFocus = false,
   name,
+  describedBy,
+  invalid = false,
 }: {
   label: string;
   /** Controlled use: pass both. Omit both for a FormData-read field. */
@@ -52,6 +54,13 @@ export function PasswordInput({
   disabled?: boolean;
   autoFocus?: boolean;
   name?: string;
+  /**
+   * Id of a message that explains a failure — the sign-in error, say. Points the
+   * field at it so a screen reader hears the reason with the field rather than
+   * only as a colour somewhere above (Sign-in Screens §8).
+   */
+  describedBy?: string;
+  invalid?: boolean;
 }) {
   const [shown, setShown] = useState(false);
   const id = useId();
@@ -75,6 +84,8 @@ export function PasswordInput({
           placeholder={placeholder}
           disabled={disabled}
           autoFocus={autoFocus}
+          aria-invalid={invalid ? true : undefined}
+          aria-describedby={describedBy}
           {...(onChange
             ? { value: value ?? '', onChange: (e) => onChange(e.target.value) }
             : { defaultValue })}

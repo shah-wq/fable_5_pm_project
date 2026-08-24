@@ -83,6 +83,17 @@ const PROBES: Probe[] = [
   { name: 'chat_notification_queue', usedBy: 'Chat quiet hours', sql: 'select count(*) from public.chat_notification_queue' },
   { name: 'chat_quiet_until()', usedBy: 'Chat notifications', sql: 'select public.chat_quiet_until() is not null as quiet' },
   { name: 'app_settings.chat_reply_promise', usedBy: 'Customer thread header', sql: 'select chat_reply_promise, company_timezone, chat_digest_hours from public.app_settings where id' },
+  // Sign-in. Probed by resolving the name, not by calling it: signing in with a
+  // deliberately wrong password would work as a probe, but it would also add a
+  // failure to the rate limiter every time an admin opened this page. The
+  // regprocedure cast raises 42883 when the function is missing, which is what
+  // this endpoint reports on — to_regprocedure() would quietly return null and
+  // every probe here would pass.
+  {
+    name: 'auth.sign_in()',
+    usedBy: 'All three sign-in pages',
+    sql: `select 'auth.sign_in(text,text,text)'::regprocedure`,
+  },
 ];
 
 export async function GET() {

@@ -234,12 +234,124 @@ a {
   color: var(--navy);
 }
 
+/* --- the other two doors (Sign-in Screens §3) ---------------------------- */
+
+/* 24px above the divider, per §3 — enough that the section below reads as a
+   different question rather than more of the form. */
+.door-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 24px 0 16px;
+  color: var(--ink-soft);
+  font-size: 13px;
+}
+
+.door-divider::before,
+.door-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+
+.role-doors {
+  display: flex;
+  /* §3: stacked, never side by side. Two buttons of the same weight in a row
+     read as a forced either/or, and both shrink badly on a phone. */
+  flex-direction: column;
+  gap: 16px;
+}
+
+.door-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  /* ≥44px, the minimum comfortable touch target — which a line of 13px text
+     is not. */
+  min-height: 52px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--card);
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.door-btn:hover {
+  border-color: var(--navy);
+  background: color-mix(in srgb, var(--navy) 4%, var(--card));
+}
+
+.door-btn:focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: 2px;
+  border-color: var(--navy);
+}
+
+.door-btn:active {
+  background: color-mix(in srgb, var(--navy) 9%, var(--card));
+}
+
+.door-btn .door-icon {
+  color: var(--navy);
+  flex: none;
+}
+
+.door-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.door-label {
+  font-weight: 600;
+  font-size: 14.5px;
+}
+
+.door-sub {
+  font-size: 12.5px;
+  color: var(--ink-soft);
+}
+
+.door-chevron {
+  margin-left: auto;
+  color: var(--ink-soft);
+  font-size: 20px;
+  line-height: 1;
+  flex: none;
+}
+
+.alt-doors a {
+  color: var(--navy);
+}
+
+/* On a phone the card runs to the edges with 16px of breathing room, and
+   nothing in it shrinks (§8). */
+@media (max-width: 480px) {
+  .auth-main {
+    padding: 24px 16px;
+  }
+
+  .door-btn {
+    min-height: 56px;
+  }
+}
+
 .notice {
   border-radius: var(--radius);
   padding: 10px 12px;
   font-size: 13.5px;
   margin-bottom: 16px;
   border: 1px solid;
+}
+
+/* An always-present live region: empty it collapses, so it costs no layout
+   while there is nothing to announce. */
+.live-region:empty {
+  display: none;
 }
 
 .notice.error {

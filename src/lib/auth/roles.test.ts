@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
+  LEGACY_LOGIN_PATHS,
   LOGIN_DOORS,
   ROLE_HOME,
   ROUTE_ACCESS,
@@ -8,6 +9,7 @@ import {
   doorForPath,
   doorForRole,
   isLoginPath,
+  roleToLandingRoute,
   sanitizeNextPath,
   type UserRole,
 } from './roles.ts';
@@ -82,19 +84,61 @@ test('every role has exactly one door', () => {
 });
 
 test('unauthenticated visitors are sent to the door of their area', () => {
-  assert.equal(doorForPath('/portal/documents').path, '/portal/login');
-  assert.equal(doorForPath('/dealers').path, '/dealers/login');
+  assert.equal(doorForPath('/portal/documents').path, '/login/homeowner');
+  assert.equal(doorForPath('/dealers').path, '/login/dealer');
   assert.equal(doorForPath('/pipeline').path, '/login');
   assert.equal(doorForPath('/admin/finance').path, '/login');
+});
+
+test('the three doors hang off one entry point', () => {
+  // §2/§9: /login stays canonical and stays the staff page, so existing links
+  // and bookmarks keep working; the other two are siblings, so they read
+  // correctly in an invitation email.
+  assert.equal(LOGIN_DOORS.staff.path, '/login');
+  assert.equal(LOGIN_DOORS.dealer.path, '/login/dealer');
+  assert.equal(LOGIN_DOORS.customer.path, '/login/homeowner');
 });
 
 test('login pages and their subpages are recognized', () => {
   assert.ok(isLoginPath('/login'));
   assert.ok(isLoginPath('/login/reset'));
-  assert.ok(isLoginPath('/dealers/login'));
-  assert.ok(isLoginPath('/portal/login'));
+  assert.ok(isLoginPath('/login/dealer'));
+  assert.ok(isLoginPath('/login/homeowner'));
   assert.ok(!isLoginPath('/dealers'));
   assert.ok(!isLoginPath('/loginish'));
+});
+
+test('the old door paths stay public, and each names its replacement', () => {
+  // They are in sent invitation emails and browser histories. A sign-in link is
+  // the one broken link a user cannot work around.
+  for (const [legacy, target] of Object.entries(LEGACY_LOGIN_PATHS)) {
+    assert.ok(isLoginPath(legacy), `${legacy} must not require a session`);
+    assert.ok(
+      Object.values(LOGIN_DOORS).some((d) => d.path === target),
+      `${legacy} must redirect to a real door, got ${target}`
+    );
+  }
+  assert.equal(LEGACY_LOGIN_PATHS['/portal/login'], '/login/homeowner');
+  assert.equal(LEGACY_LOGIN_PATHS['/dealers/login'], '/login/dealer');
+});
+
+test('roleToLandingRoute is the one place a role becomes a destination', () => {
+  for (const [role, home] of Object.entries(ROLE_HOME) as [UserRole, string][]) {
+    assert.equal(roleToLandingRoute(role), home);
+  }
+  // A deep link someone was sent to a door from is honoured.
+  assert.equal(roleToLandingRoute('ops', { next: '/projects/abc' }), '/projects/abc');
+  // Changing a forced password comes before anything else, including that link.
+  assert.equal(
+    roleToLandingRoute('ops', { next: '/projects/abc', forcePasswordChange: true }),
+    '/auth/change-password?forced=1'
+  );
+  // Open-redirect attempts fall back to the role's own home.
+  assert.equal(roleToLandingRoute('customer', { next: 'https://evil.example' }), '/portal');
+  assert.equal(roleToLandingRoute('customer', { next: '//evil.example' }), '/portal');
+  // And a ?next= pointing back at a sign-in page would bounce for ever.
+  assert.equal(roleToLandingRoute('dealer', { next: '/login/dealer' }), '/dealers');
+  assert.equal(roleToLandingRoute('admin', { next: '/' }), '/pipeline');
 });
 
 test('sanitizeNextPath blocks open redirects', () => {

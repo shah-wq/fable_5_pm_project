@@ -11,21 +11,19 @@ import { PasswordInput } from '@/app/_components/PasswordInput';
  * the link's query string; setting the password consumes it, revokes any
  * other sessions, and signs the user in.
  */
-export function UpdatePasswordForm({ token }: { token?: string }) {
+export function UpdatePasswordForm({ token, from }: { token?: string; from?: string }) {
   const router = useRouter();
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [expired, setExpired] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  if (!token) {
-    return (
-      <Notice kind="error">
-        This link is invalid or has expired. Request a new one from{' '}
-        <Link href="/login/reset">the reset page</Link>, or ask your administrator to re-send the
-        invitation.
-      </Notice>
-    );
+  // §7: "expired links offer to send a new one rather than dead-ending". A link
+  // that has been used, or has passed its hour, is the most common way somebody
+  // arrives here — links get clicked twice, and forwarded emails get read late.
+  if (!token || expired) {
+    return <ExpiredLink from={from} />;
   }
 
   async function onSubmit(e: React.FormEvent) {
@@ -50,6 +48,13 @@ export function UpdatePasswordForm({ token }: { token?: string }) {
       if (res.ok && json?.redirect) {
         router.replace(json.redirect);
         router.refresh();
+        return;
+      }
+      // 410: the token was already spent or has passed its hour. That is not an
+      // error the user can fix by retyping, so offer them a new link instead of
+      // repeating the message above a form that cannot work.
+      if (res.status === 410) {
+        setExpired(true);
         return;
       }
       setError(json?.error ?? 'Could not set the password. Try the link again.');
@@ -80,5 +85,33 @@ export function UpdatePasswordForm({ token }: { token?: string }) {
         {busy ? 'Saving…' : 'Save and continue'}
       </button>
     </form>
+  );
+}
+
+/**
+ * A used or expired link, answered with the next step rather than a full stop
+ * (§7). The reset page is pre-set to the door the link came from, so a homeowner
+ * is not sent to a page headed 'Staff access' to fix a homeowner problem.
+ */
+function ExpiredLink({ from }: { from?: string }) {
+  const resetHref = from ? `/login/reset?from=${encodeURIComponent(from)}` : '/login/reset';
+  return (
+    <>
+      <Notice kind="error">
+        This link has expired or has already been used. Links work once and last an hour.
+      </Notice>
+      <p className="sub">
+        Ask for a new one — it takes a moment, and the new link arrives at the same address.
+      </p>
+      <Link className="btn" href={resetHref}>
+        Send me a new link
+      </Link>
+      <div className="auth-links">
+        <span>
+          Waiting on an invitation instead? Ask your administrator to re-send it — invitation links
+          last seven days.
+        </span>
+      </div>
+    </>
   );
 }

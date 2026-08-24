@@ -418,6 +418,137 @@ end
 $t$;
 reset role;
 
+-- -----------------------------------------------------------------------------
+-- 9. One authentication path: auth.sign_in and its rate limiter (003000)
+-- -----------------------------------------------------------------------------
+-- The three sign-in pages share this function. What is checked here is the part
+-- a page cannot be trusted with: that the outcomes are distinct enough to act on
+-- and vague enough not to leak, and that the counters actually close a door.
+
+set role authenticated;
+do $t$
+declare
+  v_uid uuid;
+  r record;
+  v_first int;
+  v_later int;
+begin
+  select * into r from auth.create_invited_user('gatekeep@example.test', 'ops', 'Gate Keeper');
+  v_uid := r.user_id;
+  perform * from auth.set_password_with_token(r.invite_token, 'gate-keeper-pass-1');
+
+  -- The happy path returns the role, so the caller can route it. Note what it
+  -- does NOT do: decide where that role goes. One routing function in the
+  -- application owns that, and the database never second-guesses it.
+  select * into r from auth.sign_in('gatekeep@example.test', 'gate-keeper-pass-1', '203.0.113.1');
+  if r.outcome <> 'ok' or r.user_role <> 'ops' or r.session_token is null then
+    raise exception 'FAIL: a correct sign-in returned % (%)', r.outcome, r.user_role;
+  end if;
+
+  -- An unknown address and a wrong password are the same answer. Anything else
+  -- is an account oracle: type an address, learn whether it is a customer of
+  -- this business.
+  select * into r from auth.sign_in('nobody@example.test', 'whatever', '203.0.113.2');
+  if r.outcome <> 'invalid' then
+    raise exception 'FAIL: an unknown address returned %', r.outcome;
+  end if;
+  select * into r from auth.sign_in('gatekeep@example.test', 'wrong', '203.0.113.2');
+  if r.outcome <> 'invalid' then
+    raise exception 'FAIL: a wrong password returned %', r.outcome;
+  end if;
+  raise notice 'PASS: sign_in signs in, and an unknown address looks exactly like a wrong password';
+
+  -- The delay grows with the number of failures, and a typo or two costs
+  -- nothing: one failure is already on this address from the check above, and
+  -- the second must still be free.
+  select * into r from auth.sign_in('gatekeep@example.test', 'wrong', '203.0.113.2');
+  if r.delay_ms <> 0 then
+    raise exception 'FAIL: the second failure was delayed (%)', r.delay_ms;
+  end if;
+  select * into r from auth.sign_in('gatekeep@example.test', 'wrong', '203.0.113.2');
+  v_first := r.delay_ms;
+  select * into r from auth.sign_in('gatekeep@example.test', 'wrong', '203.0.113.2');
+  v_later := r.delay_ms;
+  if v_first <= 0 or v_later <= v_first then
+    raise exception 'FAIL: the delay does not grow (% then %)', v_first, v_later;
+  end if;
+
+  -- Ten failures on one address shut it, and say for how long — a locked-out
+  -- person needs to know it is not their typing.
+  for i in 1..6 loop
+    perform * from auth.sign_in('gatekeep@example.test', 'wrong', '203.0.113.2');
+  end loop;
+  select * into r from auth.sign_in('gatekeep@example.test', 'gate-keeper-pass-1', '203.0.113.9');
+  if r.outcome <> 'locked' or r.retry_after < 60 then
+    raise exception 'FAIL: ten failures left the door open (% / %)', r.outcome, r.retry_after;
+  end if;
+  raise notice 'PASS: a growing delay, then a lockout that holds even for the right password';
+
+  -- And resetting the password releases it. Otherwise the recovery email leads
+  -- to 'your new password is correct, come back in fifteen minutes'.
+  select * into r from auth.request_recovery('gatekeep@example.test');
+  perform * from auth.set_password_with_token(r.recovery_token, 'gate-keeper-pass-2');
+  select * into r from auth.sign_in('gatekeep@example.test', 'gate-keeper-pass-2', '203.0.113.9');
+  if r.outcome <> 'ok' then
+    raise exception 'FAIL: a reset password did not clear the lockout (%)', r.outcome;
+  end if;
+  raise notice 'PASS: a password reset releases the lock instead of dead-ending';
+
+  insert into public.t2 values ('gate_uid', v_uid::text);
+end
+$t$;
+
+-- Deactivate outside the app's own role: an UPDATE on profiles under
+-- `authenticated` with no claims is filtered by policy and silently changes
+-- nothing, which would leave the check below passing for the wrong reason.
+reset role;
+update public.profiles set is_active = false
+ where id = (select val from public.t2 where key = 'gate_uid')::uuid;
+
+set role authenticated;
+do $t$
+declare r record;
+begin
+  -- A deactivated account is named plainly — but only to somebody who already
+  -- knows the password, so it is not a way to enumerate accounts.
+  select * into r from auth.sign_in('gatekeep@example.test', 'gate-keeper-pass-2', '203.0.113.3');
+  if r.outcome <> 'disabled' then
+    raise exception 'FAIL: a deactivated account returned %', r.outcome;
+  end if;
+  select * into r from auth.sign_in('gatekeep@example.test', 'still-wrong', '203.0.113.3');
+  if r.outcome <> 'invalid' then
+    raise exception 'FAIL: a wrong password on a disabled account revealed it (%)', r.outcome;
+  end if;
+  raise notice 'PASS: a disabled account is named to whoever knows the password, and nobody else';
+end
+$t$;
+
+-- The counters are the application's blind spot on purpose: readable and
+-- writable only inside the definer functions. A caller who could reach
+-- throttle_fail could lock any address out of the product; one who could reach
+-- throttle_clear could guess for ever.
+do $t$
+begin
+  begin
+    perform count(*) from auth.login_throttle;
+    raise exception 'FAIL: the application role can read the rate-limit counters';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    perform auth.throttle_fail('email', 'victim@example.test');
+    raise exception 'FAIL: the application role can lock an address out';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    perform auth.throttle_clear('victim@example.test', null);
+    raise exception 'FAIL: the application role can clear a lockout directly';
+  exception when insufficient_privilege then null;
+  end;
+  raise notice 'PASS: the rate limiter is reachable only through sign_in and a real reset';
+end
+$t$;
+reset role;
+
 drop table public.t2;
 
 select 'ALL AUTH ENGINE CHECKS PASSED' as result;

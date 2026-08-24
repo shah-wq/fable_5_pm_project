@@ -2,7 +2,7 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { withAnon } from '../db';
 import { SESSION_COOKIE } from './constants';
-import { ROLE_HOME, accessForPath, doorForPath, type UserRole } from './roles';
+import { accessForPath, doorForPath, roleToLandingRoute, type UserRole } from './roles';
 
 export interface Session {
   userId: string;
@@ -73,7 +73,7 @@ export async function requireRole(
     redirect('/auth/change-password?forced=1');
   }
   if (!allowed.includes(session.role)) {
-    redirect(ROLE_HOME[session.role]);
+    redirect(roleToLandingRoute(session.role));
   }
   return session;
 }

@@ -8,19 +8,30 @@ import { siteOrigin } from '@/lib/site';
  * issued for any active account, homeowners included (002600); an inactive or
  * unknown address simply produces no token and the same reply.
  */
+const DOORS = ['staff', 'dealer', 'customer'];
+
 export async function POST(request: Request) {
-  const body = (await request.json().catch(() => null)) as { email?: string } | null;
+  const body = (await request.json().catch(() => null)) as {
+    email?: string;
+    door?: string;
+  } | null;
   const email = body?.email?.trim();
   if (!email) {
     return NextResponse.json({ error: 'email is required' }, { status: 400 });
   }
+  // §7: "the reset link returns the user to the sign-in page they started from".
+  // Allowlisted, because it ends up in a URL: only these three values pass, so
+  // nothing a caller invents can be reflected back into the link.
+  const door = body?.door && DOORS.includes(body.door) ? body.door : null;
 
   const { rows } = await withAnon((c) =>
     c.query<{ recovery_token: string }>('select * from auth.request_recovery($1)', [email])
   );
 
   if (rows[0]?.recovery_token) {
-    const link = `${siteOrigin(new URL(request.url).origin)}/auth/update-password?token=${rows[0].recovery_token}`;
+    const link =
+      `${siteOrigin(new URL(request.url).origin)}/auth/update-password` +
+      `?token=${rows[0].recovery_token}${door ? `&from=${door}` : ''}`;
     try {
       await sendEmail({
         to: email,

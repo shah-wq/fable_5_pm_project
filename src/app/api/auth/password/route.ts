@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { tryLogAuditEvent } from '@/lib/audit';
 import { setSessionCookie } from '@/lib/auth/cookies';
-import { ROLE_HOME, type UserRole } from '@/lib/auth/roles';
+import { roleToLandingRoute, type UserRole } from '@/lib/auth/roles';
 import { withAnon } from '@/lib/db';
 
 interface SetPasswordRow {
@@ -56,7 +56,9 @@ export async function POST(request: Request) {
     { action: 'auth.password_set', entityType: 'profiles', entityId: row.user_id }
   );
 
-  const response = NextResponse.json({ redirect: ROLE_HOME[row.user_role] });
+  // One routing function, here as everywhere (§9): setting a password signs the
+  // user in, so where they go next is the same decision the login endpoint makes.
+  const response = NextResponse.json({ redirect: roleToLandingRoute(row.user_role) });
   setSessionCookie(response, row.session_token);
   return response;
 }

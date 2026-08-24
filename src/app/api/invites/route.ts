@@ -133,7 +133,7 @@ export async function POST(request: Request) {
         text:
           `Your solar project portal is ready.\n\n` +
           `Choose a password here (the link works once and expires in 7 days):\n${inviteLink}\n\n` +
-          `After that you can sign in any time at ${origin}/portal/login to see where your ` +
+          `After that you can sign in any time at ${origin}/login/homeowner to see where your ` +
           `installation stands, what happens next, and your documents.\n`,
       });
     } else if (inviteLink) {

@@ -1,38 +1,47 @@
-import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ROLE_HOME } from '@/lib/auth/roles';
+import { roleToLandingRoute } from '@/lib/auth/roles';
 import { getSession } from '@/lib/auth/session';
-import { Notice } from '../_components/AuthUi';
-import { PasswordLoginForm } from '../_components/PasswordLoginForm';
+import { isAppShell } from '@/lib/native/shell';
+import { SignInScreen } from '../_components/SignInScreen';
 
 const ERRORS: Record<string, string> = {
-  account_disabled: 'This account has been deactivated. Contact your administrator.',
+  account_disabled: 'This account has been disabled. Contact your administrator.',
 };
 
-/** Staff door: admin, PM (ops), designer, finance — one page, destination
- *  decided by profiles.role after authentication. */
+/**
+ * The entry point (§2): one URL, three doors.
+ *
+ * The staff form stays primary because staff sign in most often and know this
+ * page — but the dealer and homeowner routes are now buttons of the same width
+ * below it rather than small grey links, because those two audiences outnumber
+ * staff many times over in daily sign-ins.
+ *
+ * Which surface anyone lands on is still decided by their role after
+ * authentication, never by the page they used. See roleToLandingRoute().
+ */
 export default async function LoginPage({
   searchParams,
 }: {
   searchParams: Promise<{ next?: string; error?: string }>;
 }) {
   const session = await getSession();
-  if (session?.isActive) redirect(ROLE_HOME[session.role]);
+  // §5: "visiting any sign-in page with a valid session redirects straight to
+  // that role's surface". Signing in twice is nobody's intention.
+  if (session?.isActive) redirect(roleToLandingRoute(session.role));
+
+  // §6: the store app is a homeowner product. It shows one door, and its login
+  // screen does not hint that the other two exist.
+  if (await isAppShell()) redirect('/login/homeowner');
 
   const { next, error } = await searchParams;
   return (
-    <>
-      <h1>Sign in</h1>
-      <p className="sub">Staff access — admins, project managers, designers, finance.</p>
-      {error && ERRORS[error] && <Notice kind="error">{ERRORS[error]}</Notice>}
-      <PasswordLoginForm door="staff" next={next} />
-      <div className="auth-links">
-        <Link href="/login/reset">Forgot your password?</Link>
-        <span>
-          Dealer? <Link href="/dealers/login">Sign in here</Link> · Homeowner?{' '}
-          <Link href="/portal/login">Sign in here</Link>
-        </span>
-      </div>
-    </>
+    <SignInScreen
+      door="staff"
+      heading="Sign in"
+      sub="Staff access — admins, project managers, designers, finance."
+      next={next}
+      error={error ? ERRORS[error] : undefined}
+      roleDoors={['dealer', 'homeowner']}
+    />
   );
 }

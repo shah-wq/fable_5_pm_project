@@ -1,9 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { useId, useState } from 'react';
+import type { DoorId } from '@/lib/auth/roles';
 import { Notice } from './AuthUi';
 
-export function ResetForm() {
+/**
+ * Step one of the shared recovery flow (§7). The door is passed to the server so
+ * the emailed link can bring the user back to the page they started from.
+ */
+export function ResetForm({ door = 'staff' }: { door?: DoorId }) {
+  const errorId = useId();
   const [email, setEmail] = useState('');
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -18,7 +24,7 @@ export function ResetForm() {
       const res = await fetch('/api/auth/recovery', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, door }),
       });
       if (!res.ok) {
         const json = await res.json().catch(() => null);
@@ -42,14 +48,26 @@ export function ResetForm() {
 
   return (
     <form onSubmit={onSubmit} noValidate>
-      {error && <Notice kind="error">{error}</Notice>}
+      <div className="live-region" role="alert" aria-live="assertive">
+        {error && (
+          <p className="notice error" id={errorId}>
+            {error}
+          </p>
+        )}
+      </div>
       <label className="field">
         <span>Email</span>
         <input
           type="email"
           name="email"
           autoComplete="email"
+          inputMode="email"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
           required
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? errorId : undefined}
           value={email}
           onChange={(e) => setEmail(e.target.value)}
         />

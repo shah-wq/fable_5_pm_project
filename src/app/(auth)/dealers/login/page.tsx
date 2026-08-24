@@ -1,31 +1,14 @@
-import Link from 'next/link';
-import { redirect } from 'next/navigation';
-import { ROLE_HOME } from '@/lib/auth/roles';
-import { getSession } from '@/lib/auth/session';
-import { PasswordLoginForm } from '../../_components/PasswordLoginForm';
+import { permanentRedirect } from 'next/navigation';
+import { LEGACY_LOGIN_PATHS } from '@/lib/auth/roles';
 
-/** Dealer door. Same password form; only the 'dealer' role may pass. */
-export default async function DealerLoginPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ next?: string }>;
-}) {
-  const session = await getSession();
-  if (session?.isActive) redirect(ROLE_HOME[session.role]);
-
-  const { next } = await searchParams;
-  return (
-    <>
-      <h1>Dealer sign in</h1>
-      <p className="sub">Track every project in your book, from intake to PTO.</p>
-      <PasswordLoginForm door="dealer" next={next} />
-      <div className="auth-links">
-        <Link href="/login/reset">Forgot your password?</Link>
-        <span>
-          Staff? <Link href="/login">Sign in here</Link> · Homeowner?{' '}
-          <Link href="/portal/login">Sign in here</Link>
-        </span>
-      </div>
-    </>
-  );
+/**
+ * The dealer door moved to /login/dealer (§9: the three doors hang off one entry
+ * point). This path stays for ever, because it is in sent emails, in browser
+ * histories and quite possibly written on a dealer's printed onboarding sheet —
+ * and a dead sign-in link is the one broken link a user cannot work around.
+ *
+ * A permanent redirect, so anything that caches it learns the new address.
+ */
+export default function DealerLoginMoved() {
+  permanentRedirect(LEGACY_LOGIN_PATHS['/dealers/login']);
 }
