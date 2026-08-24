@@ -1,5 +1,6 @@
 import { getSession } from '@/lib/auth/session';
 import { chatReady, loadContext, loadThread } from '@/lib/chat/service';
+import { cityState } from '@/lib/portal/home';
 import { withUser } from '@/lib/db';
 import { loadPortalPage, NO_PROJECT_MESSAGE } from '@/lib/portal/page';
 import { Thread } from '@/app/_components/Thread';
@@ -68,7 +69,11 @@ export default async function PortalMessagesPage({
             talking to — not 'Support'. */}
         <p className="dim">
           {pmName
-            ? `You are talking to ${pmName}, the project manager for ${project.address ?? 'your project'}.`
+            // City and state, not the raw address field — which is how this
+            // line came to read 'the project manager for USA'.
+            ? `You are talking to ${pmName}, the project manager for ${
+                cityState(project.address) ?? 'your project'
+              }.`
             : 'Your project manager will reply here.'}
         </p>
         {/* §4: set a response-time expectation in the interface. */}

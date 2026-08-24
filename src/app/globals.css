@@ -1599,6 +1599,11 @@ a {
 .btn.small {
   padding: 4px 10px;
   font-size: 12.5px;
+  /* .btn is width:100% for the full-width forms it was written for. In a row
+     beside other content — a document title and its Share button — that made the
+     button claim the whole row and squeezed the title into a three-line column. */
+  width: auto;
+  flex: none;
 }
 
 .ref-row {
@@ -4473,6 +4478,143 @@ a {
   .customer-app .call-bar a:not(.btn) {
     color: var(--ink);
     border-color: var(--line);
+  }
+
+  /* ---------------------------------------------------------------------
+     Everything below is one class of bug, found by looking at the pages
+     rather than the markup: a surface with a hardcoded light background, or
+     a colour taken from --navy.
+
+     --navy is a *background* in this scope. Every rule that used it as a
+     text colour — the secondary button, 'happening now', a link inside a
+     message — became dark text on a dark surface: present, correct, and
+     invisible. The message bubbles were the same mistake from the other
+     end: hardcoded #f1efe9 with inherited light text.
+
+     The rule for anything added to the customer app later: if a
+     declaration names a literal light colour, or uses --navy for text, it
+     needs a line here.
+     --------------------------------------------------------------------- */
+
+  /* Buttons. Primary becomes amber-on-dark rather than white-on-navy, which
+     at these tokens is barely a button at all. */
+  .customer-app .btn {
+    background: var(--amber);
+    border-color: var(--amber);
+    color: #10141c;
+  }
+
+  .customer-app .btn.secondary {
+    background: transparent;
+    border-color: var(--amber);
+    color: var(--amber);
+  }
+
+  /* The message thread. Dark bubbles, not light ones: the reported bug was
+     invisible text, and the fix that keeps the two sides distinguishable is
+     to darken the surfaces rather than to darken the text. */
+  .customer-app .msg {
+    background: #1f2735;
+    color: var(--ink);
+  }
+
+  .customer-app .msg.mine {
+    background: #223250;
+  }
+
+  .customer-app .msg.internal {
+    background: #3a3220;
+    border-color: #5c4d28;
+  }
+
+  .customer-app .msg-meta,
+  .customer-app .msg-who {
+    color: var(--ink-soft);
+  }
+
+  .customer-app .msg-body a,
+  .customer-app .msg-files a {
+    color: #ffc861;
+  }
+
+  .customer-app .stage-chip-sm {
+    background: #2b3546;
+    color: var(--ink-soft);
+  }
+
+  .customer-app .chat-panel .reply-promise {
+    background: #1c2a24;
+    color: #a9c4b4;
+  }
+
+  .customer-app .thread-empty,
+  .customer-app .thread-day {
+    color: var(--ink-soft);
+  }
+
+  .customer-app .composer textarea,
+  .customer-app .field input,
+  .customer-app .field textarea,
+  .customer-app select {
+    background: var(--card);
+    color: var(--ink);
+    border-color: var(--line);
+  }
+
+  .customer-app .msg-system {
+    color: var(--ink-soft);
+  }
+
+  /* The stage tracker on the Project tab. */
+  .customer-app .tracker-now {
+    color: var(--amber);
+  }
+
+  .customer-app .tracker-stage.current {
+    border-color: color-mix(in srgb, var(--amber) 45%, var(--card));
+  }
+
+  .customer-app .tracker-num {
+    background: #2b3546;
+    color: var(--ink);
+  }
+
+  .customer-app .tracker-stage.done .tracker-num {
+    background: var(--ok);
+    color: #0b1b33;
+  }
+
+  .customer-app .tracker-stage.current .tracker-num {
+    background: var(--amber);
+    color: #10141c;
+  }
+
+  /* Notices mix their background with literal white. */
+  .customer-app .notice.ok {
+    background: #16281f;
+    border-color: #2c4a38;
+    color: #8fd3ae;
+  }
+
+  .customer-app .notice.error {
+    background: #2e1b1b;
+    border-color: #5a2d2b;
+    color: #f0a9a4;
+  }
+
+  .customer-app .notice.hold {
+    background: #2f2617;
+    border-color: #574526;
+    color: #f0cf94;
+  }
+
+  /* The request bubbles on the Project and More tabs. */
+  .customer-app .bubble.mine {
+    background: #223250;
+  }
+
+  .customer-app .bubble.theirs {
+    background: #1c2a24;
   }
 }
 

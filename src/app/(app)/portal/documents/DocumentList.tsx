@@ -1,5 +1,7 @@
 'use client';
 
+import { prettyDate } from '@/lib/portal/home';
+
 import { useState } from 'react';
 import { shareFile } from '@/lib/native';
 
@@ -90,7 +92,7 @@ export function DocumentList({
                 <li key={doc.id}>
                   <button className="doc-open" type="button" onClick={() => setViewing(doc)}>
                     <span className="doc-title">{doc.title}</span>
-                    <span className="dim">{doc.date}</span>
+                    <span className="dim">{prettyDate(doc.date) ?? doc.date}</span>
                   </button>
                   <button
                     className="btn secondary small"
