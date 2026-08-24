@@ -38,7 +38,7 @@ export default async function HomeownerLoginPage({
           First time here? Use the link in your welcome email to set your password.
         </span>
       }
-      altDoors={inApp ? [] : ['staff', 'dealer']}
+      showDoors={!inApp}
     />
   );
 }

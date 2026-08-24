@@ -14,7 +14,8 @@ const ERRORS: Record<string, string> = {
  * The staff form stays primary because staff sign in most often and know this
  * page — but the dealer and homeowner routes are now buttons of the same width
  * below it rather than small grey links, because those two audiences outnumber
- * staff many times over in daily sign-ins.
+ * staff many times over in daily sign-ins. SignInScreen shows every door except
+ * the one being looked at, so this page needs no list of them.
  *
  * Which surface anyone lands on is still decided by their role after
  * authentication, never by the page they used. See roleToLandingRoute().
@@ -41,7 +42,6 @@ export default async function LoginPage({
       sub="Staff access — admins, project managers, designers, finance."
       next={next}
       error={error ? ERRORS[error] : undefined}
-      roleDoors={['dealer', 'homeowner']}
     />
   );
 }

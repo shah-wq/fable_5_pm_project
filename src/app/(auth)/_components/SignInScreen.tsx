@@ -2,7 +2,7 @@ import Link from 'next/link';
 import type { DoorId } from '@/lib/auth/roles';
 import { Notice } from './AuthUi';
 import { PasswordLoginForm } from './PasswordLoginForm';
-import { AltDoorLinks, RoleDoors } from './RoleDoors';
+import { RoleDoors, type DoorKey } from './RoleDoors';
 
 /**
  * One sign-in screen, rendered three times with different props (§9).
@@ -21,6 +21,13 @@ import { AltDoorLinks, RoleDoors } from './RoleDoors';
  * forgot → dealer → homeowner. The password field's show/hide button sits inside
  * that control, which is where a keyboard user expects it.
  */
+/** The door ids used for routing, mapped to the buttons' own names. */
+const DOOR_KEY: Record<DoorId, DoorKey> = {
+  staff: 'staff',
+  dealer: 'dealer',
+  customer: 'homeowner',
+};
+
 export function SignInScreen({
   door,
   heading,
@@ -29,10 +36,11 @@ export function SignInScreen({
   error,
   /** Small print between the form and the other doors — audience-specific. */
   aside,
-  /** The two full-width buttons (staff page) — §3. */
-  roleDoors,
-  /** The way back as links (dealer and homeowner pages) — §4. */
-  altDoors,
+  /**
+   * Show the other two doors as buttons. True on every page in a browser; false
+   * only inside the store app, which has one audience and no role choice (§6).
+   */
+  showDoors = true,
 }: {
   door: DoorId;
   heading: string;
@@ -40,8 +48,7 @@ export function SignInScreen({
   next?: string;
   error?: React.ReactNode;
   aside?: React.ReactNode;
-  roleDoors?: Array<'dealer' | 'homeowner'>;
-  altDoors?: Array<'staff' | 'dealer' | 'homeowner'>;
+  showDoors?: boolean;
 }) {
   // §7: the reset link returns the user to the page they started from, so a
   // homeowner ends up back on the homeowner page rather than the staff one.
@@ -58,15 +65,14 @@ export function SignInScreen({
       <div className="auth-links">
         <Link href={resetHref}>Forgot your password?</Link>
         {aside}
-        {altDoors && altDoors.length > 0 && (
-          <span>
-            {door === 'dealer' ? 'Not a dealer? ' : 'Not a homeowner? '}
-            <AltDoorLinks show={altDoors} />
-          </span>
-        )}
       </div>
 
-      {roleDoors && <RoleDoors show={roleDoors} />}
+      {/* All three doors are the same size on every page, minus the one you are
+          standing on. Somebody who opened the wrong page needs the way out to be
+          as findable as the way in was — which a line of grey text is not. */}
+      {showDoors && (
+        <RoleDoors current={DOOR_KEY[door]} show={['staff', 'dealer', 'homeowner']} />
+      )}
     </>
   );
 }

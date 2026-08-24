@@ -27,7 +27,6 @@ export default async function DealerLoginPage({
       // Dealer accounts are created by an admin, so the only useful thing to say
       // is who to ask.
       aside={<span>Need access? Contact your account manager.</span>}
-      altDoors={['staff', 'homeowner']}
     />
   );
 }
