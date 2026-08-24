@@ -38,6 +38,14 @@ export function phrase(map: PhraseMap, domain: string, value: unknown, fallback 
 export interface CustomerTrack {
   label: string;
   status: string;
+  /**
+   * What the dot beside this row looks like on the redesigned home screen
+   * (§3): a check when it is finished, a filled dot for the one being worked on,
+   * a hollow dot for the rest. Derived from the raw status before it is turned
+   * into customer wording, because the wording is deliberately vague and a shape
+   * cannot be.
+   */
+  state: 'done' | 'active' | 'pending' | 'na';
   /** Submitted / applied / requested date, when the customer should see it. */
   submitted?: string | null;
   /** Approved / received / completed date. */
@@ -76,6 +84,16 @@ export interface CustomerProject {
   cancelled: { date: string | null } | null;
   isComplete: boolean;
   stages: CustomerStage[];
+  /** Days since the project entered its current stage. Powers 'Day 3 of ~10'. */
+  daysInStage: number | null;
+  /** Days since the project was created, for the one quiet line at the bottom. */
+  daysSinceStart: number | null;
+  /** Per-stage typical durations and ageing thresholds, from admin settings. */
+  pace: Record<string, { typical: { min: number; max: number } | null; attention: number | null }>;
+  /** How many documents this customer can see, for the Documents tile. */
+  documentCount: number;
+  /** 'We reply within one business day' — the promise from the chat settings. */
+  replyPromise: string | null;
   updates: Array<{ date: string; text: string }>;
   needed: string[];
   /** Specific things the PM has asked this customer for, still outstanding. */
@@ -108,6 +126,43 @@ export interface CustomerProject {
   monitoring: string | null;
 }
 
+/**
+ * The shape of the dot beside a milestone row (§3).
+ *
+ * Read off the raw status value, not the customer-facing phrase: the phrases are
+ * configurable per company, and a shape derived from words somebody can edit in
+ * an admin panel would silently stop matching.
+ */
+const DONE_STATES = new Set([
+  'approved', 'received', 'completed', 'complete', 'passed', 'paid',
+  'delivered', 'energized', 'signed', 'issued', 'done',
+]);
+const ACTIVE_STATES = new Set([
+  'applied', 'submitted', 'scheduled', 'ordered', 'requested', 'initiated',
+  'in_progress', 'in_review', 'pending', 'booked', 'resubmitted', 'revision',
+]);
+const NA_STATES = new Set(['na', 'not_required', 'not_applicable', 'waived', 'none']);
+
+export function trackState(raw: unknown, completed?: unknown): CustomerTrack['state'] {
+  const value = String(raw ?? '').toLowerCase();
+  if (NA_STATES.has(value)) return 'na';
+  // A date beats a status: if the thing happened, it happened, whatever the
+  // dropdown still says.
+  if (completed !== undefined && completed !== null && completed !== '') return 'done';
+  if (DONE_STATES.has(value)) return 'done';
+  if (ACTIVE_STATES.has(value)) return 'active';
+  return 'pending';
+}
+
+/** Whole days between two moments, or null when either is missing. */
+function daysBetween(from: unknown, to: Date = new Date()): number | null {
+  if (from === null || from === undefined || from === '') return null;
+  const start = from instanceof Date ? from : new Date(String(from));
+  if (Number.isNaN(start.getTime())) return null;
+  const ms = to.getTime() - start.getTime();
+  return Math.max(0, Math.floor(ms / 86_400_000));
+}
+
 /** ISO yyyy-mm-dd. pg hands back Date objects for date columns, and
  *  String(Date) would render 'Sun Jul 05' — never show that to a customer. */
 const asDate = (v: unknown): string | null => {
@@ -136,6 +191,7 @@ export async function loadCustomerProject(
 
   const projectSql = `
     select p.id, p.code, p.name, p.address, p.stage, p.status, p.contract_value,
+           p.created_at,
            p.system_size_kw, p.module_quantity, p.battery_quantity, p.inverter_quantity,
            p.customer_estimate,
            st.name as system_type, mt.name as module_type,
@@ -250,6 +306,51 @@ export async function loadCustomerProject(
     )
   ).rows;
 
+  // How long this project has been in the stage it is in. The same rule the
+  // dashboard uses (002800's stage_since): the most recent stage event, or the
+  // creation date for a project that has never moved.
+  const stageSince = events[0]?.changed_at ?? p.created_at;
+
+  // What this business considers normal for each stage, and when it calls a
+  // stage overdue. Both arrive with migrations later than this page, so a
+  // database that has not caught up simply shows no estimate rather than an
+  // error — the customer loses one line, not their project.
+  const pace = Object.fromEntries(
+    (
+      await optionalRows<{
+        stage: string;
+        attention_days: number | null;
+        typical_min_days: number | null;
+        typical_max_days: number | null;
+      }>(
+        client,
+        'the stage pace settings (public.stage_thresholds)',
+        `select stage::text as stage, attention_days, typical_min_days, typical_max_days
+           from public.stage_thresholds`
+      )
+    ).map((r) => [
+      r.stage,
+      {
+        attention: r.attention_days === null ? null : Number(r.attention_days),
+        typical:
+          r.typical_min_days === null || r.typical_max_days === null
+            ? null
+            : { min: Number(r.typical_min_days), max: Number(r.typical_max_days) },
+      },
+    ])
+  );
+
+  // The reply-time promise shown on the Ask tile — the same sentence the message
+  // thread shows, so the two screens cannot disagree about it.
+  const replyPromise =
+    (
+      await optionalRows<{ chat_reply_promise: string | null }>(
+        client,
+        'the chat reply promise (public.app_settings)',
+        `select chat_reply_promise from public.app_settings where id`
+      )
+    )[0]?.chat_reply_promise ?? null;
+
   const requests = (
     await client.query(
       `select id, kind, created_at, message, pm_reply, status from public.customer_requests
@@ -273,46 +374,67 @@ export async function loadCustomerProject(
   const st = (domain: string, value: unknown, fallback = 'Not started yet') =>
     phrase(phrases, domain, value, fallback);
 
+  /**
+   * One track row, with the shape its dot takes.
+   *
+   * Built through a helper rather than written out per stage so that the state
+   * is always derived from the same raw value the status text came from. Writing
+   * them separately is how a row ends up saying 'Approved' beside a hollow dot.
+   */
+  const mk = (
+    label: string,
+    domain: string,
+    raw: unknown,
+    fallback: string,
+    dates: { submitted?: unknown; completed?: unknown } = {}
+  ): CustomerTrack => ({
+    label,
+    status: st(domain, raw, fallback),
+    ...(dates.submitted === undefined ? {} : { submitted: asDate(dates.submitted) }),
+    ...(dates.completed === undefined ? {} : { completed: asDate(dates.completed) }),
+    state: trackState(raw, dates.completed),
+  });
+
   const trackSets: Record<StageKey, CustomerTrack[]> = {
     survey: [
-      { label: 'Site survey', status: st('survey_status', s1.survey_status, 'Being scheduled'),
-        completed: asDate(s1.survey_completed_date) },
-      { label: 'Deposit', status: st('payment_status', s1.down_payment_status, 'Not yet due'),
-        completed: asDate(s1.down_payment_received_date) },
+      mk('Survey visit', 'survey_status', s1.survey_status, 'Being scheduled',
+         { completed: s1.survey_completed_date }),
+      mk('Deposit', 'payment_status', s1.down_payment_status, 'Not yet due',
+         { completed: s1.down_payment_received_date }),
     ],
     design: [
-      { label: 'System design', status: st('design_status', s2.design_status),
-        completed: asDate(s2.design_received_date) },
-      { label: 'Engineering stamp', status: st('stamps_status', s2.stamps_status, 'Not needed yet'),
-        completed: asDate(s2.stamps_received_date) },
+      mk('System design', 'design_status', s2.design_status, 'Not started yet',
+         { completed: s2.design_received_date }),
+      mk('Engineering stamp', 'stamps_status', s2.stamps_status, 'Not needed yet',
+         { completed: s2.stamps_received_date }),
     ],
     permits: [
-      { label: 'City / county permit', status: st('permit_status', s3.permit_status, 'Not submitted yet'),
-        submitted: asDate(s3.permit_applied_date), completed: asDate(s3.permit_received_date) },
-      { label: 'Utility interconnection', status: st('ica_status', s3.ica_status, 'Not submitted yet'),
-        submitted: asDate(s3.ica_applied_date), completed: asDate(s3.ica_received_date) },
-      { label: 'HOA approval', status: st('hoa_status', s3.hoa_status, 'Not required'),
-        submitted: asDate(s3.hoa_applied_date), completed: asDate(s3.hoa_received_date) },
+      mk('City permit', 'permit_status', s3.permit_status, 'Not submitted yet',
+         { submitted: s3.permit_applied_date, completed: s3.permit_received_date }),
+      mk('Utility approval', 'ica_status', s3.ica_status, 'Not submitted yet',
+         { submitted: s3.ica_applied_date, completed: s3.ica_received_date }),
+      mk('HOA approval', 'hoa_status', s3.hoa_status, 'Not required',
+         { submitted: s3.hoa_applied_date, completed: s3.hoa_received_date }),
     ],
     procurement: [
-      { label: 'Your equipment', status: st('material_status', s4.material_status, 'Not ordered yet'),
-        submitted: asDate(s4.material_requested_date), completed: asDate(s4.material_delivered_date) },
+      mk('Your equipment', 'material_status', s4.material_status, 'Not ordered yet',
+         { submitted: s4.material_requested_date, completed: s4.material_delivered_date }),
     ],
     install: [
-      { label: 'Installation', status: st('install_status', s5.install_status, 'Being scheduled'),
-        submitted: asDate(s5.install_scheduled_date), completed: asDate(s5.install_completed_date) },
+      mk('Installation', 'install_status', s5.install_status, 'Being scheduled',
+         { submitted: s5.install_scheduled_date, completed: s5.install_completed_date }),
     ],
     inspection_pto: [
-      { label: 'City inspection', status: st('inspection_status', s6.inspection_status, 'Not booked yet'),
-        completed: asDate(s6.inspection_completed_date) },
-      { label: 'Permission to operate', status: st('pto_status', s6.pto_status, 'Not submitted yet'),
-        submitted: asDate(s6.pto_applied_date), completed: asDate(s6.pto_received_date) },
-      { label: 'System switched on', status: st('energization_status', s6.energization_status, 'Not yet'),
-        completed: asDate(s6.energization_date) },
+      mk('City inspection', 'inspection_status', s6.inspection_status, 'Not booked yet',
+         { completed: s6.inspection_completed_date }),
+      mk('Utility permission', 'pto_status', s6.pto_status, 'Not submitted yet',
+         { submitted: s6.pto_applied_date, completed: s6.pto_received_date }),
+      mk('System live', 'energization_status', s6.energization_status, 'Not yet',
+         { completed: s6.energization_date }),
     ],
     complete: [
-      { label: 'Project', status: st('completion_status', s7.completion_status, 'In progress'),
-        completed: asDate(s7.completion_date) },
+      mk('Project', 'completion_status', s7.completion_status, 'In progress',
+         { completed: s7.completion_date }),
     ],
   };
 
@@ -398,6 +520,11 @@ export async function loadCustomerProject(
     cancelled: cancel ? { date: asDate(cancel.cancellation_date) } : null,
     isComplete,
     stages,
+    daysInStage: daysBetween(stageSince),
+    daysSinceStart: daysBetween(p.created_at),
+    pace,
+    documentCount: docs.length,
+    replyPromise,
     updates: events
       .map((e) => ({
         date: asDate(e.changed_at)!,

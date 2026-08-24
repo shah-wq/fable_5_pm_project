@@ -23,11 +23,33 @@ export default async function AdminSettingsPage() {
       'the per-stage ageing thresholds (public.stage_thresholds)',
       `select stage::text as stage, attention_days from public.stage_thresholds`
     );
-    return { settings: settings.rows[0], signers: signers.rows, thresholds };
+    // The typical ranges arrive one migration later than the thresholds beside
+    // them, so they are asked for separately — on a database at 002800 the
+    // ageing column still renders and only this pair is missing.
+    const typical = await optionalRows<{
+      stage: string;
+      typical_min_days: number | null;
+      typical_max_days: number | null;
+    }>(
+      c,
+      'the typical stage durations (public.stage_thresholds)',
+      `select stage::text as stage, typical_min_days, typical_max_days
+         from public.stage_thresholds`
+    );
+    return { settings: settings.rows[0], signers: signers.rows, thresholds, typical };
   });
 
   const thresholds = Object.fromEntries(
     data.thresholds.map((t) => [t.stage, Number(t.attention_days)])
+  );
+  const typical = Object.fromEntries(
+    data.typical.map((t) => [
+      t.stage,
+      {
+        min: t.typical_min_days === null ? null : Number(t.typical_min_days),
+        max: t.typical_max_days === null ? null : Number(t.typical_max_days),
+      },
+    ])
   );
 
   return (
@@ -39,7 +61,12 @@ export default async function AdminSettingsPage() {
         Company details print on work orders and change orders; the turnaround default pre-fills
         Stage 2 due dates; the CO numbering feeds change orders.
       </p>
-      <SettingsForm settings={data.settings} signers={data.signers} thresholds={thresholds} />
+      <SettingsForm
+        settings={data.settings}
+        signers={data.signers}
+        thresholds={thresholds}
+        typical={typical}
+      />
     </main>
   );
 }

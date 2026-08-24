@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "test:unit": "node --experimental-strip-types --test src/lib/auth/roles.test.ts src/lib/stages/requirements.test.ts src/lib/dashboard/filters.test.ts",
+    "test:unit": "node --experimental-strip-types --test src/lib/auth/roles.test.ts src/lib/stages/requirements.test.ts src/lib/dashboard/filters.test.ts src/lib/portal/home.test.ts",
     "db:verify": "scripts/verify-local.sh",
     "db:migrate": "node scripts/migrate.mjs",
     "db:create-admin": "node scripts/create-admin.mjs",

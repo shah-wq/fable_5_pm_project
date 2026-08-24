@@ -348,6 +348,17 @@ a {
   border: 1px solid;
 }
 
+/* Two numbers that are one setting — 'typical 15 to 30 days'. */
+.range-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.range-row input {
+  min-width: 0;
+}
+
 /* An always-present live region: empty it collapses, so it costs no layout
    while there is nothing to announce. */
 .live-region:empty {
@@ -2346,10 +2357,16 @@ a {
   right: 0;
   z-index: 30;
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(6, 1fr);
   background: var(--card);
   border-top: 1px solid var(--line);
   padding-bottom: env(safe-area-inset-bottom);
+  /* Constrained to the content column (§6). Spanning the full window width on a
+     desktop browser left the tabs stretched across a metre of screen with the
+     content in a narrow column above them — and on the way to that, one tab
+     wrapping onto a second row. */
+  max-width: 720px;
+  margin: 0 auto;
 }
 
 .tab-bar a {
@@ -3894,5 +3911,666 @@ a {
   }
   .thread-scroll {
     max-height: none;
+  }
+}
+
+/* ==========================================================================
+   CUSTOMER PORTAL HOME — the redesigned home screen
+   ==========================================================================
+   One idea: show the stage they are in, not the seven they could be in. The
+   layout is built for a 380px phone and centred in a column on anything wider,
+   because this surface is overwhelmingly a phone surface (§7).
+
+   Every animation in this section sits inside a prefers-reduced-motion query,
+   and every animated property is also set as a static value on the element. A
+   customer who has asked their device for less motion — often because motion
+   makes them unwell — gets the same layout with instant states, and nothing on
+   the screen depends on having seen it move (§4). */
+
+.app-page.home {
+  max-width: 440px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* --- hero: the ring and the stage ---------------------------------------- */
+
+.home .hero {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: var(--navy);
+  color: #fff;
+  border-radius: 16px;
+  padding: 16px;
+}
+
+.ring {
+  position: relative;
+  flex: none;
+  width: 76px;
+  height: 76px;
+}
+
+.ring-track {
+  stroke: rgb(255 255 255 / 16%);
+}
+
+.ring-fill {
+  stroke: var(--amber);
+}
+
+.ring.paused .ring-fill {
+  /* A held project's ring keeps its position and loses its accent: the colour
+     draining is the same signal as the pulse stopping (§5). */
+  stroke: rgb(255 255 255 / 55%);
+}
+
+.ring-value {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.4px;
+}
+
+.hero-text {
+  min-width: 0;
+}
+
+.home .hero h1 {
+  font-size: 19px;
+  line-height: 1.25;
+  margin: 2px 0 4px;
+}
+
+.live {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  color: var(--amber);
+}
+
+.live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--amber);
+  flex: none;
+}
+
+.live.stopped {
+  color: rgb(255 255 255 / 70%);
+}
+
+.live.stopped .live-dot {
+  background: rgb(255 255 255 / 70%);
+}
+
+.hero-meta {
+  margin: 0;
+  font-size: 12.5px;
+  color: rgb(255 255 255 / 72%);
+}
+
+.hero-estimate {
+  margin: 4px 0 0;
+  font-size: 12.5px;
+  color: #fff;
+  font-weight: 600;
+}
+
+/* --- the seven-segment strip -------------------------------------------- */
+
+.stage-strip {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 5px;
+}
+
+.strip-seg {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-decoration: none;
+  /* A tap target the height of the label plus the bar, so the whole column is
+     tappable rather than the 4px bar itself (§3). */
+  padding: 6px 0 2px;
+  border-radius: 6px;
+}
+
+.strip-bar {
+  display: block;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--line);
+}
+
+.strip-seg.done .strip-bar {
+  background: var(--navy);
+}
+
+.strip-seg.current .strip-bar {
+  background: var(--amber);
+}
+
+.strip-label {
+  font-size: 10px;
+  text-align: center;
+  color: var(--ink-soft);
+  letter-spacing: -0.2px;
+}
+
+.strip-seg.current .strip-label {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.strip-seg:focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: 2px;
+}
+
+/* --- needs-you block ---------------------------------------------------- */
+
+.home .needs {
+  background: color-mix(in srgb, var(--amber) 12%, var(--card));
+  border: 1px solid color-mix(in srgb, var(--amber) 45%, var(--card));
+  border-radius: 14px;
+  padding: 12px 14px;
+}
+
+.home .needs h2 {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  margin: 0 0 6px;
+  color: color-mix(in srgb, var(--amber) 70%, var(--ink));
+}
+
+.home .needs ul {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 13.5px;
+}
+
+.home .needs .btn {
+  margin-top: 10px;
+}
+
+/* --- the one expanded stage card ---------------------------------------- */
+
+.stage-card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 14px;
+}
+
+.stage-card.hold {
+  background: color-mix(in srgb, var(--amber) 10%, var(--card));
+  border-color: color-mix(in srgb, var(--amber) 40%, var(--card));
+}
+
+.stage-card.done {
+  background: color-mix(in srgb, var(--ok) 8%, var(--card));
+  border-color: color-mix(in srgb, var(--ok) 32%, var(--card));
+}
+
+.stage-card-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.stage-card-head h2 {
+  font-size: 16px;
+  margin: 0;
+}
+
+.stage-tile {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  flex: none;
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--navy) 8%, var(--card));
+  color: var(--navy);
+}
+
+.stage-tile.paused {
+  background: color-mix(in srgb, var(--amber) 20%, var(--card));
+  color: color-mix(in srgb, var(--amber) 75%, var(--ink));
+}
+
+.stage-typical {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
+.stage-explainer {
+  margin: 0 0 12px;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+/* --- milestones: a shape and a colour before a word --------------------- */
+
+.milestones {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.milestone {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 0;
+  border-top: 1px solid color-mix(in srgb, var(--line) 60%, transparent);
+  font-size: 13.5px;
+}
+
+.milestone:first-child {
+  border-top: 0;
+}
+
+.milestone-dot {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  border-radius: 50%;
+  border: 2px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  line-height: 1;
+  color: #fff;
+}
+
+.milestone.active .milestone-dot {
+  background: var(--amber);
+  border-color: var(--amber);
+}
+
+.milestone.done .milestone-dot {
+  background: var(--ok);
+  border-color: var(--ok);
+}
+
+.milestone.na {
+  color: var(--ink-soft);
+}
+
+.milestone-label {
+  flex: 1;
+  min-width: 0;
+}
+
+.pill {
+  font-size: 11.5px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--line) 45%, var(--card));
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+
+.pill.active {
+  background: color-mix(in srgb, var(--amber) 18%, var(--card));
+  color: color-mix(in srgb, var(--amber) 78%, var(--ink));
+  font-weight: 600;
+}
+
+.pill.done {
+  background: color-mix(in srgb, var(--ok) 12%, var(--card));
+  color: var(--ok);
+  font-weight: 600;
+}
+
+/* --- time in stage: the question behind most status calls ---------------- */
+
+.time-in-stage {
+  margin-top: 12px;
+}
+
+.time-bar {
+  height: 6px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--line) 70%, var(--card));
+  overflow: hidden;
+}
+
+.time-fill {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--navy);
+}
+
+.time-fill.over {
+  background: var(--amber);
+}
+
+.time-label {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
+/* --- up next: one row ---------------------------------------------------- */
+
+.up-next {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 46px;
+  padding: 10px 14px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  text-decoration: none;
+  color: var(--ink);
+  font-size: 13.5px;
+}
+
+.up-next-label {
+  flex: 1;
+  min-width: 0;
+}
+
+.up-next-caret,
+.tile-caret {
+  color: var(--ink-soft);
+  font-size: 18px;
+  line-height: 1;
+}
+
+/* --- the two action tiles ----------------------------------------------- */
+
+.action-tiles {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.tile {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  /* 44px minimum, and in practice taller: this is the pair of controls the
+     screen exists to make easy to reach. */
+  min-height: 64px;
+  padding: 12px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  text-decoration: none;
+  color: var(--ink);
+}
+
+.tile-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.tile-sub {
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
+.tile-badge {
+  background: var(--amber);
+  color: var(--navy);
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 1px 6px;
+}
+
+.home-foot {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 12.5px;
+  padding: 2px 2px 0;
+}
+
+.home-foot a {
+  color: var(--navy);
+}
+
+/* Screen-reader-only text: the strip's abbreviated labels have the full stage
+   name and state behind them. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* --- press feedback: confirms tappability without a heavy effect (§4) --- */
+
+.strip-seg:active,
+.up-next:active,
+.tile:active {
+  transform: translateY(1px);
+  border-color: color-mix(in srgb, var(--navy) 30%, var(--line));
+}
+
+@media (hover: hover) {
+  .up-next:hover,
+  .tile:hover {
+    border-color: color-mix(in srgb, var(--navy) 35%, var(--line));
+  }
+}
+
+/* --- dark mode: homeowners check this at night (§7) ---------------------- */
+
+@media (prefers-color-scheme: dark) {
+  .customer-app {
+    --paper: #10141c;
+    --card: #171d28;
+    --ink: #eef1f6;
+    --ink-soft: #9aa4b6;
+    --line: #2a3342;
+    --navy: #1d2a43;
+    --ok: #46b880;
+
+    /* Re-declared here, not only on :root. body sits ABOVE this element, so its
+       colour was resolved from the light tokens and inherited down — which is
+       how the stage card ended up with dark navy text on a dark navy card.
+       Anything that reads a token an ancestor already resolved has to reassert
+       it inside the scope. */
+    color: var(--ink);
+    background: var(--paper);
+  }
+
+  /* Headings and links across the app take their colour from --navy, which is a
+     background colour in this scope rather than a text colour. */
+  .customer-app h1,
+  .customer-app h2,
+  .customer-app h3,
+  .customer-app .home-foot a,
+  .customer-app .up-next,
+  .customer-app .tile {
+    color: var(--ink);
+  }
+
+  .customer-app .stage-tile {
+    background: color-mix(in srgb, #ffffff 8%, var(--card));
+    color: #cbd5e6;
+  }
+
+  /* A check mark inside a filled dot: dark on the light dot, in both modes. */
+  .customer-app .milestone-dot {
+    color: #0b1b33;
+  }
+
+  /* Completed segments were navy on navy — a solid bar nobody could see. */
+  .customer-app .strip-seg.done .strip-bar {
+    background: #8b9ab4;
+  }
+
+  /* The hero keeps its own darker panel so the ring still sits on something. */
+  .customer-app .home .hero {
+    background: #1b2436;
+  }
+
+  /* The active tab was navy text on a dark bar. */
+  .customer-app .tab-bar a.active {
+    color: var(--amber);
+    box-shadow: inset 0 2px 0 var(--amber);
+  }
+
+  .customer-app .call-bar {
+    background: var(--card);
+    border-top-color: var(--line);
+    color: var(--ink);
+  }
+
+  /* Call is the primary action and stays filled; Email keeps its outline, as it
+     does in light mode. Filling both would leave the bar with two primaries. */
+  .customer-app .call-bar .btn {
+    background: var(--amber);
+    border-color: var(--amber);
+    color: #10141c;
+  }
+
+  .customer-app .call-bar .btn.secondary {
+    background: transparent;
+    border-color: var(--amber);
+    color: var(--amber);
+  }
+
+  .customer-app .btn-link,
+  .customer-app .call-bar a:not(.btn) {
+    color: var(--ink);
+    border-color: var(--line);
+  }
+}
+
+/* ==========================================================================
+   MOTION
+   ==========================================================================
+   Motion has one job on this screen: show what is live and what just changed.
+   Everything except the live dot happens once and is over inside a second. */
+
+@media (prefers-reduced-motion: no-preference) {
+  /* Cards assemble rather than appear: fade in and rise 14px, staggered by the
+     --delay each element sets. Total sequence under 500ms (§4). */
+  .home .rise {
+    animation: rise 380ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: var(--delay, 0ms);
+  }
+
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(14px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  /* The single most satisfying moment on the screen: the ring drawing to its
+     value. It animates from empty to the same number the element already has
+     statically, so removing this leaves the ring correct. */
+  .ring-fill {
+    animation: ring-draw 1200ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  @keyframes ring-draw {
+    from {
+      stroke-dashoffset: var(--dash-full);
+    }
+    to {
+      stroke-dashoffset: var(--dash-offset);
+    }
+  }
+
+  /* Milestone dots pop in with a slight overshoot, 100ms apart, drawing the eye
+     down the list in order. */
+  .home .milestone .milestone-dot {
+    animation: dot-in 260ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    animation-delay: var(--delay, 240ms);
+  }
+
+  @keyframes dot-in {
+    from {
+      transform: scale(0);
+    }
+    to {
+      transform: scale(1);
+    }
+  }
+
+  /* The time bar grows to its width after the card has settled. */
+  .time-fill {
+    animation: bar-grow 900ms cubic-bezier(0.22, 1, 0.36, 1) 300ms both;
+  }
+
+  @keyframes bar-grow {
+    from {
+      width: 0;
+    }
+    to {
+      width: var(--fill);
+    }
+  }
+
+  /* The only looping animation on the screen. Everything else settles, so this
+     is what 'live' means here. */
+  .live:not(.stopped) .live-dot {
+    animation: live-pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes live-pulse {
+    0%,
+    100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.45;
+      transform: scale(0.82);
+    }
+  }
+
+  .strip-seg,
+  .up-next,
+  .tile {
+    transition:
+      transform 120ms ease,
+      border-color 120ms ease,
+      background-color 120ms ease;
   }
 }

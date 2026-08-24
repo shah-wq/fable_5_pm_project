@@ -13,11 +13,17 @@ export function SettingsForm({
   settings,
   signers,
   thresholds,
+  typical,
 }: {
   settings: Record<string, unknown>;
   signers: Option[];
   /** Per-stage ageing thresholds; empty until the dashboard migration is run. */
   thresholds: Record<string, number>;
+  /**
+   * What each stage typically takes, shown to the customer on the stage they are
+   * in. Empty until migration 003100 is run.
+   */
+  typical: Record<string, { min: number | null; max: number | null }>;
 }) {
   const router = useRouter();
   const [notice, setNotice] = useState<string | null>(null);
@@ -54,6 +60,17 @@ export function SettingsForm({
           opsSeeFinancials: f.get('opsSeeFinancials') === 'on',
           stageThresholds: Object.fromEntries(
             Object.keys(thresholds).map((stage) => [stage, Number(f.get(`threshold_${stage}`)) || 0])
+          ),
+          // Sent as a pair per stage; both blank clears the range, which shows
+          // the customer no estimate rather than half of one.
+          typicalDurations: Object.fromEntries(
+            Object.keys(typical).map((stage) => [
+              stage,
+              {
+                min: Number(f.get(`typical_min_${stage}`)) || 0,
+                max: Number(f.get(`typical_max_${stage}`)) || 0,
+              },
+            ])
           ),
         }),
       });
@@ -221,6 +238,46 @@ export function SettingsForm({
               />
             </label>
           </div>
+          {Object.keys(typical).length > 0 && (
+            <>
+              <h3>What customers are told a stage takes</h3>
+              <p className="dim">
+                Shown on the homeowner&apos;s own screen — &lsquo;Typical 15&ndash;30 days&rsquo; on
+                the stage they are in, and on the &lsquo;Up next&rsquo; line. It answers &lsquo;is
+                this taking too long?&rsquo; before it becomes a phone call, so the numbers should be
+                what your projects really do. Leave a pair blank to show that stage no estimate at
+                all. These are described to the customer as typical, never as a promise.
+              </p>
+              <div className="form-grid">
+                {STAGES.filter((s) => s !== 'complete').map((stage) => (
+                  <label className="field" key={stage}>
+                    <span>{STAGE_LABELS[stage]} — typical days</span>
+                    <span className="range-row">
+                      <input
+                        name={`typical_min_${stage}`}
+                        type="number"
+                        min={0}
+                        max={3650}
+                        placeholder="from"
+                        defaultValue={typical[stage]?.min ?? ''}
+                      />
+                      <span className="dim" aria-hidden>
+                        to
+                      </span>
+                      <input
+                        name={`typical_max_${stage}`}
+                        type="number"
+                        min={0}
+                        max={3650}
+                        placeholder="to"
+                        defaultValue={typical[stage]?.max ?? ''}
+                      />
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </>
+          )}
           <label className="check-row">
             <input
               name="opsSeeFinancials"

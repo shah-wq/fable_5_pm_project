@@ -36,6 +36,8 @@ export async function PUT(request: Request) {
     onHoldAlertThreshold?: number;
     opsSeeFinancials?: boolean;
     stageThresholds?: Record<string, number>;
+    /** 003100 — 'Typical 15–30 days' on the customer's current-stage card. */
+    typicalDurations?: Record<string, { min?: number; max?: number }>;
   } | null;
 
   // Only http(s) links reach the app: a javascript: URL in a legal link would
@@ -133,6 +135,31 @@ export async function PUT(request: Request) {
       if (!result.available) thresholdsMissing = true;
     }
     if (thresholdsMissing) skipped.push('the per-stage ageing thresholds (run migration 002800)');
+
+    // 003100 — the typical duration shown to customers on the stage they are in.
+    // Saved as a pair: a min without a max would render as half a range. Both
+    // blank clears the row back to showing no estimate at all, which is the right
+    // answer for a stage nobody has a figure for yet.
+    let typicalMissing = false;
+    for (const [stage, range] of Object.entries(p?.typicalDurations ?? {})) {
+      if (!isStageKey(stage)) continue;
+      const min = Math.round(Number(range?.min));
+      const max = Math.round(Number(range?.max));
+      const pair =
+        Number.isFinite(min) && Number.isFinite(max) && min > 0 && max > 0
+          ? [Math.min(3650, min), Math.min(3650, Math.max(min, max))]
+          : [null, null];
+      const result = await optionalQuery(
+        c,
+        'the typical stage durations (public.stage_thresholds)',
+        `update public.stage_thresholds
+            set typical_min_days = $2, typical_max_days = $3
+          where stage = $1::public.project_stage`,
+        [stage, pair[0], pair[1]]
+      );
+      if (!result.available) typicalMissing = true;
+    }
+    if (typicalMissing) skipped.push('the typical stage durations (run migration 003100)');
   });
 
   return NextResponse.json({ ok: true, ...(skipped.length ? { skipped } : {}) });
