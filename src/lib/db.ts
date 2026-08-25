@@ -1,5 +1,23 @@
-import { Pool, type PoolClient } from 'pg';
+import { Pool, types, type PoolClient } from 'pg';
 import type { UserRole } from './auth/roles';
+
+/**
+ * A `date` column comes back as the text the database holds — '2026-08-16' —
+ * and not as a JavaScript Date.
+ *
+ * node-postgres parses date columns into a Date at *local* midnight by default,
+ * which is wrong twice over. A calendar date has no time and no zone, so
+ * turning it into an instant invents both: run the app in a UTC-negative zone
+ * and a survey completed on the 16th starts printing as the 15th. And a Date
+ * that reaches a form stringifies as 'Sun Aug 16 2026 00:00:00 GMT+0000 (…)',
+ * which an <input type="date"> cannot display at all — it renders an empty box,
+ * so a PM who reopened a finished stage saw every date they had entered gone.
+ *
+ * Registered here because this module is the only door to the database, so
+ * every query in the app — including `select *` into a form — gets the same
+ * shape. Timestamps are left as Date objects: those really are instants.
+ */
+types.setTypeParser(types.builtins.DATE, (value) => value);
 
 /**
  * Plain-Postgres data access. Every query runs inside a transaction that

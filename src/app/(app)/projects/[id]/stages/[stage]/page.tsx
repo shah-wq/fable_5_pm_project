@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { guardPath } from '@/lib/auth/session';
+import { isoDate } from '@/lib/dates';
 import { withUser } from '@/lib/db';
 import {
   ADVANCE_LABELS,
@@ -136,6 +137,9 @@ export default async function StagePage({
         </p>
       )}
 
+      {/* projectCreatedAt is a timestamp and the card that counts days wants a
+          calendar date. String(...).slice(0, 10) on a Date gives 'Tue Aug 25',
+          which then parses as a date in 2001. */}
       <StageForm
         projectId={id}
         stage={stage}
@@ -143,7 +147,7 @@ export default async function StagePage({
         initialValues={initialValues}
         docs={docsByCategory}
         refs={data.refs}
-        projectCreatedAt={String(project.created_at)}
+        projectCreatedAt={isoDate(project.created_at)}
         editable={editable}
       />
 

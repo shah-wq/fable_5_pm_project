@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
+import { isoDate } from '@/lib/dates';
 import {
   PERMIT_OPTIONS,
   statusLabel,
@@ -25,12 +26,20 @@ function today(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-function daysBetween(from: string | null, to: string | null): number | null {
-  if (!from) return null;
-  const start = new Date(from).getTime();
-  const end = to ? new Date(to).getTime() : Date.now();
-  if (!Number.isFinite(start) || !Number.isFinite(end)) return null;
-  return Math.max(0, Math.round((end - start) / 86_400_000));
+/**
+ * Days between two calendar dates. Both ends go through isoDate first, because
+ * a half-parsed date is worse than no chip at all: 'Tue Aug 25' is a *valid*
+ * date to `new Date` — it means 2001 — and that is what made a survey completed
+ * today report 9,142 days.
+ */
+function daysBetween(from: unknown, to: unknown): number | null {
+  const start = isoDate(from);
+  if (!start) return null;
+  const startMs = Date.parse(`${start}T00:00:00Z`);
+  const endIso = isoDate(to);
+  const endMs = endIso ? Date.parse(`${endIso}T00:00:00Z`) : Date.now();
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) return null;
+  return Math.max(0, Math.round((endMs - startMs) / 86_400_000));
 }
 
 /**
@@ -302,9 +311,19 @@ export function StageForm({
             value={String(value ?? '')}
             onChange={(e) => set(field.name, e.target.value)}
           />
+        ) : field.type === 'date' ? (
+          // Through isoDate, not String(): a date box shows nothing at all
+          // unless its value is exactly yyyy-mm-dd, so anything else here is a
+          // date the PM entered and can no longer see.
+          <input
+            type="date"
+            disabled={!editable}
+            value={isoDate(value)}
+            onChange={(e) => set(field.name, e.target.value || null)}
+          />
         ) : (
           <input
-            type={field.type === 'date' ? 'date' : 'text'}
+            type="text"
             disabled={!editable}
             value={String(value ?? '')}
             onChange={(e) => set(field.name, e.target.value)}
@@ -319,9 +338,9 @@ export function StageForm({
     <div className="stage-form">
       {cards.map((card) => {
         const status = card.statusField ? values[card.statusField] : null;
-        const from = card.days?.from ? (values[card.days.from] as string | null) : projectCreatedAt.slice(0, 10);
-        const to = card.days ? ((values[card.days.to] as string | null) ?? null) : null;
-        const days = card.days ? daysBetween(from ?? null, to) : null;
+        const from = card.days?.from ? values[card.days.from] : projectCreatedAt;
+        const to = card.days ? isoDate(values[card.days.to]) : '';
+        const days = card.days ? daysBetween(from, to) : null;
         const running = card.days ? !to : false;
         return (
           <details className="track-card" key={card.key} open>
