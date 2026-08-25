@@ -93,6 +93,34 @@ export const JOIN_SQL: Array<{ key: JoinKey; sql: string; after?: JoinKey }> = [
             where e.project_id = p.id
           ) ss on true`,
   },
+  {
+    // The ratings, rolled up per project (Stage feedback §7). A lateral rather
+    // than a plain join because a project has one row per stage rated and a
+    // report has one row per project — joining the table directly would
+    // multiply every other column by the number of ratings.
+    //
+    // Read straight from stage_feedback, so RLS decides who sees them: staff
+    // and the project's own customer. Finance, who can run reports, gets nulls
+    // here rather than an error — §6 keeps the ratings away from everyone the
+    // policy does not name, and a null column says that without breaking the
+    // rest of the report.
+    key: 'feedback',
+    sql: `left join lateral (
+            select count(*) filter (where f.score is not null) as responses,
+                   round(avg(f.score) filter (where f.score is not null), 2) as avg_score,
+                   min(f.score) as worst_score,
+                   count(*) filter (where f.score <= 2) as low_scores,
+                   round(avg(f.nps) filter (where f.nps is not null), 1) as nps,
+                   max(f.responded_at) as last_rated_at,
+                   (select string_agg(distinct tag, ', ' order by tag)
+                      from public.stage_feedback f2
+                      cross join unnest(f2.tags) as tag
+                     where f2.project_id = p.id) as reasons,
+                   string_agg(f.comment, ' | ') filter (where f.comment is not null) as comments
+            from public.stage_feedback f
+            where f.project_id = p.id
+          ) fb on true`,
+  },
 ];
 
 export interface ReportField {

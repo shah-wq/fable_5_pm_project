@@ -26,18 +26,28 @@ const ALLOWED_MIME = [
 /**
  * The thread endpoint, for both parties.
  *
- * There is no role branching on who may do what: the database's
- * post_project_message() decides that from the caller's own claims, and refuses
- * a dealer, a designer, or a customer reaching for someone else's project. What
- * this route adds is the file handling and the notification, neither of which
- * belongs in SQL.
+ * Who may say what on a project is decided by the database:
+ * post_project_message() reads the caller's own claims and refuses a customer
+ * reaching for someone else's project. What this route adds is the file
+ * handling and the notification, neither of which belongs in SQL.
+ *
+ * The roles are still checked here, because ROUTE_ACCESS declares this endpoint
+ * as staff-and-customer and a declared rule that nothing enforces is not a
+ * rule. Without it a dealer or a designer got 200 and an empty thread — no data
+ * leaked, RLS saw to that, but the answer said 'nothing here' where it should
+ * have said 'not yours'. Three verbs, one list.
  */
+const CHAT_ROLES = ['admin', 'ops', 'customer'];
+
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ projectId: string }> }
 ) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
+  if (!session.isActive || !CHAT_ROLES.includes(session.role)) {
+    return NextResponse.json({ error: 'forbidden' }, { status: 403 });
+  }
   const { projectId } = await params;
   if (!UUID_RE.test(projectId)) {
     return NextResponse.json({ error: 'bad project id' }, { status: 400 });
@@ -79,7 +89,9 @@ export async function POST(
 ) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
-  if (!session.isActive) return NextResponse.json({ error: 'forbidden' }, { status: 403 });
+  if (!session.isActive || !CHAT_ROLES.includes(session.role)) {
+    return NextResponse.json({ error: 'forbidden' }, { status: 403 });
+  }
   const { projectId } = await params;
   if (!UUID_RE.test(projectId)) {
     return NextResponse.json({ error: 'bad project id' }, { status: 400 });
@@ -173,6 +185,9 @@ export async function PUT(
 ) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
+  if (!session.isActive || !CHAT_ROLES.includes(session.role)) {
+    return NextResponse.json({ error: 'forbidden' }, { status: 403 });
+  }
   const { projectId } = await params;
   if (!UUID_RE.test(projectId)) {
     return NextResponse.json({ error: 'bad project id' }, { status: 400 });

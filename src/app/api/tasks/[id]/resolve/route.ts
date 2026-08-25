@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { tryLogAuditEvent } from '@/lib/audit';
-import { requireRole } from '@/lib/auth/session';
+import { getSession } from '@/lib/auth/session';
 import { withUser } from '@/lib/db';
 import { dbErrorResponse } from '@/lib/db-error';
 
@@ -16,7 +16,16 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const session = await requireRole(['admin', 'ops'], '/tasks');
+  // Checked here rather than through requireRole(), which answers by
+  // *redirecting* to a login door or a landing page. That is right for a page
+  // and wrong for an endpoint: fetch() follows the redirect, the caller gets a
+  // page of HTML with a 200 on it, and `await res.json()` throws — so a
+  // refusal reached the PM as a parse error instead of 'not yours to close'.
+  const session = await getSession();
+  if (!session) return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
+  if (!['admin', 'ops'].includes(session.role) || !session.isActive) {
+    return NextResponse.json({ error: 'forbidden' }, { status: 403 });
+  }
 
   const body = (await request.json().catch(() => null)) as { note?: string } | null;
   const note = (body?.note ?? '').trim();
