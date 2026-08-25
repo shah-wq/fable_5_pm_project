@@ -13,9 +13,12 @@ import { useState } from 'react';
 export function TokenComment({
   token,
   chips,
+  low,
 }: {
   token: string;
   chips: Array<{ key: string; label: string }>;
+  /** A low score is asked what went wrong; a good one is simply invited. */
+  low: boolean;
 }) {
   const [tags, setTags] = useState<string[]>([]);
   const [comment, setComment] = useState('');
@@ -32,8 +35,12 @@ export function TokenComment({
 
   return (
     <section className="rate-detail">
-      <h2>What let you down?</h2>
-      <p className="dim">Tap anything that applies. Nothing here is required.</p>
+      <h2>{low ? 'What let you down?' : 'Anything you would like to add?'}</h2>
+      <p className="dim">
+        {low
+          ? 'Tap anything that applies. Nothing here is required.'
+          : 'Your project manager reads these. Nothing here is required.'}
+      </p>
       <div className="rate-chips">
         {chips.map((c) => (
           <button
@@ -50,7 +57,7 @@ export function TokenComment({
         ))}
       </div>
       <label className="field">
-        <span>Anything else?</span>
+        <span>{low ? 'Anything else?' : 'Your comment'}</span>
         <textarea rows={4} value={comment} onChange={(e) => setComment(e.target.value)} />
       </label>
       <button

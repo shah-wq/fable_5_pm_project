@@ -64,6 +64,8 @@ export function FeedbackSheet({
   const [comment, setComment] = useState('');
   const [busy, setBusy] = useState(false);
   const [gone, setGone] = useState(false);
+  /** True once anything has been written, so the thank-you stops asking. */
+  const [said, setSaid] = useState(false);
 
   // Escape closes it, like any other dismissible layer. It is never modal in
   // the trapping sense — §4: "the sheet is always dismissible and never gates
@@ -104,6 +106,7 @@ export function FeedbackSheet({
     setBusy(true);
     try {
       await post('/detail', { tags, comment: comment.trim() || null });
+      if (comment.trim()) setSaid(true);
       setStep(askNps ? 'nps' : 'done');
     } finally {
       setBusy(false);
@@ -264,15 +267,63 @@ export function FeedbackSheet({
                   : 'Your project manager will be in touch.'
                 : 'It goes straight to the team working on your project.'}
             </p>
+
+            {/*
+              §3: "Optionally offer a comment box, but never require one — the
+              tap is the whole point." A 4 or a 5 skips step two, so this is the
+              only place those customers can say anything at all — and the
+              sentence someone writes about a good survey is the sentence that
+              tells you which crew to send next time. Offered after the score is
+              already saved, so it is genuinely optional: closing the sheet loses
+              nothing.
+            */}
+            {!said && (
+              <>
+                <label className="field">
+                  <span>Anything you would like to add?</span>
+                  <textarea
+                    rows={3}
+                    value={comment}
+                    onChange={(e) => setComment(e.target.value)}
+                    placeholder={
+                      pmName ? `${pmName} reads these` : 'Your project manager reads these'
+                    }
+                  />
+                </label>
+                <button
+                  className="btn"
+                  type="button"
+                  disabled={busy || comment.trim().length === 0}
+                  onClick={async () => {
+                    setBusy(true);
+                    try {
+                      await post('/detail', { tags: [], comment: comment.trim() });
+                      setSaid(true);
+                    } finally {
+                      setBusy(false);
+                    }
+                  }}
+                >
+                  {busy ? 'Sending…' : 'Send'}
+                </button>
+              </>
+            )}
+
+            {said && (
+              <p className="notice ok" role="status">
+                Sent — thank you.
+              </p>
+            )}
+
             <button
-              className="btn"
+              className={said ? 'btn' : 'btn secondary'}
               type="button"
               onClick={() => {
                 setOpen(false);
                 setGone(true);
               }}
             >
-              Close
+              {said ? 'Close' : 'No thanks, close'}
             </button>
           </>
         )}

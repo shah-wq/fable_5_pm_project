@@ -90,9 +90,14 @@ export default async function RatingLandingPage({
           : 'It goes straight to the team working on your project.'}
       </p>
 
-      {low && (
-        <TokenComment token={token} chips={result.chips} />
-      )}
+      {/*
+        Offered whatever the score, not only for a low one (§3: "optionally offer
+        a comment box, but never require one"). Somebody who clicked a 5 from
+        their inbox is already engaged, and what they write about a good stage is
+        as useful as a complaint. The chips only make sense on a low score —
+        there is nothing to diagnose about a 5 — so they travel with it.
+      */}
+      <TokenComment token={token} chips={low ? result.chips : []} low={low} />
 
       <p className="rate-foot">
         <a href="/portal">Open your project</a>
