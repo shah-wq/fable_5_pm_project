@@ -13,6 +13,7 @@ const NAV: Record<UserRole, NavItem[]> = {
   admin: [
     { href: '/dashboard', label: 'Dashboard', icon: '◱' },
     { href: '/messages', label: 'Messages', icon: '✉' },
+    { href: '/tasks', label: 'Follow-ups', icon: '⚑' },
     { href: '/pipeline', label: 'Pipeline', icon: '▦' },
     { href: '/projects', label: 'Projects', icon: '☰' },
     { href: '/projects/new', label: 'New project', icon: '＋' },
@@ -24,6 +25,7 @@ const NAV: Record<UserRole, NavItem[]> = {
   ops: [
     { href: '/dashboard', label: 'Dashboard', icon: '◱' },
     { href: '/messages', label: 'Messages', icon: '✉' },
+    { href: '/tasks', label: 'Follow-ups', icon: '⚑' },
     { href: '/pipeline', label: 'Pipeline', icon: '▦' },
     { href: '/projects', label: 'Projects', icon: '☰' },
     { href: '/projects/new', label: 'New project', icon: '＋' },

@@ -181,6 +181,13 @@ export function Board({ cards, isAdmin }: { cards: ProjectCard[]; isAdmin: boole
                           {`✉ ${card.unreadMessages}`}
                         </span>
                       )}
+                      {/* Stage feedback §5: a low rating shows on the card until
+                          somebody closes the follow-up with a note. */}
+                      {card.openFollowUps > 0 && (
+                        <span className="flag-badge" title="Low rating — follow-up open">
+                          {`⚑ ${card.openFollowUps}`}
+                        </span>
+                      )}
                     </div>
                   </article>
                 ))}

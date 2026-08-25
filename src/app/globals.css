@@ -4608,6 +4608,25 @@ a {
     color: #f0cf94;
   }
 
+
+  .customer-app .rate-sheet,
+  .customer-app .rate-card {
+    background: var(--card);
+    border-color: var(--line);
+  }
+
+  .customer-app .rate-face,
+  .customer-app .rate-nps-btn {
+    background: #1f2735;
+    border-color: var(--line);
+    color: var(--ink);
+  }
+
+  .customer-app .rate-face.on {
+    border-color: var(--amber);
+    background: #3a3220;
+  }
+
   /* The request bubbles on the Project and More tabs. */
   .customer-app .bubble.mine {
     background: #223250;
@@ -4616,6 +4635,348 @@ a {
   .customer-app .bubble.theirs {
     background: #1c2a24;
   }
+}
+
+
+
+
+
+/* --- the verbatim log (§7) ---------------------------------------------- */
+
+.verbatim-list {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.verbatim-list li {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.verbatim-list.full li {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+
+/* The score is the colour, so a page of comments can be scanned for the bad
+   ones without reading a word. */
+.verbatim-score {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 13.5px;
+  background: var(--line);
+  color: var(--ink);
+}
+
+.verbatim-score.s1,
+.verbatim-score.s2 {
+  background: var(--danger);
+  color: #fff;
+}
+
+.verbatim-score.s3 {
+  background: var(--amber);
+  color: #10141c;
+}
+
+.verbatim-score.s4,
+.verbatim-score.s5 {
+  background: var(--ok);
+  color: #0b1b33;
+}
+
+.verbatim-text {
+  margin: 0 0 2px;
+  font-size: 14px;
+}
+
+.verbatim-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 6px 0 0;
+}
+
+/* A customer's own words on the dashboard: quoted, wrapped, and never
+   truncated to a word count — the sentence is the useful part (§7). */
+.attention-quote {
+  display: block;
+  margin-top: 2px;
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  font-style: italic;
+}
+
+/* --- follow-ups (Stage feedback §5) ------------------------------------- */
+
+/* Deliberately the danger colour, not the amber used for ageing: an ageing
+   project is a schedule problem, a low rating is a person who is unhappy. */
+.flag-badge {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 6px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--danger);
+  color: #fff;
+  font-size: 11.5px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.task-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.task-card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--danger);
+  border-radius: 12px;
+  padding: 14px 16px;
+}
+
+/* Three days is where a follow-up stops being a follow-up. */
+.task-card.overdue {
+  background: color-mix(in srgb, var(--danger) 4%, var(--card));
+}
+
+.task-card header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.task-card h2 {
+  margin: 0;
+  font-size: 15.5px;
+}
+
+.task-card header p {
+  margin: 2px 0 0;
+  font-size: 12.5px;
+}
+
+.task-score {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: var(--danger);
+  color: #fff;
+  font-weight: 700;
+}
+
+.task-detail {
+  margin: 10px 0 0;
+  white-space: pre-wrap;
+  font-size: 13.5px;
+}
+
+.task-suggested {
+  margin: 10px 0 0;
+  font-size: 13.5px;
+  background: var(--paper);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+.task-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.task-resolve {
+  flex: 1;
+  min-width: 0;
+}
+
+/* The page an emailed rating link lands on — no session, one column, nothing
+   to navigate. */
+.rate-page {
+  max-width: 460px;
+  margin: 0 auto;
+  padding: 32px 18px 48px;
+}
+
+.rate-page h1 {
+  font-size: 21px;
+  margin: 10px 0 6px;
+}
+
+.rate-page h2 {
+  font-size: 16px;
+  margin: 20px 0 4px;
+}
+
+.rate-detail {
+  margin-top: 18px;
+}
+
+/* --- the rating sheet (Stage feedback §2, §3) --------------------------- */
+
+/* Dismissible by tapping outside, so it is a scrim rather than a modal barrier:
+   §4 is explicit that a customer must always be able to reach their documents
+   without answering anything. */
+.sheet-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  border: none;
+  padding: 0;
+  background: rgba(11, 27, 51, 0.42);
+  cursor: pointer;
+}
+
+.rate-sheet {
+  position: fixed;
+  z-index: 41;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  margin: 0 auto;
+  /* The same column the app content uses, so on a desktop it is a sheet on the
+     page rather than a bar across the window. */
+  max-width: 440px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-bottom: none;
+  border-radius: 16px 16px 0 0;
+  padding: 18px 16px calc(18px + env(safe-area-inset-bottom));
+  box-shadow: 0 -8px 30px rgba(11, 27, 51, 0.18);
+}
+
+.rate-sheet h2 {
+  margin: 2px 0 4px;
+  font-size: 18px;
+}
+
+.rate-eyebrow {
+  margin: 0;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.rate-faces {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+  margin: 14px 0 4px;
+}
+
+/* 56px targets: this is the one control the module's whole response rate
+   depends on, and a cramped row of five is how you lose it. */
+.rate-face {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-height: 56px;
+  padding: 8px 0 6px;
+  font-size: 24px;
+  line-height: 1;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  cursor: pointer;
+  color: var(--ink);
+}
+
+.rate-face:hover {
+  border-color: var(--navy);
+}
+
+.rate-face.on {
+  border-color: var(--amber);
+  background: color-mix(in srgb, var(--amber) 14%, var(--card));
+}
+
+.rate-face .rate-num {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+
+.rate-anchors {
+  display: flex;
+  justify-content: space-between;
+  margin: 0 0 12px;
+  font-size: 11.5px;
+  color: var(--ink-soft);
+}
+
+.rate-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0 12px;
+}
+
+.rate-nps {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 6px;
+  margin: 12px 0 4px;
+}
+
+.rate-nps-btn {
+  min-height: 44px;
+  font: inherit;
+  font-weight: 600;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  cursor: pointer;
+  color: var(--ink);
+}
+
+.rate-nps-btn:hover {
+  border-color: var(--amber);
+}
+
+.rate-foot {
+  margin: 10px 0 0;
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
+/* Dismissed: one quiet card at the top of Home, not a repeated interruption. */
+.rate-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: space-between;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px 12px;
+  margin: 0 0 12px;
+}
+
+.rate-card p {
+  margin: 0;
+  font-size: 14px;
 }
 
 /* ==========================================================================
@@ -4714,5 +5075,51 @@ a {
       transform 120ms ease,
       border-color 120ms ease,
       background-color 120ms ease;
+  }
+
+  /* §9: "the sheet slides up, chips pop in, the thank-you state cross-fades.
+     All under 400ms and all inside a prefers-reduced-motion query." With motion
+     off the sheet is simply there, which is the same sheet. */
+  .rate-sheet {
+    animation: sheet-up 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  @keyframes sheet-up {
+    from {
+      transform: translateY(100%);
+    }
+    to {
+      transform: none;
+    }
+  }
+
+  .sheet-scrim {
+    animation: scrim-in 240ms ease-out both;
+  }
+
+  @keyframes scrim-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  .rate-chips .toggle-chip {
+    animation: dot-in 220ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  }
+
+  .rate-sheet h2 {
+    animation: fade-in 260ms ease-out both;
+  }
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
   }
 }

@@ -32,6 +32,9 @@ const CATEGORY_LABELS: Record<string, string> = {
   on_hold: 'If my project is paused',
   power_on: 'When my system is switched on',
   chat_message: 'When my project manager sends me a message',
+  // Stage feedback §4. Worded as the thing itself rather than as 'feedback
+  // requests', which is our word for it and not theirs.
+  feedback_request: 'Asking how a stage went, when one finishes',
 };
 
 /**

@@ -11,7 +11,12 @@ import { withUser } from '@/lib/db';
 // 'chat_message' joins the five from the mobile-app spec: a customer must be
 // able to silence chat pushes like any other kind (Project Chat §4).
 const CATEGORIES = ['stage_advanced', 'appointment', 'action_needed', 'on_hold',
-                    'power_on', 'chat_message'];
+                    'power_on', 'chat_message',
+                    // Stage feedback §4: "a switch in the customer's notification
+                    // preferences turns off rating requests entirely, honoured
+                    // across portal, app and email". Turning both channels off
+                    // for this category is what the request function reads.
+                    'feedback_request'];
 
 export async function GET() {
   const session = await getSession();

@@ -9,8 +9,12 @@ import {
   systemLine,
 } from '@/lib/portal/home';
 import { loadPortalPage, NO_PROJECT_MESSAGE } from '@/lib/portal/page';
+import { loadPendingRequest, loadReasonChips } from '@/lib/feedback/service';
+import { getSession } from '@/lib/auth/session';
+import { withUser } from '@/lib/db';
 import { STAGE_LABELS } from '@/lib/stages/definitions';
 import { ActionTiles } from './_components/ActionTiles';
+import { FeedbackSheet } from './_components/FeedbackSheet';
 import { AppRuntime } from './_components/AppRuntime';
 import { CallMyPm } from './_components/CallMyPm';
 import { CompleteCard, CurrentStageCard, HoldCard } from './_components/CurrentStageCard';
@@ -67,6 +71,20 @@ export default async function PortalHome({
   const current = p.stages.find((s) => s.state === 'current') ?? p.stages[0];
   const upcoming = p.isComplete ? null : nextStage(p.stageKey);
   const pace = (key: string) => p.pace[key] ?? { typical: null, attention: null };
+  // Stage feedback §2: the sheet slides up over Home on the customer's next
+  // visit. Loaded here rather than inside the component so the page arrives with
+  // the answer already known — a rating sheet that appears a second late is a
+  // rating sheet that gets tapped past.
+  const session = await getSession();
+  const rating =
+    session && p
+      ? await withUser(session, async (client) => {
+          const pending = await loadPendingRequest(client, p.id);
+          if (!pending) return null;
+          return { pending, chips: await loadReasonChips(client, pending.stage) };
+        }).catch(() => null)
+      : null;
+
   const line = systemLine({
     address: p.address,
     sizeKw: p.system.sizeKw,
@@ -86,6 +104,20 @@ export default async function PortalHome({
       />
 
       {projects.length > 1 && <PropertyPicker projects={projects} current={p.id} />}
+
+      {/* Above the fold and above everything else, but never in the way: the
+          scrim dismisses it and Home is fully usable behind it (§4). */}
+      {rating && (
+        <FeedbackSheet
+          projectId={p.id}
+          stage={rating.pending.stage}
+          stageLabel={rating.pending.stageLabel}
+          chips={rating.chips}
+          pmName={p.team.pmName}
+          askNps={rating.pending.askNps}
+          startCollapsed={rating.pending.dismissed}
+        />
+      )}
 
       {/* --- Where am I ---------------------------------------------------- */}
       <section className="hero rise" style={{ '--delay': '0ms' } as React.CSSProperties}>

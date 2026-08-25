@@ -37,12 +37,24 @@ export const ROUTE_ACCESS: Record<string, readonly UserRole[]> = {
   // The global chat inbox is a staff instrument; the thread API is shared with
   // the customer, who reaches only their own project (enforced in the database).
   '/messages': ['admin', 'ops'],
+  // The follow-up list and the ratings behind it are staff work: §5 puts them in
+  // the PM's own queue, and §6 keeps per-person figures away from everyone else.
+  '/tasks': ['admin', 'ops'],
+  // §6: "the customer is never told their rating is scored against a named
+  // individual", and §5 keeps the verbatim away from the dealer — so the log is
+  // staff-only, like the by-party figures it sits beside.
+  '/feedback': ['admin', 'ops'],
+  '/api/tasks': ['admin', 'ops'],
   '/api/chat': ['admin', 'ops', 'customer'],
   '/reports': ['admin', 'ops', 'finance'],
   '/api/reports': ['admin', 'ops', 'finance'],
   '/designer': ['admin', 'designer'],
   '/portal': ['customer'],
   '/api/portal': ['customer'],
+  // Stage feedback: the customer answers, and nobody else has anything to say
+  // here — a dealer or a staff member posting a rating would be filing an
+  // opinion in the customer's name.
+  '/api/feedback': ['customer'],
   '/dealers': ['dealer'],
   '/api/invites': ['admin'],
   '/api/admin': ['admin'],

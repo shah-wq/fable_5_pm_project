@@ -1,10 +1,12 @@
 import type { PoolClient } from 'pg';
 import { logAuditEvent } from '../audit';
 import { withUser, type SessionIdentity } from '../db';
+import { optionalRows } from '../db-optional';
 import { notifyOnHold, notifyPowerOn, notifyStageAdvanced } from '../push/events';
 import { isStageKey, nextStage, prevStage, STAGE_LABELS, type StageKey } from './definitions';
 import { evaluateStage, type StageBundle } from './requirements';
 import { loadSummaries, postSystemMessage } from '../chat/service';
+import { loadTaskCounts } from '../feedback/service';
 
 /**
  * Data loading + the shared move service. Everything runs through the
@@ -49,6 +51,13 @@ export interface ProjectCard {
    */
   unreadMessages: number;
   chatFlagged: boolean;
+  /**
+   * Open follow-ups raised by a low rating (Stage feedback §5): "in the PM's
+   * task list, as a red flag on the project card in the pipeline, in the
+   * Projects tab, and in the Needs attention panel on the dashboard. A PM should
+   * not have to go looking."
+   */
+  openFollowUps: number;
   createdAt: string;
 }
 
@@ -175,6 +184,9 @@ export async function loadProjectCards(
     // view arrives with a later migration, and a missing badge must not take the
     // pipeline board down.
     const chat = await loadSummaries(client, rows.map((r) => r.id));
+    // Same reasoning, same guard: the follow-up count arrives with 003200, and a
+    // database without it shows no flags rather than no board.
+    const followUps = await loadTaskCounts(client, rows.map((r) => r.id));
 
     const now = Date.now();
     return rows.map((r) => {
@@ -206,6 +218,7 @@ export async function loadProjectCards(
         assignedPm: r.assigned_pm,
         unreadMessages: chat.get(r.id)?.unread ?? 0,
         chatFlagged: chat.get(r.id)?.flagged ?? false,
+        openFollowUps: followUps.get(r.id) ?? 0,
         createdAt: asIso(r.created_at),
       };
     });
@@ -226,6 +239,38 @@ export interface MoveOptions {
   expectedResumeDate?: string | null;
   refundRequired?: boolean;
   equipmentReturnRequired?: boolean;
+}
+
+/**
+ * Ask for a rating on the stage that just completed (Stage feedback §1).
+ *
+ * Every rule about *whether* to ask lives in the database function: one request
+ * per stage for ever, no request on a project that is on hold or cancelled, the
+ * 48-hour gap, the evening deferral for installation day, the per-stage switch
+ * and the customer's own opt-out. Keeping them there rather than here means the
+ * next thing that completes a stage — a bulk update, an import, an automation —
+ * cannot forget one of them.
+ *
+ * In the same transaction as the move, so a completed stage and its request
+ * cannot come apart. Failure is swallowed on purpose: a rating request is worth
+ * strictly less than the stage move it accompanies, and taking the move down
+ * because the request failed would be the wrong trade.
+ *
+ * Note which moves do NOT reach here: hold, cancel, resume, reinstate and
+ * backwards moves (§1 — "an admin correcting a stage backwards does not
+ * re-trigger a rating that was already asked").
+ */
+async function requestFeedback(
+  client: PoolClient,
+  projectId: string,
+  completedStage: StageKey
+): Promise<void> {
+  await optionalRows(
+    client,
+    'the stage feedback request (public.request_stage_feedback)',
+    `select public.request_stage_feedback($1, $2::public.project_stage)`,
+    [projectId, completedStage]
+  ).catch(() => undefined);
 }
 
 /**
@@ -401,6 +446,10 @@ export async function moveProject(
       await notifyPowerOn(client, projectId);
       await postSystemMessage(client, projectId, 'Project complete — your system is switched on')
         .catch(() => undefined);
+      // Stage feedback §1: the request is for the stage that just *completed*,
+      // which at the end of the pipeline is the project itself — the final stage
+      // is also where the one recommendation question is asked (§3).
+      await requestFeedback(client, projectId, 'complete');
       return { ok: true as const, stage: 'complete', column: 'complete' };
     }
     await notifyStageAdvanced(client, projectId, target);
@@ -409,6 +458,11 @@ export async function moveProject(
       projectId,
       `Moved to ${STAGE_LABELS[target]} — ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
     ).catch(() => undefined);
+    // Stage feedback §1: "the moment the PM presses the advance button, a
+    // feedback request is created for the stage just completed" — `stage`, not
+    // `target`. Asking about the stage they are only now entering would be
+    // asking about nothing.
+    await requestFeedback(client, projectId, stage);
     return { ok: true as const, stage: target };
   }).then(async (result) => {
     if (result.ok) {

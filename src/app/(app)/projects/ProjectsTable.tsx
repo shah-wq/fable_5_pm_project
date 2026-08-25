@@ -160,6 +160,13 @@ export function ProjectsTable({
                       {`✉ ${p.unreadMessages}`}
                     </Link>
                   )}
+                  {/* Stage feedback §5: the same flag as the pipeline card, so
+                      whichever surface a PM works from shows it. */}
+                  {p.openFollowUps > 0 && (
+                    <Link className="flag-badge" href="/tasks" title="Low rating — follow-up open">
+                      {`⚑ ${p.openFollowUps}`}
+                    </Link>
+                  )}
                   <div className="dim">{p.code}</div>
                 </td>
                 <td>{p.address ?? '—'}</td>

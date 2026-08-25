@@ -542,20 +542,21 @@ end
 $t$;
 reset role;
 
--- Customer leaves stage feedback on their own behalf only.
+-- Stage feedback is written through functions only (003200 replaced the
+-- foundation schema's placeholder, where any participant could insert a row and
+-- name themselves as its author). The old spoofing check becomes a simpler and
+-- stronger one: nobody writes to the table directly, so there is no author field
+-- to forge.
 select t_login(t_id('u_customer1'), 'customer');
 set role authenticated;
 do $t$
 begin
-  insert into public.stage_feedback (project_id, stage, rating, feedback, source, created_by)
-  values (t_id('project1'), 'survey', 5, 'Great crew!', 'customer', t_id('u_customer1'));
-
   begin
-    insert into public.stage_feedback (project_id, stage, rating, source, created_by)
+    insert into public.stage_feedback (project_id, stage, score, source, created_by)
     values (t_id('project1'), 'survey', 1, 'customer', t_id('u_designer1'));
-    raise exception 'FAIL: customer forged feedback author';
+    raise exception 'FAIL: a rating was inserted directly, bypassing the guardrails';
   exception when insufficient_privilege then
-    raise notice 'PASS: feedback author cannot be spoofed';
+    raise notice 'PASS: ratings are written only through their functions';
   end;
 end
 $t$;
@@ -1478,6 +1479,168 @@ begin
     raise exception 'FAIL: the thread still resolves the old customer name';
   end if;
   raise notice 'PASS: anonymising a customer redacts the thread without losing the record';
+end
+$t$;
+reset role;
+
+-- =============================================================================
+-- Stage feedback (003200) — the guardrails, and who sees what
+-- =============================================================================
+-- The E2E suite covers the sheet and the email. What matters here is the part
+-- the database owns: a stage can never be asked twice, a low score becomes work,
+-- and the two boundaries §5 and §6 draw — a dealer learns the score and never
+-- the sentence; a customer never sees the task their rating raised.
+
+select t_login(t_id('u_admin'), 'admin');
+set role authenticated;
+do $t$
+declare v_id uuid; v_again uuid;
+begin
+  -- The fixture project has no PM, and the point of §6 is that whoever is
+  -- assigned at request time is the person the score belongs to — so assign one
+  -- first, then ask, then reassign and check the old row did not move.
+  update public.projects set assigned_pm = t_id('u_admin') where id = t_id('project1');
+
+  v_id := public.request_stage_feedback(t_id('project1'), 'survey');
+  if v_id is null then raise exception 'FAIL: a completed stage raised no request'; end if;
+
+  -- §4's first hard limit, as a constraint rather than a hope.
+  v_again := public.request_stage_feedback(t_id('project1'), 'survey');
+  if v_again is not null then raise exception 'FAIL: the same stage was asked twice'; end if;
+  if (select count(*) from public.stage_feedback
+       where project_id = t_id('project1') and stage = 'survey') <> 1 then
+    raise exception 'FAIL: a second row exists for one stage';
+  end if;
+
+  -- §6: the attribution is a snapshot, taken now.
+  if (select attributed_pm from public.stage_feedback
+       where project_id = t_id('project1') and stage = 'survey')
+     is distinct from t_id('u_admin') then
+    raise exception 'FAIL: the request did not record the PM at the time';
+  end if;
+  if (select attributed_dealer from public.stage_feedback
+       where project_id = t_id('project1') and stage = 'survey')
+     is distinct from t_id('dealer1') then
+    raise exception 'FAIL: the request did not record the dealer';
+  end if;
+
+  -- Reassigning the project must not rewrite a rating already asked for.
+  update public.projects set assigned_pm = t_id('u_ops') where id = t_id('project1');
+  if (select attributed_pm from public.stage_feedback
+       where project_id = t_id('project1') and stage = 'survey')
+     is distinct from t_id('u_admin') then
+    raise exception 'FAIL: reassigning the PM rewrote an existing rating';
+  end if;
+  raise notice 'PASS: a stage is asked about once, ever, and its attribution is a snapshot';
+end
+$t$;
+reset role;
+
+-- A project on hold is not asked (§1: asking at the moment it goes wrong is
+-- tone-deaf and produces useless data).
+select t_login(t_id('u_admin'), 'admin');
+set role authenticated;
+do $t$
+declare v_id uuid;
+begin
+  update public.projects set status = 'on_hold' where id = t_id('project2');
+  v_id := public.request_stage_feedback(t_id('project2'), 'survey');
+  if v_id is not null then raise exception 'FAIL: a project on hold was asked to rate it'; end if;
+  update public.projects set status = 'active' where id = t_id('project2');
+  raise notice 'PASS: a project on hold or cancelled is never asked';
+end
+$t$;
+reset role;
+
+-- The customer answers: score on tap (§9), and a low one becomes work (§5).
+select t_login(t_id('u_customer1'), 'customer');
+set role authenticated;
+do $t$
+begin
+  perform public.record_stage_feedback(t_id('project1'), 'survey', 2, 'portal');
+  if (select score from public.stage_feedback
+       where project_id = t_id('project1') and stage = 'survey') <> 2 then
+    raise exception 'FAIL: the score was not recorded';
+  end if;
+  if (select responded_at from public.stage_feedback
+       where project_id = t_id('project1') and stage = 'survey') is null then
+    raise exception 'FAIL: the tap did not count as a response';
+  end if;
+
+  -- Step two is a second call, so an abandoned sheet still leaves the number.
+  perform public.detail_stage_feedback(t_id('project1'), 'survey',
+    array['scheduling'], 'Nobody told me the date moved.');
+  if (select tags from public.stage_feedback
+       where project_id = t_id('project1') and stage = 'survey') <> array['scheduling'] then
+    raise exception 'FAIL: the reason chip was not stored';
+  end if;
+
+  -- And the customer cannot see the task it raised.
+  if exists (select 1 from public.project_tasks) then
+    raise exception 'FAIL: a customer can see the staff task their rating raised';
+  end if;
+  raise notice 'PASS: the score saves on tap, the detail follows, and the task stays hidden';
+end
+$t$;
+reset role;
+
+-- One task, high priority, carrying the score, the reason and the words.
+select t_login(t_id('u_admin'), 'admin');
+set role authenticated;
+do $t$
+declare v_task public.project_tasks;
+begin
+  select * into v_task from public.project_tasks where project_id = t_id('project1');
+  if not found then raise exception 'FAIL: a low score raised no task'; end if;
+  if (select count(*) from public.project_tasks where project_id = t_id('project1')) <> 1 then
+    raise exception 'FAIL: step two raised a second task';
+  end if;
+  if v_task.priority <> 'high' then raise exception 'FAIL: the task is not flagged high'; end if;
+  if v_task.detail not like '%Score 2 of 5%' then
+    raise exception 'FAIL: the task does not carry the score: %', v_task.detail;
+  end if;
+  if v_task.detail not like '%Nobody told me%' then
+    raise exception 'FAIL: the task does not carry the comment';
+  end if;
+  if v_task.suggested is null then
+    raise exception 'FAIL: the task offers no suggested first move';
+  end if;
+
+  -- §5: closing requires saying what was done.
+  begin
+    perform public.resolve_project_task(v_task.id, '   ');
+    raise exception 'FAIL: a task closed with an empty resolution note';
+  exception when others then
+    if sqlstate not in ('22023') then raise; end if;
+  end;
+  perform public.resolve_project_task(v_task.id, 'Called, re-booked, apologised.');
+  if (select resolved_at from public.project_tasks where id = v_task.id) is null then
+    raise exception 'FAIL: the task did not close';
+  end if;
+  raise notice 'PASS: one high task with the score, reason and words, closable only with a note';
+end
+$t$;
+reset role;
+
+-- §5: the dealer is told the fact, never the sentence.
+select t_login(t_id('u_dealer1'), 'dealer');
+set role authenticated;
+do $t$
+begin
+  if exists (select 1 from public.stage_feedback) then
+    raise exception 'FAIL: a dealer can read the ratings table';
+  end if;
+  if exists (select 1 from public.feedback_verbatims) then
+    raise exception 'FAIL: a dealer can read customer comments';
+  end if;
+  if exists (select 1 from public.feedback_by_party) then
+    raise exception 'FAIL: a dealer can read per-person averages';
+  end if;
+  -- But the rolling score for their own project is theirs to see.
+  if not exists (select 1 from public.project_csat where project_id = t_id('project1')) then
+    raise exception 'FAIL: a dealer cannot see their own project''s rating at all';
+  end if;
+  raise notice 'PASS: a dealer sees the score for their own projects and nothing written';
 end
 $t$;
 reset role;

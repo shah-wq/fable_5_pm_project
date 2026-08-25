@@ -20,6 +20,7 @@ export type CategoryKey =
   | 'inspection'
   | 'complete'
   | 'commission'
+  | 'feedback'
   | 'computed';
 
 export const CATEGORY_LABELS: Record<CategoryKey, string> = {
@@ -33,6 +34,7 @@ export const CATEGORY_LABELS: Record<CategoryKey, string> = {
   inspection: 'Stage 6 · Inspection & PTO',
   complete: 'Stage 7 · Complete / Hold / Cancelled',
   commission: 'Commissions & leads',
+  feedback: 'Customer ratings',
   computed: 'Computed fields',
 };
 
@@ -42,7 +44,8 @@ export type JoinKey =
   | 'batteryTypes' | 'financePartners' | 'financingCompanies' | 'cashFinancing'
   | 's1' | 's2' | 's3' | 's4' | 's5' | 's6' | 's7' | 'finance' | 'commission'
   | 'designer' | 'procurementMgr' | 'installMgr' | 'hold' | 'cancel' | 'jurisdictions'
-  | 'stageSince';
+  | 'stageSince'
+  | 'feedback';
 
 /** SQL for each join, in the order they must appear. */
 export const JOIN_SQL: Array<{ key: JoinKey; sql: string; after?: JoinKey }> = [
@@ -166,6 +169,27 @@ export const REPORT_FIELDS: ReportField[] = [
   date('project.created', 'Project created date', 'project', 'p.created_at'),
   status('project.stage', 'Current stage', 'project', 'p.stage::text'),
   status('project.status', 'Project status', 'project', 'p.status::text'),
+
+  // --- Customer ratings (Stage feedback §7) --------------------------------
+  // "All of it exposed as fields — score, comment, chips, stage, NPS, requested
+  // and responded dates — so it can be combined with cycle time or dealer in a
+  // custom report." Which is the whole reason the ratings live in this database
+  // rather than in a survey tool.
+  num('feedback.avg_score', 'Average rating', 'feedback', 'fb.avg_score', { needs: ['feedback'] }),
+  num('feedback.worst_score', 'Worst rating', 'feedback', 'fb.worst_score', { needs: ['feedback'] }),
+  num('feedback.responses', 'Ratings answered', 'feedback', 'fb.responses', { needs: ['feedback'] }),
+  num('feedback.low_scores', 'Low ratings (1–2)', 'feedback', 'fb.low_scores', { needs: ['feedback'] }),
+  num('feedback.nps', 'Recommendation score', 'feedback', 'fb.nps', { needs: ['feedback'] }),
+  date('feedback.last_rated', 'Last rated on', 'feedback', 'fb.last_rated_at', { needs: ['feedback'] }),
+  text('feedback.reasons', 'Rating reasons', 'feedback', 'fb.reasons', { needs: ['feedback'] }),
+  // The verbatims are what somebody actually reads (§7), and they are a
+  // customer's own words about their own house — so they carry the same
+  // internal-notes permission as a PM's private notes.
+  text('feedback.comments', 'Rating comments', 'feedback', 'fb.comments', {
+    needs: ['feedback'],
+    groupable: false,
+    internal: true,
+  }),
 
   // --- System & financing ---------------------------------------------------
   text('system.type', 'System Type', 'system', 'st.name', { needs: ['systemTypes'] }),

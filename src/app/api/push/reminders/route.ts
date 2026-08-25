@@ -3,6 +3,7 @@ import { getSession } from '@/lib/auth/session';
 import { dbErrorResponse } from '@/lib/db-error';
 import { withUser } from '@/lib/db';
 import { flushQuietHoursQueue, sendChatDigest } from '@/lib/chat/notify';
+import { sendFeedbackDigest, sendFeedbackEmails } from '@/lib/feedback/notify';
 import { optionalRows } from '@/lib/db-optional';
 import { sendAppointmentReminders } from '@/lib/push/events';
 
@@ -71,11 +72,29 @@ export async function POST(request: Request) {
       const due = force || (hours[0] !== undefined && wanted.includes(hours[0].hour));
       const digest = due ? await sendChatDigest(client).catch(() => ({ sent: 0 })) : { sent: 0 };
 
+      // Stage feedback §2: the 24-hour email fallback, which is where most
+      // answers actually come from. Claimed in the database, so two overlapping
+      // cron runs cannot ask the same person twice.
+      const ratings = await sendFeedbackEmails(client).catch(() => ({ sent: 0 }));
+      // §5's daily digest to admins, on the same schedule as the chat one.
+      const ratingDigest = due
+        ? await sendFeedbackDigest(client).catch(() => ({ sent: 0 }))
+        : { sent: 0 };
+      // §8: verbatim comments are anonymised after two years; the scores stay.
+      const swept = await optionalRows<{ n: number }>(
+        client,
+        'the two-year comment sweep',
+        `select public.sweep_feedback_comments() as n`
+      ).catch(() => []);
+
       return {
         ...reminders,
         chatQueueSent: queued.sent,
         digestsSent: digest.sent,
         digestDue: due,
+        ratingEmailsSent: ratings.sent,
+        ratingDigestsSent: ratingDigest.sent,
+        commentsAnonymised: Number(swept[0]?.n ?? 0),
       };
     });
     return NextResponse.json({ ok: true, ...result });

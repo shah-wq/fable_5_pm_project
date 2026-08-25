@@ -1,7 +1,7 @@
 -- ============================================================================
 -- GENERATED FILE — do not edit. Rebuild with: node scripts/build-sql-bootstrap.mjs
 --
---   SolarFlow PM · catch-up 1 of 2 · newest migration: 20260803003100_typical_durations.sql
+--   SolarFlow PM · catch-up 1 of 2 · newest migration: 20260803003200_stage_feedback.sql
 --
 -- Paste this whole file into a SQL console (e.g. the Neon SQL Editor) and run
 -- it. Safe to run more than once: every statement below skips work already

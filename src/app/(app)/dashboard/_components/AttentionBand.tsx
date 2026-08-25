@@ -42,6 +42,36 @@ export async function AttentionBand({
     <section className="attention-band" id="needs-attention">
       <h2 className="section-title">Needs attention</h2>
       <div className="chart-grid">
+        {/* Stage feedback §5: an unhappy customer whose follow-up nobody has
+            closed. First in the band on purpose — an ageing permit is a schedule
+            problem, this is a person waiting for a call. */}
+        <section className="panel attention">
+          <h3>
+            Unhappy customers <span className="count">{fmtInt(lists.unhappy.length)}</span>
+          </h3>
+          <p className="chart-caption">
+            Rated 1 or 2 out of 5 and the follow-up is still open. Closing one needs a note saying
+            what was done — see <Link href="/tasks">Follow-ups</Link>.
+          </p>
+          {lists.unhappy.length === 0 ? (
+            <p className="chart-empty ok">No open follow-ups.</p>
+          ) : (
+            <ul className="attention-list">
+              {lists.unhappy.map((r) => (
+                <li key={r.id}>
+                  <Link href={`/projects/${r.projectId}`}>{r.name}</Link>
+                  <span className="dim">
+                    {` ${r.score ?? '—'}/5 on ${r.stageLabel} · ${
+                      r.days === 0 ? 'today' : r.days === 1 ? '1 day' : `${r.days} days`
+                    }${r.pmName ? ` · ${r.pmName}` : ''}`}
+                  </span>
+                  {r.comment && <span className="attention-quote">{`“${r.comment}”`}</span>}
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
         <section className="panel attention">
           <h3>
             Ageing projects <span className="count">{fmtInt(lists.ageing.length)}</span>

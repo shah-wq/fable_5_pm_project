@@ -5,6 +5,7 @@ import { parseFilters } from '@/lib/dashboard/filters';
 import { dashboardContext } from '@/lib/dashboard/queries';
 import { viewFor } from '@/lib/dashboard/view';
 import { AttentionBand } from './_components/AttentionBand';
+import { SentimentBandLoader } from './_components/SentimentBand';
 import { CycleBand } from './_components/CycleBand';
 import { FilterBar } from './_components/FilterBar';
 import { FinanceBand } from './_components/FinanceBand';
@@ -121,6 +122,12 @@ export default async function DashboardPage({
           <h2 className="section-title">Dealers, PMs and projects</h2>
           <Suspense fallback={<BandSkeleton label="Comparing dealers and PMs…" />}>
             <WhoBand session={session} ctx={ctx} view={view} names={names} showPm={showPm} />
+          </Suspense>
+
+          {/* Stage feedback §7. Before Needs attention on purpose: the ratings
+              are the context for the lists underneath them. */}
+          <Suspense fallback={<BandSkeleton label="Reading what customers said…" cards />}>
+            <SentimentBandLoader session={session} />
           </Suspense>
 
           <Suspense fallback={<BandSkeleton label="Finding what needs attention…" />}>

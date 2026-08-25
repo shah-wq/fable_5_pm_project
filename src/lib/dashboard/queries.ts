@@ -931,10 +931,26 @@ export interface CancelledRow {
  * the thing that replaces the Watchdog in a version with no automation layer.
  * Every row links straight through to the project's stage form.
  */
+export interface UnhappyRow {
+  id: string;
+  projectId: string;
+  name: string;
+  stageLabel: string;
+  score: number | null;
+  days: number;
+  pmName: string | null;
+  comment: string | null;
+}
+
 export async function loadAttention(
   client: PoolClient,
   ctx: DashboardContext
-): Promise<{ ageing: AttentionRow[]; holds: HoldRow[]; cancelled: CancelledRow[] }> {
+): Promise<{
+  ageing: AttentionRow[];
+  holds: HoldRow[];
+  cancelled: CancelledRow[];
+  unhappy: UnhappyRow[];
+}> {
   const f = scoped(ctx, 'none');
 
   const ageing = await client.query(
@@ -969,7 +985,45 @@ export async function loadAttention(
     f.params
   );
 
+  // Stage feedback §5: unresolved low ratings belong in Needs attention — "a PM
+  // should not have to go looking". Savepoint-guarded: the module arrives in a
+  // later migration than the dashboard, and a missing list must not take the
+  // page down.
+  const unhappy = await optionalRows<{
+    id: string;
+    project_id: string;
+    name: string;
+    stage: string;
+    score: number | null;
+    days: string;
+    pm_name: string | null;
+    comment: string | null;
+  }>(
+    client,
+    'unresolved low ratings (public.project_tasks)',
+    `select t.id, t.project_id, p.name, f.stage::text as stage, f.score,
+            floor(extract(epoch from (now() - t.created_at)) / 86400.0) as days,
+            coalesce(pr.full_name, pr.email) as pm_name, f.comment
+       from public.project_tasks t
+       join public.projects p on p.id = t.project_id
+       left join public.stage_feedback f on f.task_id = t.id
+       left join public.profiles pr on pr.id = t.assigned_to
+      where t.resolved_at is null and t.source = 'feedback'
+      order by t.created_at
+      limit 50`
+  );
+
   return {
+    unhappy: unhappy.map((r) => ({
+      id: r.id,
+      projectId: r.project_id,
+      name: r.name,
+      stageLabel: STAGE_LABELS[r.stage as StageKey] ?? r.stage ?? 'Project',
+      score: r.score === null ? null : Number(r.score),
+      days: Number(r.days),
+      pmName: r.pm_name,
+      comment: r.comment,
+    })),
     ageing: ageing.rows.map((r) => ({
       id: r.id,
       name: r.name,
@@ -1194,4 +1248,213 @@ export async function dashboardContext(
       ctx: { filters, period: resolvePeriod(filters, today), viewerId: session.userId },
     };
   });
+}
+
+// ---------------------------------------------------------------------------
+// Customer sentiment (Stage feedback §7)
+// ---------------------------------------------------------------------------
+
+export interface SentimentStage {
+  stage: StageKey;
+  label: string;
+  avgScore: number | null;
+  responses: number;
+  requests: number;
+  lowScores: number;
+}
+
+export interface SentimentParty {
+  kind: string;
+  name: string;
+  avgScore: number;
+  responses: number;
+  lowScores: number;
+}
+
+export interface Verbatim {
+  id: string;
+  projectId: string;
+  projectName: string;
+  stageLabel: string;
+  score: number | null;
+  comment: string | null;
+  respondedAt: string | null;
+  pmName: string | null;
+  resolved: boolean;
+}
+
+export interface Sentiment {
+  ready: boolean;
+  byStage: SentimentStage[];
+  monthly: Array<{ month: string; avgScore: number; responses: number }>;
+  parties: SentimentParty[];
+  channels: Array<{ channel: string; requests: number; responses: number }>;
+  verbatims: Verbatim[];
+  nps: { promoters: number; passives: number; detractors: number; score: number | null };
+  tasks: { open: number; closed: number; avgDaysToClose: number | null; oldestOpenDays: number | null };
+}
+
+/**
+ * Everything the sentiment band shows, in one pass.
+ *
+ * Every query is savepoint-guarded, so a database without 003200 renders a band
+ * that says so rather than a page that breaks. `ready` is what the band checks —
+ * an empty chart and a missing table look identical otherwise, and the
+ * difference is the whole message.
+ */
+export async function loadSentiment(client: PoolClient): Promise<Sentiment> {
+  const byStage = await optionalRows<{
+    stage: string;
+    avg_score: string | null;
+    responses: string;
+    requests: string;
+    low_scores: string;
+  }>(
+    client,
+    'ratings by stage (public.feedback_by_stage)',
+    `select stage, avg_score, responses, requests, low_scores from public.feedback_by_stage`
+  );
+
+  const monthly = await optionalRows<{ month: string; avg_score: string; responses: string }>(
+    client,
+    'the rating trend (public.feedback_monthly)',
+    `select month::text as month, avg_score, responses
+       from public.feedback_monthly order by month desc limit 12`
+  );
+
+  const parties = await optionalRows<{
+    kind: string;
+    party_name: string;
+    avg_score: string;
+    responses: string;
+    low_scores: string;
+  }>(
+    client,
+    'ratings by party (public.feedback_by_party)',
+    // §6: "require a minimum number of responses before showing an average per
+    // person". Three is not statistics, but it does stop one bad day reading as
+    // a person's average.
+    `select kind, party_name, avg_score, responses, low_scores
+       from public.feedback_by_party where responses >= 3
+      order by avg_score, responses desc limit 30`
+  );
+
+  const channels = await optionalRows<{ channel: string; requests: string; responses: string }>(
+    client,
+    'the response rate (public.feedback_response_rate)',
+    `select channel, requests, responses from public.feedback_response_rate`
+  );
+
+  const verbatims = await optionalRows<{
+    id: string;
+    project_id: string;
+    project_name: string;
+    stage: string;
+    score: number | null;
+    comment: string | null;
+    responded_at: string | null;
+    pm_name: string | null;
+    task_resolved_at: string | null;
+  }>(
+    client,
+    'the verbatim log (public.feedback_verbatims)',
+    `select id, project_id, project_name, stage, score, comment, responded_at::text,
+            pm_name, task_resolved_at
+       from public.feedback_verbatims
+      where comment is not null
+      order by responded_at desc limit 12`
+  );
+
+  const nps = await optionalRows<{ promoters: string; passives: string; detractors: string }>(
+    client,
+    'the recommendation score',
+    `select count(*) filter (where nps >= 9) as promoters,
+            count(*) filter (where nps between 7 and 8) as passives,
+            count(*) filter (where nps <= 6) as detractors
+       from public.stage_feedback where nps is not null`
+  );
+
+  const tasks = await optionalRows<{
+    open_tasks: string;
+    closed_tasks: string;
+    avg_days_to_close: string | null;
+    oldest_open_days: string | null;
+  }>(
+    client,
+    'follow-up resolution (public.feedback_task_stats)',
+    `select open_tasks, closed_tasks, avg_days_to_close, oldest_open_days
+       from public.feedback_task_stats`
+  );
+
+  const promoters = Number(nps[0]?.promoters ?? 0);
+  const passives = Number(nps[0]?.passives ?? 0);
+  const detractors = Number(nps[0]?.detractors ?? 0);
+  const npsTotal = promoters + passives + detractors;
+
+  return {
+    // A database with the module has seven stage rows even before anybody
+    // answers, because 002800 seeded the stages — so an empty list here means
+    // the migration, not a quiet month.
+    ready: byStage.length > 0 || channels.length > 0,
+    byStage: byStage
+      .filter((r) => (STAGES as readonly string[]).includes(r.stage))
+      .map((r) => ({
+        stage: r.stage as StageKey,
+        label: STAGE_LABELS[r.stage as StageKey],
+        avgScore: r.avg_score === null ? null : Number(r.avg_score),
+        responses: Number(r.responses),
+        requests: Number(r.requests),
+        lowScores: Number(r.low_scores),
+      }))
+      .sort((a, b) => STAGES.indexOf(a.stage) - STAGES.indexOf(b.stage)),
+    monthly: monthly
+      .map((r) => ({
+        month: String(r.month).slice(0, 7),
+        avgScore: Number(r.avg_score),
+        responses: Number(r.responses),
+      }))
+      .reverse(),
+    parties: parties.map((r) => ({
+      kind: r.kind,
+      name: r.party_name,
+      avgScore: Number(r.avg_score),
+      responses: Number(r.responses),
+      lowScores: Number(r.low_scores),
+    })),
+    channels: channels.map((r) => ({
+      channel: r.channel,
+      requests: Number(r.requests),
+      responses: Number(r.responses),
+    })),
+    verbatims: verbatims.map((r) => ({
+      id: r.id,
+      projectId: r.project_id,
+      projectName: r.project_name,
+      stageLabel: STAGE_LABELS[r.stage as StageKey] ?? r.stage,
+      score: r.score === null ? null : Number(r.score),
+      comment: r.comment,
+      respondedAt: r.responded_at,
+      pmName: r.pm_name,
+      resolved: r.task_resolved_at !== null,
+    })),
+    nps: {
+      promoters,
+      passives,
+      detractors,
+      // The standard definition: promoters minus detractors, as a percentage.
+      score: npsTotal === 0 ? null : Math.round(((promoters - detractors) / npsTotal) * 100),
+    },
+    tasks: {
+      open: Number(tasks[0]?.open_tasks ?? 0),
+      closed: Number(tasks[0]?.closed_tasks ?? 0),
+      avgDaysToClose:
+        tasks[0]?.avg_days_to_close === null || tasks[0]?.avg_days_to_close === undefined
+          ? null
+          : Number(tasks[0].avg_days_to_close),
+      oldestOpenDays:
+        tasks[0]?.oldest_open_days === null || tasks[0]?.oldest_open_days === undefined
+          ? null
+          : Math.floor(Number(tasks[0].oldest_open_days)),
+    },
+  };
 }
