@@ -132,72 +132,61 @@ for (let n = 1; n <= catchUp.length; n++) {
 
 // --- Per-module top-up ------------------------------------------------------
 // A database that is already current except for the newest module only needs
-// that module. One small paste is less error-prone than re-running ten
-// migrations, and the file is named after the module so a stale copy in a
-// browser cache cannot masquerade as the new one — the commonest failure of
-// this whole workflow.
-const newest = files[files.length - 1];
-const moduleName = newest.replace(/^\d+_/, '').replace(/\.sql$/, '').replaceAll('_', '-');
-const moduleFile = `${newest.slice(0, 14)}-${moduleName}.sql`;
+// that module. One small paste is less error-prone than re-running twenty
+// migrations, and each file is named after its module so a stale copy in a
+// browser cache cannot masquerade as the new one.
+//
+// The catch is that a module can arrive as several scripts that must be pasted
+// separately — 003500 refuses to run without 003400, which refuses to run
+// without 003300 — and shipping only the last one sends somebody to the SQL
+// editor to be told off twice.
+//
+// So the top-up is the whole of the final catch-up group: everything added
+// since the last enum boundary, in order, numbered. Following each file's guard
+// backwards instead would be more precise and much worse — the guards name
+// 000200 and 001900 as well, and offering those as 'step 1' to a live database
+// would be an instruction to re-run the migration that creates every table.
+const lastGroup = catchUp[catchUp.length - 1];
+const previousGroup = catchUp[catchUp.length - 2] ?? [];
+const enumTail = previousGroup[previousGroup.length - 1];
+const chain =
+  enumTail && ADDS_ENUM_VALUE.test(await readFile(join(migrationsDir, enumTail), 'utf8'))
+    ? [enumTail, ...lastGroup]
+    : [...lastGroup];
 
-// Some modules arrive as a pair, because a new enum value cannot be used in the
-// transaction that adds it and a pasted script is one transaction. When the
-// newest migration says so in as many words, the one before it gets its own
-// top-up file too — otherwise the instruction 'paste the newest module' would
-// silently skip the half that has to go first.
-const previous = files[files.length - 2];
-const needsPrevious =
-  previous &&
-  (await readFile(join(migrationsDir, newest), 'utf8')).includes(previous.replace(/\.sql$/, ''));
-if (needsPrevious) {
-  const prevName = previous.replace(/^\d+_/, '').replace(/\.sql$/, '').replaceAll('_', '-');
-  const prevFile = `${previous.slice(0, 14)}-${prevName}.sql`;
+const named = (name) =>
+  `${name.slice(0, 14)}-${name.replace(/^\d+_/, '').replace(/\.sql$/, '').replaceAll('_', '-')}.sql`;
+
+for (const [i, name] of chain.entries()) {
+  const step = chain.length > 1 ? ` · step ${i + 1} of ${chain.length}` : '';
+  const order =
+    chain.length > 1
+      ? '-- Run these in order, each as its own execution:\n' +
+        chain.map((n, k) => `--   ${k + 1}. ${named(n)}`).join('\n') +
+        '\n-- Each break is where one script adds something the next one uses, which\n' +
+        '-- PostgreSQL will not allow inside a single pasted transaction.\n--\n'
+      : '';
+
   await writeFile(
-    join(distDir, prevFile),
+    join(distDir, named(name)),
     `-- ============================================================================
 -- GENERATED FILE — do not edit. Rebuild with: node scripts/build-sql-bootstrap.mjs
 --
---   SolarFlow PM · ${previous}
---
--- Run this one FIRST, on its own, then ${moduleFile}. It is separate because a
--- new enum value cannot be referenced in the transaction that adds it, and a
--- pasted script runs as one transaction.
--- ============================================================================
-
--- >>> ${previous}
-${await readFile(join(migrationsDir, previous), 'utf8')}
-`
-  );
-  console.log(`wrote db/dist/${prevFile} (prerequisite, run first)`);
-}
-
-await writeFile(
-  join(distDir, moduleFile),
-  `-- ============================================================================
--- GENERATED FILE — do not edit. Rebuild with: node scripts/build-sql-bootstrap.mjs
---
---   SolarFlow PM · newest module only · ${newest}
+--   SolarFlow PM · newest module${step} · ${name}
 --
 -- For a database that is already up to date apart from this module. Paste the
 -- whole file into a SQL console (e.g. the Neon SQL Editor) and run it once.
 -- Safe to run again: every statement skips work already done, so 'already
 -- exists' errors cannot happen. NOTICE lines saying 'does not exist, skipping'
--- are normal. The bookkeeping row at the end is included.
+-- are normal.
 --
--- Behind by more than this module? Run catch-up-1.sql then catch-up-2.sql
+${order}-- Behind by more than this module? Run every db/dist/catch-up-*.sql in order
 -- instead — they cover everything from 001400 onwards.
 -- ============================================================================
 
--- >>> ${newest}
-${await readFile(join(migrationsDir, newest), 'utf8')}
-
--- >>> migration bookkeeping
-create table if not exists public.schema_migrations (
-  name       text primary key,
-  applied_at timestamptz not null default now()
-);
-insert into public.schema_migrations (name) values ('${newest}')
-on conflict (name) do nothing;
-`
-);
-console.log(`wrote db/dist/${moduleFile} (newest module only)`);
+-- >>> ${name}
+${await readFile(join(migrationsDir, name), 'utf8')}
+${i === chain.length - 1 ? '\n' + tracking : ''}`
+  );
+  console.log(`wrote db/dist/${named(name)}${step}`);
+}

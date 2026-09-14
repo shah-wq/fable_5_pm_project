@@ -1,11 +1,23 @@
 -- ============================================================================
 -- GENERATED FILE — do not edit. Rebuild with: node scripts/build-sql-bootstrap.mjs
 --
---   SolarFlow PM · 20260803003300_add_sales_role.sql
+--   SolarFlow PM · newest module · step 1 of 3 · 20260803003300_add_sales_role.sql
 --
--- Run this one FIRST, on its own, then 20260803003400-crm-foundation.sql. It is separate because a
--- new enum value cannot be referenced in the transaction that adds it, and a
--- pasted script runs as one transaction.
+-- For a database that is already up to date apart from this module. Paste the
+-- whole file into a SQL console (e.g. the Neon SQL Editor) and run it once.
+-- Safe to run again: every statement skips work already done, so 'already
+-- exists' errors cannot happen. NOTICE lines saying 'does not exist, skipping'
+-- are normal.
+--
+-- Run these in order, each as its own execution:
+--   1. 20260803003300-add-sales-role.sql
+--   2. 20260803003400-crm-foundation.sql
+--   3. 20260803003500-deals.sql
+-- Each break is where one script adds something the next one uses, which
+-- PostgreSQL will not allow inside a single pasted transaction.
+--
+-- Behind by more than this module? Run every db/dist/catch-up-*.sql in order
+-- instead — they cover everything from 001400 onwards.
 -- ============================================================================
 
 -- >>> 20260803003300_add_sales_role.sql
