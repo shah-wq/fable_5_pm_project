@@ -1,16 +1,11 @@
 -- ============================================================================
 -- GENERATED FILE — do not edit. Rebuild with: node scripts/build-sql-bootstrap.mjs
 --
---   SolarFlow PM · newest module only · 20260803003400_crm_foundation.sql
+--   SolarFlow PM · 20260803003400_crm_foundation.sql
 --
--- For a database that is already up to date apart from this module. Paste the
--- whole file into a SQL console (e.g. the Neon SQL Editor) and run it once.
--- Safe to run again: every statement skips work already done, so 'already
--- exists' errors cannot happen. NOTICE lines saying 'does not exist, skipping'
--- are normal. The bookkeeping row at the end is included.
---
--- Behind by more than this module? Run catch-up-1.sql then catch-up-2.sql
--- instead — they cover everything from 001400 onwards.
+-- Run this one FIRST, on its own, then 20260803003500-deals.sql. It is separate because a
+-- new enum value cannot be referenced in the transaction that adds it, and a
+-- pasted script runs as one transaction.
 -- ============================================================================
 
 -- >>> 20260803003400_crm_foundation.sql
@@ -1054,11 +1049,3 @@ drop trigger if exists audit_touch_client on public.audit_log;
 create trigger audit_touch_client after insert on public.audit_log
   for each row execute function app.tg_audit_touch_client();
 
-
--- >>> migration bookkeeping
-create table if not exists public.schema_migrations (
-  name       text primary key,
-  applied_at timestamptz not null default now()
-);
-insert into public.schema_migrations (name) values ('20260803003400_crm_foundation.sql')
-on conflict (name) do nothing;

@@ -27,6 +27,7 @@ interface Option {
 const ROLE_LABELS: Record<UserRole, string> = {
   admin: 'Admin',
   ops: 'PM',
+  sales: 'Sales',
   designer: 'Designer',
   finance: 'Finance',
   dealer: 'Dealer',

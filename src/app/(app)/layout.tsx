@@ -9,6 +9,18 @@ import { isAppShell } from '@/lib/native/shell';
 import { SideNav, type NavItem } from './_components/SideNav';
 import { TabBar } from './portal/_components/TabBar';
 
+// The CRM group (Modules 16–19). The specification argues for these four at the
+// top level with no section header — "A PM who wins a deal on Tuesday and
+// manages its install in September is doing one job in one product". They are
+// grouped here because that was asked for directly; the URLs stay flat either
+// way, so moving them back out is a one-line change and breaks no links.
+const CRM: NavItem[] = [
+  { href: '/admin/people', label: 'Contacts', icon: '☺', group: 'CRM' },
+  { href: '/deals', label: 'Deals', icon: '◈', group: 'CRM' },
+  { href: '/admin/dealers', label: 'Dealers', icon: '⌂', group: 'CRM' },
+  { href: '/admin/subscribers', label: 'E-book subscribers', icon: '✉', group: 'CRM' },
+];
+
 const NAV: Record<UserRole, NavItem[]> = {
   admin: [
     { href: '/dashboard', label: 'Dashboard', icon: '◱' },
@@ -19,8 +31,9 @@ const NAV: Record<UserRole, NavItem[]> = {
     { href: '/projects/new', label: 'New project', icon: '＋' },
     { href: '/leads', label: 'Leads', icon: '☎' },
     { href: '/reports', label: 'Reports', icon: '▤' },
-    { href: '/admin', label: 'Admin', icon: '⚙' },
-    { href: '/admin/finance', label: 'Finance', icon: '$' },
+    ...CRM,
+    { href: '/admin', label: 'Admin', icon: '⚙', group: 'Settings' },
+    { href: '/admin/finance', label: 'Finance', icon: '$', group: 'Settings' },
   ],
   ops: [
     { href: '/dashboard', label: 'Dashboard', icon: '◱' },
@@ -30,6 +43,17 @@ const NAV: Record<UserRole, NavItem[]> = {
     { href: '/projects', label: 'Projects', icon: '☰' },
     { href: '/projects/new', label: 'New project', icon: '＋' },
     { href: '/leads', label: 'Leads', icon: '☎' },
+    { href: '/reports', label: 'Reports', icon: '▤' },
+    // Ops work deals and people; the dealer record and the subscriber consent
+    // records are admin's (Part 8).
+    ...CRM.filter((i) => i.href === '/deals' || i.href === '/admin/people'),
+  ],
+  // Part 8: "Own deals and their people, plus the unassigned pool. Read-only on
+  // projects that came from their own deals. No access to other stages'
+  // operational fields, no admin panel."
+  sales: [
+    { href: '/deals', label: 'Deals', icon: '◈' },
+    { href: '/admin/people', label: 'Contacts', icon: '☺' },
     { href: '/reports', label: 'Reports', icon: '▤' },
   ],
   designer: [{ href: '/designer', label: 'My queue', icon: '▦' }],

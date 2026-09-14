@@ -6,7 +6,12 @@
  * Must stay in sync with the public.user_role enum (db/migrations).
  */
 
-export type UserRole = 'admin' | 'ops' | 'designer' | 'customer' | 'dealer' | 'finance';
+export type UserRole =
+  | 'admin' | 'ops' | 'designer' | 'customer' | 'dealer' | 'finance'
+  // Modules 16–19, Part 8: "Sales is added as a seventh role. Sales manager and
+  // Marketing are capability flags on existing roles, not new roles. Role
+  // proliferation is how a permission model stops being auditable."
+  | 'sales';
 
 /** Where each role lands after login (and gets sent when caught elsewhere).
  *  Manual version: the admin operates the pipeline day-to-day, so it is their
@@ -18,6 +23,7 @@ export const ROLE_HOME: Record<UserRole, string> = {
   finance: '/admin/finance',
   customer: '/portal',
   dealer: '/dealers',
+  sales: '/deals',
 };
 
 /**
@@ -34,6 +40,18 @@ export const ROUTE_ACCESS: Record<string, readonly UserRole[]> = {
   // get none — there is deliberately no entry that admits them.
   '/dashboard': ['admin', 'ops', 'finance'],
   '/leads': ['admin', 'ops'],
+  // The deal board and its record. Sales live here; ops see what is coming so
+  // they can staff it; admin sees everything.
+  '/deals': ['admin', 'ops', 'sales'],
+  '/api/deals': ['admin', 'ops', 'sales'],
+  // The person record is shared: a deal without its person is unusable, and a
+  // second people screen for sales is exactly what this module exists to avoid.
+  '/admin/people': ['admin', 'ops', 'sales'],
+  '/admin/customers': ['admin', 'ops', 'sales'],
+  '/api/customers': ['admin', 'ops', 'sales'],
+  // Consent records are admin's, with the marketing and consent capability
+  // flags deciding who may change them (Part 8).
+  '/admin/subscribers': ['admin'],
   // The global chat inbox is a staff instrument; the thread API is shared with
   // the customer, who reaches only their own project (enforced in the database).
   '/messages': ['admin', 'ops'],
@@ -81,7 +99,9 @@ export const ROUTE_ACCESS: Record<string, readonly UserRole[]> = {
 export const LOGIN_DOORS = {
   staff: {
     path: '/login',
-    roles: ['admin', 'ops', 'designer', 'finance'] as readonly UserRole[],
+    // Part 3: "Sales and marketing users are staff and sign in at /login. No
+    // fourth door, no CRM login, no second rate limiter."
+    roles: ['admin', 'ops', 'sales', 'designer', 'finance'] as readonly UserRole[],
     label: 'Staff sign-in',
   },
   dealer: {
