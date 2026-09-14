@@ -1,6 +1,6 @@
 -- ============================================================================
 -- GENERATED FILE — do not edit. Rebuild with: node scripts/build-sql-bootstrap.mjs
--- Bootstrap part 2 of 3 for a fresh database via a SQL console (e.g. Neon SQL Editor).
+-- Bootstrap part 2 of 4 for a fresh database via a SQL console (e.g. Neon SQL Editor).
 -- Run the parts in order, each as its own execution.
 -- Includes: 20260803000900_auth_module.sql, 20260803001000_auth_engine.sql, 20260803001100_file_storage.sql, 20260803001200_manual_version.sql, 20260803001300_admin_panel.sql, 20260803001400_stage_fields.sql, 20260803001500_complete_hold_cancel.sql
 -- ============================================================================

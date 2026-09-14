@@ -146,7 +146,7 @@ export async function GET() {
       // What to do about it, rather than a list to interpret.
       verdict: failed.length === 0
         ? 'Every query the pages need works. If a page still errors, it is not a missing table — send the digest and this output.'
-        : `${failed.length} of ${results.length} failed. Run the newest file in db/dist/ (or catch-up-1.sql then catch-up-2.sql) in the SQL editor, then reload this page.`,
+        : `${failed.length} of ${results.length} failed. Run the newest file in db/dist/ (or every catch-up-*.sql in order) in the SQL editor, then reload this page.`,
       failures: failed,
       ok: results.filter((r) => r.ok).map((r) => r.name),
     },

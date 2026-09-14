@@ -1,14 +1,16 @@
 -- ============================================================================
 -- GENERATED FILE — do not edit. Rebuild with: node scripts/build-sql-bootstrap.mjs
 --
---   SolarFlow PM · catch-up 1 of 2 · newest migration: 20260803003400_crm_foundation.sql
+--   SolarFlow PM · catch-up 1 of 3 · newest migration: 20260803003400_crm_foundation.sql
 --
 -- Paste this whole file into a SQL console (e.g. the Neon SQL Editor) and run
 -- it. Safe to run more than once: every statement below skips work already
 -- done, so 'already exists' errors cannot happen. NOTICE lines saying
 -- 'does not exist, skipping' are normal.
 --
--- Run catch-up 1 first, then catch-up 2, each as its own execution.
+-- Run the catch-up files in order, each as its own execution: catch-up-1.sql, catch-up-2.sql, catch-up-3.sql.
+-- Each break falls where one script adds a value to an enum and the next uses
+-- it, which PostgreSQL will not allow in a single transaction.
 -- Includes: 20260803001400_stage_fields.sql, 20260803001500_complete_hold_cancel.sql
 -- ============================================================================
 

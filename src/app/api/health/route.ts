@@ -115,7 +115,7 @@ export async function GET() {
           ? 'up to date'
           : behind.length === 1
             ? `run db/dist/${behind[0].slice(0, 14)}-${behind[0].slice(15).replace(/_/g, '-').replace(/\.sql$/, '')}.sql in the SQL editor`
-            : 'run db/dist/catch-up-1.sql then db/dist/catch-up-2.sql in the SQL editor',
+            : 'run every db/dist/catch-up-*.sql in order in the SQL editor',
       };
     } catch (cause) {
       database = `unreachable: ${cause instanceof Error ? cause.message : String(cause)}`;
