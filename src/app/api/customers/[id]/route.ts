@@ -3,6 +3,7 @@ import { tryLogAuditEvent } from '@/lib/audit';
 import { getSession } from '@/lib/auth/session';
 import { dbErrorResponse } from '@/lib/db-error';
 import { withUser } from '@/lib/db';
+import { optionalRows } from '@/lib/db-optional';
 
 /**
  * Guarded customer deletion and anonymisation. Deleting a customer who has
@@ -35,9 +36,10 @@ export async function DELETE(request: Request, ctx: { params: Promise<{ id: stri
       }>(
         `select c.first_name || ' ' || c.last_name as name,
                 (select count(*)::int from public.projects p where p.client_id = c.id) as projects,
-                (select count(*)::int from public.leads l
-                   where l.converted_project_id in
-                     (select id from public.projects where client_id = c.id)) as leads,
+                (select count(*)::int from public.deals d
+                  where d.client_id = c.id
+                     or d.converted_project_id in
+                        (select id from public.projects where client_id = c.id)) as leads,
                 c.user_id
          from public.clients c where c.id = $1`,
         [id]
@@ -54,14 +56,40 @@ export async function DELETE(request: Request, ctx: { params: Promise<{ id: stri
         return { ok: true as const, name: customer.name, mode };
       }
 
+      // Part 4, same rule with a wider reach: "delete only with zero projects,
+      // deals and subscriptions; once a project exists, anonymise."
       if (customer.projects > 0 || customer.leads > 0) {
         return {
           error:
             `${customer.name} has ${customer.projects} project(s)` +
-            (customer.leads > 0 ? ` and ${customer.leads} lead(s)` : '') +
+            (customer.leads > 0 ? ` and ${customer.leads} deal(s)` : '') +
             ' — deleting would take that history with them. Archive the record, or anonymise it if this is a data-removal request.',
           status: 422,
         };
+      }
+
+      // "A prospect with only a subscription can be deleted, with their address
+      // added to suppression so a later import does not resurrect them." The
+      // suppression row outlives the person on purpose: it is the only way to
+      // honour the request against a list that arrives next quarter.
+      const subs = await optionalRows<{ n: string }>(
+        client,
+        'the subscriptions blocking a delete',
+        `select count(*) as n from public.subscriptions where client_id = $1`,
+        [id]
+      );
+      if (Number(subs[0]?.n ?? 0) > 0) {
+        await optionalRows(
+          client,
+          'suppressing a deleted subscriber (public.suppression)',
+          `insert into public.suppression (kind, value_normalised, reason, notes)
+           select ch.kind, ch.value_normalised, 'deleted',
+                  'person record deleted with an active subscription'
+             from public.client_channels ch
+            where ch.client_id = $1 and ch.value_normalised <> ''
+           on conflict (kind, value_normalised) do nothing`,
+          [id]
+        );
       }
 
       await client.query(`delete from public.clients where id = $1`, [id]);

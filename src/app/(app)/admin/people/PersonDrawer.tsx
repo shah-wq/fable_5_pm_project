@@ -4,9 +4,30 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { PasswordInput } from '@/app/_components/PasswordInput';
 import type { CustomerRow } from '@/lib/customers/service';
+import type {
+  AddressRow,
+  ChannelRow,
+  PersonDealRow,
+  PersonSubscriptionRow,
+  TimelineEntry,
+} from '@/lib/people/service';
 import { STAGE_LABELS, type StageKey } from '@/lib/stages/definitions';
 
-type Tab = 'details' | 'projects' | 'portal' | 'activity';
+// Part 4: "Existing: Details, Projects, Portal access, Activity. Added: Deals
+// (every deal this person appears on with their role, including lost ones) and
+// Subscriptions (list membership and consent)."
+type Tab = 'details' | 'projects' | 'deals' | 'subscriptions' | 'portal' | 'activity';
+
+const DEAL_STAGE_LABELS: Record<string, string> = {
+  new: 'New',
+  contacted: 'Contacted',
+  qualified: 'Qualified',
+  proposal: 'Proposal',
+  negotiation: 'Negotiation',
+  contract_out: 'Contract out',
+  won: 'Won',
+  lost: 'Lost',
+};
 
 interface ProjectRow {
   id: string;
@@ -21,12 +42,12 @@ interface ProjectRow {
 }
 
 /**
- * The customer record: Details, Projects, Portal access and Activity. The
- * Projects tab is the reason this section is worth building — it answers 'what
- * is our whole history with this person?' in one place, which no
- * project-by-project view can.
+ * The person record: Details, Projects, Deals, Subscriptions, Portal access and
+ * Activity. The whole point of the section is that it answers 'what is our
+ * entire history with this person?' in one place — which now covers the half of
+ * that history that happens before anybody signs anything.
  */
-export function CustomerDrawer({
+export function PersonDrawer({
   customer,
   dealers,
   isAdmin,
@@ -45,7 +66,11 @@ export function CustomerDrawer({
   const [notice, setNotice] = useState<string | null>(null);
   const [duplicates, setDuplicates] = useState<Array<{ id: string; name: string; projects: number }>>([]);
   const [projects, setProjects] = useState<ProjectRow[] | null>(null);
-  const [activity, setActivity] = useState<Array<{ at: string; action: string; actor: string | null }> | null>(null);
+  const [activity, setActivity] = useState<TimelineEntry[] | null>(null);
+  const [deals, setDeals] = useState<PersonDealRow[] | null>(null);
+  const [subscriptions, setSubscriptions] = useState<PersonSubscriptionRow[] | null>(null);
+  const [channels, setChannels] = useState<ChannelRow[] | null>(null);
+  const [addresses, setAddresses] = useState<AddressRow[] | null>(null);
   const [destructive, setDestructive] = useState<'delete' | 'anonymise' | null>(null);
   const [confirmName, setConfirmName] = useState('');
   const [password, setPassword] = useState('');
@@ -65,7 +90,25 @@ export function CustomerDrawer({
         .then((j) => setActivity(j.activity ?? []))
         .catch(() => setActivity([]));
     }
-  }, [tab, customer, projects, activity]);
+    if (tab === 'deals' && deals === null) {
+      fetch(`/api/customers/${customer.id}/detail?include=deals`)
+        .then((r) => r.json())
+        .then((j) => setDeals(j.deals ?? []))
+        .catch(() => setDeals([]));
+    }
+    if (tab === 'subscriptions' && subscriptions === null) {
+      fetch(`/api/customers/${customer.id}/detail?include=subscriptions`)
+        .then((r) => r.json())
+        .then((j) => setSubscriptions(j.subscriptions ?? []))
+        .catch(() => setSubscriptions([]));
+    }
+    if (tab === 'details' && channels === null) {
+      fetch(`/api/customers/${customer.id}/detail?include=contact`)
+        .then((r) => r.json())
+        .then((j) => { setChannels(j.channels ?? []); setAddresses(j.addresses ?? []); })
+        .catch(() => { setChannels([]); setAddresses([]); });
+    }
+  }, [tab, customer, projects, activity, deals, subscriptions, channels]);
 
   async function call(url: string, init: RequestInit, okMessage?: string) {
     setBusy(true);
@@ -119,12 +162,12 @@ export function CustomerDrawer({
     <div className="drawer-backdrop" onClick={() => !busy && onClose()}>
       <div className="drawer wide-drawer" onClick={(e) => e.stopPropagation()}>
         <h2>
-          {customer ? `${customer.firstName} ${customer.lastName}` : '+ Add customer'}
+          {customer ? `${customer.firstName} ${customer.lastName}` : '+ Add person'}
         </h2>
 
         {customer && (
           <div className="admin-tabs">
-            {(['details', 'projects', 'portal', 'activity'] as Tab[]).map((t) => (
+            {(['details', 'projects', 'deals', 'subscriptions', 'portal', 'activity'] as Tab[]).map((t) => (
               <button
                 key={t}
                 className={`linklike${tab === t ? ' active' : ''}`}
@@ -133,6 +176,8 @@ export function CustomerDrawer({
               >
                 {t === 'details' ? 'Details'
                   : t === 'projects' ? `Projects (${customer.projectCount})`
+                  : t === 'deals' ? 'Deals'
+                  : t === 'subscriptions' ? 'Subscriptions'
                   : t === 'portal' ? 'Portal access' : 'Activity'}
               </button>
             ))}
@@ -148,7 +193,7 @@ export function CustomerDrawer({
 
         {duplicates.length > 0 && (
           <div className="notice hold">
-            <strong>A customer with this email or phone already exists:</strong>
+            <strong>Somebody with this email or phone is already on file:</strong>
             <ul className="gap-list">
               {duplicates.map((d) => (
                 <li key={d.id}>
@@ -223,7 +268,11 @@ export function CustomerDrawer({
               {!customer && (
                 <label className="field">
                   <span>Dealer</span>
-                  <select name="dealerId" defaultValue={dealers[0]?.id ?? ''}>
+                  {/* Optional now. A person can exist with no project and no
+                      dealer — a web-form prospect belongs to nobody yet, and
+                      inventing a dealer for them corrupts attribution later. */}
+                  <select name="dealerId" defaultValue="">
+                    <option value="">None yet</option>
                     {dealers.map((d) => (
                       <option key={d.id} value={d.id}>
                         {d.name}
@@ -233,6 +282,51 @@ export function CustomerDrawer({
                 </label>
               )}
             </div>
+
+            {customer && (channels?.length ?? 0) > 1 && (
+              <>
+                <h3>Other ways to reach them</h3>
+                <ul className="gap-list">
+                  {channels!.filter((ch) => !ch.isPrimary).map((ch) => (
+                    <li key={ch.id}>
+                      {ch.value}
+                      <span className="dim">
+                        {` · ${ch.kind}${ch.type ? ` (${ch.type})` : ''}`}
+                        {ch.verifiedAt ? ' · verified' : ''}
+                        {ch.bounceState ? ` · ${ch.bounceState} bounce` : ''}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+                <p className="dim">
+                  The primary email and phone are the fields above; everything else they have
+                  given you lives here. A hard bounce is shown because writing to it again is
+                  how a sending domain gets itself blocked.
+                </p>
+              </>
+            )}
+
+            {customer && (addresses?.length ?? 0) > 0 && (
+              <>
+                <h3>Addresses</h3>
+                <ul className="gap-list">
+                  {addresses!.map((a) => (
+                    <li key={a.id}>
+                      {a.lines}
+                      {a.city ? `, ${a.city}` : ''}
+                      {a.state ? `, ${a.state}` : ''}
+                      <span className="dim">
+                        {` · ${a.kind}${a.isPrimary ? ' · primary' : ''}`}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+                <p className="dim">
+                  A deal attaches to a property address, which is how a person with two houses
+                  gets two deals rather than two records.
+                </p>
+              </>
+            )}
 
             <h3>Address</h3>
             <label className="field">
@@ -350,6 +444,100 @@ export function CustomerDrawer({
                       <td>{p.contractValue === null ? '—' : `$${p.contractValue.toLocaleString()}`}</td>
                       <td>{p.createdAt.slice(0, 10)}</td>
                       <td>{p.completionDate ? p.completionDate.slice(0, 10) : '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </>
+        )}
+
+        {customer && tab === 'deals' && (
+          <>
+            {deals === null ? (
+              <p className="dim">Loading…</p>
+            ) : deals.length === 0 ? (
+              <p className="dim">
+                No deals yet. A deal is an opportunity before it is a job — this person has
+                either never been one, or came in through a route that skipped the pipeline.
+              </p>
+            ) : (
+              <table className="projects-table">
+                <thead>
+                  <tr>
+                    <th>Deal</th>
+                    <th>Stage</th>
+                    <th>Their role</th>
+                    <th>Value</th>
+                    <th>Owner</th>
+                    <th>Outcome</th>
+                    <th>Updated</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {deals.map((d) => (
+                    <tr key={d.id}>
+                      <td>
+                        <Link href={`/deals/${d.id}`}>{d.code ?? d.id.slice(0, 8)}</Link>
+                      </td>
+                      <td>{DEAL_STAGE_LABELS[d.stage] ?? d.stage}</td>
+                      {/* Part 5: most residential deals involve two people, and
+                          which one you are looking at decides who to call. */}
+                      <td>{(d.role ?? 'primary').replaceAll('_', ' ')}</td>
+                      <td>{d.value === null ? '—' : `$${d.value.toLocaleString()}`}</td>
+                      <td>{d.ownerName ?? 'unassigned'}</td>
+                      <td>
+                        {d.projectId ? (
+                          <Link href={`/projects/${d.projectId}`}>became a project</Link>
+                        ) : d.lostReason ? (
+                          `lost — ${d.lostReason}`
+                        ) : (
+                          'open'
+                        )}
+                      </td>
+                      <td>{d.updatedAt ? d.updatedAt.slice(0, 10) : '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </>
+        )}
+
+        {customer && tab === 'subscriptions' && (
+          <>
+            {subscriptions === null ? (
+              <p className="dim">Loading…</p>
+            ) : subscriptions.length === 0 ? (
+              <p className="dim">Not on any marketing list.</p>
+            ) : (
+              <table className="projects-table">
+                <thead>
+                  <tr>
+                    <th>List</th>
+                    <th>Status</th>
+                    {/* Part 7: the consent basis column is always visible,
+                        because it is the record produced if someone complains. */}
+                    <th>Consent basis</th>
+                    <th>Consented</th>
+                    <th>Source</th>
+                    <th>Confirmed</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {subscriptions.map((sub) => (
+                    <tr key={sub.id}>
+                      <td>{sub.listName}</td>
+                      <td>
+                        {sub.status}
+                        {sub.unsubscribedAt && (
+                          <span className="dim">{` · ${sub.unsubscribedAt.slice(0, 10)}`}</span>
+                        )}
+                      </td>
+                      <td>{sub.consentBasis.replaceAll('_', ' ')}</td>
+                      <td>{sub.consentAt ? sub.consentAt.slice(0, 10) : '—'}</td>
+                      <td>{sub.consentSource ?? '—'}</td>
+                      <td>{sub.confirmedAt ? sub.confirmedAt.slice(0, 10) : 'pending'}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -478,16 +666,23 @@ export function CustomerDrawer({
 
         {customer && tab === 'activity' && (
           <>
+            {/* Part 3: one log renders the project audit trail, the customer
+                Activity tab and the deal timeline. This is that one log. */}
             {activity === null ? (
               <p className="dim">Loading…</p>
             ) : activity.length === 0 ? (
-              <p className="dim">Nothing logged against this customer yet.</p>
+              <p className="dim">Nothing logged against this person yet.</p>
             ) : (
               <ul className="activity">
                 {activity.map((a, i) => (
                   <li key={i}>
-                    <span className="dim">{new Date(a.at).toLocaleString()}</span> {a.action}
-                    {a.actor ? <span className="dim"> · {a.actor}</span> : null}
+                    <span className="dim">{new Date(a.at).toLocaleString()}</span>
+                    {a.kind && a.kind !== 'field_change' && (
+                      <span className="stage-chip-sm">{a.kind.replaceAll('_', ' ')}</span>
+                    )}{' '}
+                    {a.action}
+                    {a.dealCode ? <span className="dim">{` · ${a.dealCode}`}</span> : null}
+                    {a.actor ? <span className="dim">{` · ${a.actor}`}</span> : null}
                   </li>
                 ))}
               </ul>

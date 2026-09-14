@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth/session';
 import { withUser } from '@/lib/db';
-import { findExistingCustomers } from '@/lib/customers/service';
+import { findPeopleByContact } from '@/lib/people/service';
 
 /**
  * 'Is this person already on file?' — called by the New project form as the
@@ -20,7 +20,7 @@ export async function GET(request: Request) {
   const phone = params.get('phone')?.trim() || null;
   if (!email && !phone) return NextResponse.json({ matches: [] });
 
-  const matches = await withUser(session, (c) => findExistingCustomers(c, email, phone))
+  const matches = await withUser(session, (c) => findPeopleByContact(c, email, phone))
     .catch(() => []);
   return NextResponse.json({ matches });
 }

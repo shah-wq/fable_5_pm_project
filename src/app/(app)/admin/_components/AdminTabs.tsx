@@ -12,11 +12,25 @@ const GROUPS: Array<{ label?: string; tabs: Array<{ href: string; label: string 
       { href: '/admin/crews', label: 'Install crews' },
       { href: '/admin/vendors', label: 'Vendors' },
       { href: '/admin/dealers', label: 'Dealers' },
-      { href: '/admin/customers', label: 'Customers' },
+      // Part 1: "Same screen, same four tabs, now showing prospects as well as
+      // customers with a lifecycle filter defaulting to customers. Renaming one
+      // screen is cheaper than building a second one that does the same thing
+      // for people who have not signed yet."
+      { href: '/admin/people', label: 'People' },
       { href: '/admin/sales_reps', label: 'Sales reps' },
       { href: '/admin/canned_replies', label: 'Canned replies' },
       { href: '/admin/settings', label: 'Settings' },
       { href: '/admin/activity', label: 'Activity log' },
+    ],
+  },
+  {
+    label: 'CRM lists',
+    tabs: [
+      { href: '/admin/client_sources', label: 'Sources' },
+      { href: '/admin/deal_loss_reasons', label: 'Loss reasons' },
+      { href: '/admin/roof_types', label: 'Roof types' },
+      { href: '/admin/competitors', label: 'Competitors' },
+      { href: '/admin/dealer_tiers', label: 'Dealer tiers' },
     ],
   },
   {

@@ -3,7 +3,7 @@ import { tryLogAuditEvent } from '@/lib/audit';
 import { getSession } from '@/lib/auth/session';
 import { dbErrorResponse } from '@/lib/db-error';
 import { withUser } from '@/lib/db';
-import { findExistingCustomers } from '@/lib/customers/service';
+import { findPeopleByContact } from '@/lib/people/service';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const CONTACT = ['email', 'phone', 'text'];
@@ -18,7 +18,10 @@ const CONTACT = ['email', 'phone', 'text'];
 export async function POST(request: Request) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
-  if (!['admin', 'ops'].includes(session.role) || !session.isActive) {
+  // Sales create people: a prospect who rings in is a person before they are
+  // anything else, and making them wait for a PM is how they end up in a
+  // spreadsheet instead.
+  if (!['admin', 'ops', 'sales'].includes(session.role) || !session.isActive) {
     return NextResponse.json({ error: 'forbidden' }, { status: 403 });
   }
 
@@ -50,15 +53,18 @@ export async function POST(request: Request) {
   }
 
   try {
-    // Duplicate guard on create: warn rather than quietly making a second one.
+    // Duplicate guard on create (Part 4): "offering to attach to the existing
+    // person rather than inserting". Matched across every channel on file, not
+    // just the primary columns — a second email is still the same person, and
+    // that is precisely the case the old check walked past.
     if (!body?.id && !body?.allowDuplicate) {
       const existing = await withUser(session, (c) =>
-        findExistingCustomers(c, email, text(body?.phone, 40))
+        findPeopleByContact(c, email, text(body?.phone, 40))
       );
       if (existing.length > 0) {
         return NextResponse.json(
           {
-            error: 'A customer with this email or phone already exists.',
+            error: 'Somebody with this email or phone is already on file.',
             duplicates: existing,
           },
           { status: 409 }
@@ -93,13 +99,11 @@ export async function POST(request: Request) {
         return rows[0]?.id ?? null;
       }
 
-      // A manual add needs a dealer: every customer belongs to a book.
-      const dealerId = body?.dealerId && UUID_RE.test(body.dealerId)
-        ? body.dealerId
-        : (await client.query<{ id: string }>(
-            `select id from public.dealers where is_active order by name limit 1`
-          )).rows[0]?.id;
-      if (!dealerId) return null;
+      // A dealer is optional now. Part 2's one real change: a person can exist
+      // with no project — and a prospect from a web form belongs to no dealer's
+      // book until a deal says so. Picking one for them would corrupt the
+      // attribution that commissions and performance reporting both rest on.
+      const dealerId = body?.dealerId && UUID_RE.test(body.dealerId) ? body.dealerId : null;
 
       const { rows } = await client.query<{ id: string }>(
         `insert into public.clients
@@ -119,7 +123,7 @@ export async function POST(request: Request) {
 
     if (!id) {
       return NextResponse.json(
-        { error: 'Could not save — add a dealer company first, or check the customer exists.' },
+        { error: 'Could not save — check the record still exists.' },
         { status: 400 }
       );
     }
@@ -133,7 +137,7 @@ export async function POST(request: Request) {
   } catch (e) {
     if ((e as { code?: string }).code === '23505') {
       return NextResponse.json(
-        { error: 'That email is already used by another customer — merge the records instead.' },
+        { error: 'That email is already used by somebody else — merge the records instead.' },
         { status: 409 }
       );
     }

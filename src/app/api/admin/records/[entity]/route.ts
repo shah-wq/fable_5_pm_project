@@ -29,6 +29,8 @@ function coerce(type: string, raw: unknown): unknown {
       const n = Number(raw);
       return Number.isFinite(n) ? n : null;
     }
+    case 'boolean':
+      return raw === true || raw === 'true';
     case 'ref':
       return UUID_RE.test(String(raw)) ? String(raw) : null;
     case 'tags':

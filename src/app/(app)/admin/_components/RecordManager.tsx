@@ -170,6 +170,11 @@ export function RecordManager({
                         </option>
                       ))}
                     </select>
+                  ) : f.type === 'boolean' ? (
+                    <select name={f.name} defaultValue={drawer.row?.[f.name] ? 'true' : 'false'}>
+                      <option value="false">No</option>
+                      <option value="true">Yes</option>
+                    </select>
                   ) : f.type === 'rating' ? (
                     <select name={f.name} defaultValue={String(drawer.row?.[f.name] ?? '')}>
                       <option value="">—</option>

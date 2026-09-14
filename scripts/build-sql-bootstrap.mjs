@@ -133,6 +133,37 @@ const newest = files[files.length - 1];
 const moduleName = newest.replace(/^\d+_/, '').replace(/\.sql$/, '').replaceAll('_', '-');
 const moduleFile = `${newest.slice(0, 14)}-${moduleName}.sql`;
 
+// Some modules arrive as a pair, because a new enum value cannot be used in the
+// transaction that adds it and a pasted script is one transaction. When the
+// newest migration says so in as many words, the one before it gets its own
+// top-up file too — otherwise the instruction 'paste the newest module' would
+// silently skip the half that has to go first.
+const previous = files[files.length - 2];
+const needsPrevious =
+  previous &&
+  (await readFile(join(migrationsDir, newest), 'utf8')).includes(previous.replace(/\.sql$/, ''));
+if (needsPrevious) {
+  const prevName = previous.replace(/^\d+_/, '').replace(/\.sql$/, '').replaceAll('_', '-');
+  const prevFile = `${previous.slice(0, 14)}-${prevName}.sql`;
+  await writeFile(
+    join(distDir, prevFile),
+    `-- ============================================================================
+-- GENERATED FILE — do not edit. Rebuild with: node scripts/build-sql-bootstrap.mjs
+--
+--   SolarFlow PM · ${previous}
+--
+-- Run this one FIRST, on its own, then ${moduleFile}. It is separate because a
+-- new enum value cannot be referenced in the transaction that adds it, and a
+-- pasted script runs as one transaction.
+-- ============================================================================
+
+-- >>> ${previous}
+${await readFile(join(migrationsDir, previous), 'utf8')}
+`
+  );
+  console.log(`wrote db/dist/${prevFile} (prerequisite, run first)`);
+}
+
 await writeFile(
   join(distDir, moduleFile),
   `-- ============================================================================

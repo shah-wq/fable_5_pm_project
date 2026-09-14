@@ -4,8 +4,9 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
 import type { CustomerRow } from '@/lib/customers/service';
+import { LIFECYCLE_LABELS, type Lifecycle, type PersonCrmRow } from '@/lib/people/service';
 import { STAGE_LABELS, type StageKey } from '@/lib/stages/definitions';
-import { CustomerDrawer } from './CustomerDrawer';
+import { PersonDrawer } from './PersonDrawer';
 import { MergeDialog } from './MergeDialog';
 
 const PORTAL_LABELS: Record<CustomerRow['portal'], string> = {
@@ -17,28 +18,38 @@ const PORTAL_LABELS: Record<CustomerRow['portal'], string> = {
 
 type PortalFilter = 'any' | 'none' | 'invited' | 'active' | 'disabled';
 type ProjectFilter = 'any' | 'has_active' | 'completed_only' | 'none';
+type LifecycleFilter = 'any' | Lifecycle;
 
 /**
- * The Customers list: search by name, email, phone or site address — staff
- * often remember the house before the name — filters for the states that
- * matter, a row menu, bulk invite for switching portal access on across an
- * existing book, and CSV export of what is on screen.
+ * The People list: search by name, email, phone or site address — staff often
+ * remember the house before the name — filters for the states that matter, a
+ * row menu, bulk invite for switching portal access on across an existing book,
+ * and CSV export of what is on screen.
+ *
+ * The lifecycle filter defaults to Customers (Part 1), so the screen opens
+ * showing exactly what it showed before this module existed. Prospects are one
+ * dropdown away rather than mixed into a list somebody uses to find a customer.
  */
-export function CustomersManager({
+export function PeopleManager({
   customers,
+  crm,
   duplicates,
   dealers,
   isAdmin,
+  crmReady,
 }: {
   customers: CustomerRow[];
+  crm: PersonCrmRow[];
   duplicates: Array<{ a: string; b: string; reason: string }>;
   dealers: Array<{ id: string; name: string }>;
   isAdmin: boolean;
+  crmReady: boolean;
 }) {
   const router = useRouter();
   const [search, setSearch] = useState('');
   const [portalFilter, setPortalFilter] = useState<PortalFilter>('any');
   const [projectFilter, setProjectFilter] = useState<ProjectFilter>('any');
+  const [lifecycle, setLifecycle] = useState<LifecycleFilter>(crmReady ? 'customer' : 'any');
   const [showArchived, setShowArchived] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [drawer, setDrawer] = useState<{ customer: CustomerRow | null } | null>(null);
@@ -48,6 +59,7 @@ export function CustomersManager({
   const [notice, setNotice] = useState<string | null>(null);
 
   const byId = useMemo(() => new Map(customers.map((c) => [c.id, c])), [customers]);
+  const crmById = useMemo(() => new Map(crm.map((r) => [r.id, r])), [crm]);
 
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -59,12 +71,15 @@ export function CustomersManager({
       if (projectFilter === 'completed_only'
           && !(c.projectCount > 0 && c.projectCount === c.completedCount)) return false;
       if (projectFilter === 'none' && c.projectCount > 0) return false;
+      if (lifecycle !== 'any' && (crmById.get(c.id)?.lifecycle ?? 'prospect') !== lifecycle) {
+        return false;
+      }
       if (!q) return true;
       return [c.firstName, c.lastName, `${c.firstName} ${c.lastName}`, c.email, c.phone,
               c.alternatePhone, c.cityState, c.mailingAddress]
         .some((v) => v?.toLowerCase().includes(q));
     });
-  }, [customers, search, portalFilter, projectFilter, showArchived]);
+  }, [customers, search, portalFilter, projectFilter, showArchived, lifecycle, crmById]);
 
   const dupPairs = duplicates
     .map((d) => ({ ...d, aRow: byId.get(d.a), bRow: byId.get(d.b) }))
@@ -174,6 +189,18 @@ export function CustomersManager({
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
+        {crmReady && (
+          <select
+            value={lifecycle}
+            onChange={(e) => setLifecycle(e.target.value as LifecycleFilter)}
+            aria-label="Lifecycle"
+          >
+            <option value="customer">Customers</option>
+            <option value="prospect">Prospects</option>
+            <option value="past_customer">Past customers</option>
+            <option value="any">Everyone</option>
+          </select>
+        )}
         <select value={portalFilter} onChange={(e) => setPortalFilter(e.target.value as PortalFilter)}>
           <option value="any">Any portal state</option>
           <option value="none">No portal access</option>
@@ -200,7 +227,7 @@ export function CustomersManager({
           Export CSV
         </button>
         <button className="btn" type="button" onClick={() => setDrawer({ customer: null })}>
-          + Add customer
+          + Add person
         </button>
       </div>
 
@@ -240,6 +267,7 @@ export function CustomersManager({
                 />
               </th>
               <th>Name</th>
+              {crmReady && <th>Lifecycle</th>}
               <th>Email</th>
               <th>Phone</th>
               <th>City / state</th>
@@ -274,7 +302,20 @@ export function CustomersManager({
                   {c.anonymisedAt && <span className="dim"> · anonymised</span>}
                   {c.isArchived && !c.anonymisedAt && <span className="dim"> · archived</span>}
                 </td>
-                <td>{c.email ?? '—'}</td>
+                {crmReady && (
+                  <td>
+                    <span className={`chip lifecycle-${crmById.get(c.id)?.lifecycle ?? 'prospect'}`}>
+                      {LIFECYCLE_LABELS[crmById.get(c.id)?.lifecycle ?? 'prospect']}
+                    </span>
+                    {(crmById.get(c.id)?.openDealCount ?? 0) > 0 && (
+                      <span className="dim">{` · ${crmById.get(c.id)?.openDealCount} open deal(s)`}</span>
+                    )}
+                  </td>
+                )}
+                <td>
+                  {c.email ?? '—'}
+                  {crmById.get(c.id)?.doNotEmail && <span className="dim"> · do not email</span>}
+                </td>
                 <td>{c.phone ?? '—'}</td>
                 <td>{c.cityState ?? '—'}</td>
                 <td>
@@ -345,7 +386,7 @@ export function CustomersManager({
       </div>
 
       {drawer && (
-        <CustomerDrawer
+        <PersonDrawer
           customer={drawer.customer}
           dealers={dealers}
           isAdmin={isAdmin}

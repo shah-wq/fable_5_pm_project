@@ -7,7 +7,11 @@
  * dropdowns but stay attached to historical projects.
  */
 
-export type FieldType = 'text' | 'email' | 'number' | 'textarea' | 'tags' | 'rating' | 'ref';
+export type FieldType =
+  | 'text' | 'email' | 'number' | 'textarea' | 'tags' | 'rating' | 'ref'
+  // A yes/no the list itself carries — 'internal only' on a loss reason decides
+  // whether a dealer ever sees it, so it belongs on the record, not in a note.
+  | 'boolean';
 
 export interface EntityField {
   name: string;
@@ -31,6 +35,67 @@ export interface EntityDef {
 }
 
 export const ADMIN_ENTITIES: Record<string, EntityDef> = {
+  // --- CRM reference lists (Modules 16–19) ---------------------------------
+  // Part 4: "Admin-managed and referenced by ID, per the master spec's rule on
+  // all dropdown lists." Which means entries here rather than a CRM settings
+  // screen of their own — same table, same editor, same audit trail.
+  client_sources: {
+    table: 'client_sources',
+    title: 'Sources',
+    blurb: 'How a person first entered the system. Set once at creation and never overwritten.',
+    nameColumn: 'name',
+    fields: [
+      { name: 'name', label: 'Name', type: 'text', required: true },
+      { name: 'sort_order', label: 'Sort order', type: 'number' },
+    ],
+    listColumns: ['sort_order'],
+  },
+  deal_loss_reasons: {
+    table: 'deal_loss_reasons',
+    title: 'Loss reasons',
+    blurb: 'Why deals are lost. Internal-only reasons never reach the dealer portal.',
+    nameColumn: 'name',
+    fields: [
+      { name: 'name', label: 'Name', type: 'text', required: true },
+      { name: 'internal_only', label: 'Internal only', type: 'boolean' },
+      { name: 'sort_order', label: 'Sort order', type: 'number' },
+    ],
+    listColumns: ['internal_only', 'sort_order'],
+  },
+  roof_types: {
+    table: 'roof_types',
+    title: 'Roof types',
+    blurb: 'Used by deal qualification at first pass.',
+    nameColumn: 'name',
+    fields: [
+      { name: 'name', label: 'Name', type: 'text', required: true },
+      { name: 'sort_order', label: 'Sort order', type: 'number' },
+    ],
+    listColumns: ['sort_order'],
+  },
+  competitors: {
+    table: 'competitors',
+    title: 'Competitors',
+    blurb: 'Named on a lost deal, so "who keeps beating us" has an answer.',
+    nameColumn: 'name',
+    fields: [
+      { name: 'name', label: 'Name', type: 'text', required: true },
+      { name: 'sort_order', label: 'Sort order', type: 'number' },
+    ],
+    listColumns: ['sort_order'],
+  },
+  dealer_tiers: {
+    table: 'dealer_tiers',
+    title: 'Dealer tiers',
+    blurb: 'A tier may carry a commission default. Changing it never restates money already promised.',
+    nameColumn: 'name',
+    fields: [
+      { name: 'name', label: 'Name', type: 'text', required: true },
+      { name: 'commission_percent', label: 'Commission %', type: 'number' },
+      { name: 'sort_order', label: 'Sort order', type: 'number' },
+    ],
+    listColumns: ['commission_percent', 'sort_order'],
+  },
   surveyors: {
     table: 'surveyors',
     title: 'Surveyors',

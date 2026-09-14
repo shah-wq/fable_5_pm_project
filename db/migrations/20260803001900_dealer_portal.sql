@@ -29,37 +29,51 @@ create table if not exists public.leads (
   check (customer_email is not null or customer_phone is not null)
 );
 
-create index if not exists leads_dealer_idx on public.leads (dealer_id, created_at desc);
-create index if not exists leads_status_idx on public.leads (status) where status in ('submitted', 'under_review');
+-- Everything below is skipped once module 17 has renamed this table to `deals`
+-- and left `leads` behind as a read-only compatibility view. Re-running an old
+-- migration is normal here — the scripts are pasted by hand and the whole set is
+-- meant to be idempotent — and an index, a policy or a row-level-security
+-- statement aimed at a view is a hard error rather than a no-op.
+do $$
+begin
+  if coalesce((select c.relkind from pg_class c where c.oid = to_regclass('public.leads')), 'r') <> 'r' then
+    raise notice 'public.leads is a view now (modules 16-19 renamed it to deals) — leaving it alone.';
+    return;
+  end if;
 
-alter table public.leads enable row level security;
-grant select, insert, update on public.leads to authenticated;
-drop policy if exists leads_select on public.leads;
-create policy leads_select on public.leads
-  for select to authenticated
-  using (
-    (select app.current_user_role()) in ('admin', 'ops')
-    or dealer_id in (select app.current_dealer_ids())
-  );
-drop policy if exists leads_insert on public.leads;
-create policy leads_insert on public.leads
-  for insert to authenticated
-  with check (
-    (select app.current_user_role()) in ('admin', 'ops')
-    or (dealer_id in (select app.current_dealer_ids()) and status = 'submitted')
-  );
--- Only the PM team moves a lead through review/convert/decline.
-drop policy if exists leads_update on public.leads;
-create policy leads_update on public.leads
-  for update to authenticated
-  using ((select app.current_user_role()) in ('admin', 'ops'))
-  with check ((select app.current_user_role()) in ('admin', 'ops'));
-drop trigger if exists set_updated_at on public.leads;
-create trigger set_updated_at before update on public.leads
-  for each row execute function app.tg_set_updated_at();
-drop trigger if exists audit_row on public.leads;
-create trigger audit_row after insert or update or delete on public.leads
-  for each row execute function app.tg_audit_row();
+  create index if not exists leads_dealer_idx on public.leads (dealer_id, created_at desc);
+  create index if not exists leads_status_idx on public.leads (status) where status in ('submitted', 'under_review');
+
+  alter table public.leads enable row level security;
+  grant select, insert, update on public.leads to authenticated;
+  drop policy if exists leads_select on public.leads;
+  create policy leads_select on public.leads
+    for select to authenticated
+    using (
+      (select app.current_user_role()) in ('admin', 'ops')
+      or dealer_id in (select app.current_dealer_ids())
+    );
+  drop policy if exists leads_insert on public.leads;
+  create policy leads_insert on public.leads
+    for insert to authenticated
+    with check (
+      (select app.current_user_role()) in ('admin', 'ops')
+      or (dealer_id in (select app.current_dealer_ids()) and status = 'submitted')
+    );
+  -- Only the PM team moves a lead through review/convert/decline.
+  drop policy if exists leads_update on public.leads;
+  create policy leads_update on public.leads
+    for update to authenticated
+    using ((select app.current_user_role()) in ('admin', 'ops'))
+    with check ((select app.current_user_role()) in ('admin', 'ops'));
+  drop trigger if exists set_updated_at on public.leads;
+  create trigger set_updated_at before update on public.leads
+    for each row execute function app.tg_set_updated_at();
+  drop trigger if exists audit_row on public.leads;
+  create trigger audit_row after insert or update or delete on public.leads
+    for each row execute function app.tg_audit_row();
+end
+$$;
 
 -- Commissions — one row per project, set by an admin (nothing automatic).
 -- History comes from the audit_row trigger: every change with date + actor.
