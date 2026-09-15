@@ -33,7 +33,7 @@ run() { "${PSQL[@]}" --single-transaction -f "$1" >/dev/null; }
 
 # --- 1. everything before the CRM, then data that predates it ----------
 for f in "$ROOT"/db/migrations/*.sql; do
-  case "$(basename "$f")" in 20260803003[345]00_*) continue ;; esac
+  case "$(basename "$f")" in 20260803003[3456]00_*) continue ;; esac
   run "$f"
 done
 D=$(q "insert into public.dealers (name) values ('Helios') returning id")
@@ -59,6 +59,7 @@ echo "==> before: $LEADS_BEFORE leads, 3 clients, 2 projects, $AUDIT_BEFORE audi
 run "$ROOT/db/migrations/20260803003300_add_sales_role.sql"
 run "$ROOT/db/migrations/20260803003400_crm_foundation.sql"
 run "$ROOT/db/migrations/20260803003500_deals.sql"
+run "$ROOT/db/migrations/20260803003600_contact_intake.sql"
 pass "the CRM scripts apply to a database that already has live data"
 
 # --- 3. step 2: backfill channels — copy, do not move ------------------
@@ -129,6 +130,7 @@ pass "the audit log carries a kind, a deal and a client, and a logged call touch
 run "$ROOT/db/migrations/20260803003300_add_sales_role.sql"
 run "$ROOT/db/migrations/20260803003400_crm_foundation.sql"
 run "$ROOT/db/migrations/20260803003500_deals.sql"
+run "$ROOT/db/migrations/20260803003600_contact_intake.sql"
 N=$(q "select count(*) from public.client_channels where client_id = '$C1' and kind = 'email'")
 [ "$N" = 1 ] || fail "re-running the migration duplicated a channel ($N)"
 N=$(q "select count(*) from public.client_addresses where client_id = '$C1'")

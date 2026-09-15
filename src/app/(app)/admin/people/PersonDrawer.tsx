@@ -12,11 +12,12 @@ import type {
   TimelineEntry,
 } from '@/lib/people/service';
 import { STAGE_LABELS, type StageKey } from '@/lib/stages/definitions';
+import { ContactIntake } from './ContactIntake';
 
 // Part 4: "Existing: Details, Projects, Portal access, Activity. Added: Deals
 // (every deal this person appears on with their role, including lost ones) and
 // Subscriptions (list membership and consent)."
-type Tab = 'details' | 'projects' | 'deals' | 'subscriptions' | 'portal' | 'activity';
+type Tab = 'details' | 'intake' | 'projects' | 'deals' | 'subscriptions' | 'portal' | 'activity';
 
 const DEAL_STAGE_LABELS: Record<string, string> = {
   new: 'New',
@@ -167,7 +168,7 @@ export function PersonDrawer({
 
         {customer && (
           <div className="admin-tabs">
-            {(['details', 'projects', 'deals', 'subscriptions', 'portal', 'activity'] as Tab[]).map((t) => (
+            {(['details', 'intake', 'projects', 'deals', 'subscriptions', 'portal', 'activity'] as Tab[]).map((t) => (
               <button
                 key={t}
                 className={`linklike${tab === t ? ' active' : ''}`}
@@ -175,6 +176,7 @@ export function PersonDrawer({
                 onClick={() => setTab(t)}
               >
                 {t === 'details' ? 'Details'
+                  : t === 'intake' ? 'Solar details'
                   : t === 'projects' ? `Projects (${customer.projectCount})`
                   : t === 'deals' ? 'Deals'
                   : t === 'subscriptions' ? 'Subscriptions'
@@ -451,6 +453,8 @@ export function PersonDrawer({
             )}
           </>
         )}
+
+        {customer && tab === 'intake' && <ContactIntake clientId={customer.id} />}
 
         {customer && tab === 'deals' && (
           <>
