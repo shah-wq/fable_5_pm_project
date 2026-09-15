@@ -318,6 +318,10 @@ done
 grep -q "Save and New" "$W/new.html" || fail "no Save and New on the create page"
 grep -qi "Save the contact first" "$W/new.html" \
   || fail "the create page does not say why the uploads wait"
+# On a database that has everything, no catch-up warning.
+if grep -qi "has not caught up" "$W/new.html"; then
+  fail "the create page claims the database is behind when it is not"
+fi
 pass "Create Contact renders every field, with the uploads honest about waiting"
 
 # --- 13. a person with nothing to sell is a person, not a deal ---------

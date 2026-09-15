@@ -1,6 +1,10 @@
 import { guardPath } from '@/lib/auth/session';
 import { withUser } from '@/lib/db';
-import { loadIntakeRefs } from '@/lib/crm/refs';
+import {
+  CREATE_CONTACT_MIGRATION_FILE,
+  createContactReady,
+  loadIntakeRefs,
+} from '@/lib/crm/refs';
 import { CreateContactForm } from './CreateContactForm';
 
 export const dynamic = 'force-dynamic';
@@ -14,11 +18,20 @@ export const dynamic = 'force-dynamic';
  */
 export default async function CreateContactPage() {
   const session = await guardPath('/admin/people');
-  const refs = await withUser(session, (c) => loadIntakeRefs(c));
+  const data = await withUser(session, async (c) => ({
+    // Sequentially, on one connection: optionalRows uses savepoints.
+    ready: await createContactReady(c),
+    refs: await loadIntakeRefs(c),
+  }));
 
   return (
     <main className="table-page">
-      <CreateContactForm refs={refs} />
+      {!data.ready && (
+        <p className="notice" role="alert">
+          {`This database has not caught up yet, so a contact typed in here cannot be saved. Run ${CREATE_CONTACT_MIGRATION_FILE} in the SQL editor first — the form below will then work as it stands.`}
+        </p>
+      )}
+      <CreateContactForm refs={data.refs} ready={data.ready} />
     </main>
   );
 }

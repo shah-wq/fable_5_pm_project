@@ -75,7 +75,7 @@ export default async function DealPage({ params }: { params: Promise<{ id: strin
       owners: await list(
         c,
         `select id, coalesce(full_name, email) as name from public.profiles
-          where role in ('admin','ops','sales') and is_active and deleted_at is null order by 2`
+          where role::text in ('admin','ops','sales') and is_active and deleted_at is null order by 2`
       ),
       dealers: await list(c, `select id, name from public.dealers where is_active order by name`),
     };

@@ -15,7 +15,7 @@ import type { IntakeRefKey } from '@/lib/crm/intake';
  */
 export const REF_SQL: Record<IntakeRefKey, string> = {
   owners: `select id, coalesce(full_name, email) as name from public.profiles
-            where role in ('admin','ops','sales') and is_active and deleted_at is null order by 2`,
+            where role::text in ('admin','ops','sales') and is_active and deleted_at is null order by 2`,
   sources: `select id, name from public.client_sources where is_active order by sort_order, name`,
   dealers: `select id, name from public.dealers where is_active order by name`,
   modules: `select id, name from public.module_types where is_active order by name`,
@@ -36,4 +36,23 @@ export async function loadIntakeRefs(client: PoolClient): Promise<IntakeRefLists
     refs[key] = await optionalRows<{ id: string; name: string }>(client, `the ${key} list`, sql);
   }
   return refs;
+}
+
+/** The file that makes Create Contact work, named where the screen can say it. */
+export const CREATE_CONTACT_MIGRATION_FILE = 'db/dist/20260803003700-contact-create.sql';
+
+/**
+ * Whether this database can save a new contact yet.
+ *
+ * Asked before the form is drawn rather than after it is filled in: fifty fields
+ * typed out and then refused is the worst possible moment to learn that a file
+ * has not been pasted into the SQL editor.
+ */
+export async function createContactReady(client: PoolClient): Promise<boolean> {
+  const rows = await optionalRows<{ ok: boolean }>(
+    client,
+    'the contact creation function (public.create_contact)',
+    `select true as ok where to_regprocedure('public.create_contact(jsonb, jsonb)') is not null`
+  );
+  return rows.length > 0;
 }

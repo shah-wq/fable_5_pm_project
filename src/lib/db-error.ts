@@ -1,4 +1,7 @@
 import { NextResponse } from 'next/server';
+import { isSchemaDrift, type PgError } from './db-drift';
+
+export { isSchemaDrift } from './db-drift';
 
 /**
  * Turns a database failure into a message that names the actual cause.
@@ -7,34 +10,6 @@ import { NextResponse } from 'next/server';
  * text, and schema drift (a migration not yet applied) says exactly what to
  * do about it.
  */
-
-interface PgError {
-  code?: string;
-  message?: string;
-  detail?: string;
-  column?: string;
-  table?: string;
-  constraint?: string;
-}
-
-/** Missing table / missing column / undefined function: the deployed code is
- *  ahead of the database. */
-const DRIFT_CODES = new Set(['42P01', '42703', '42883', '42704']);
-
-/**
- * 42P01 is also what Postgres returns for a query that names an alias it never
- * put in the FROM clause — which is a bug in the query builder, not a migration
- * the operator forgot. Telling them to run catch-up SQL for it sends them to
- * the SQL editor to fix something that is not broken there; the report builder
- * did exactly this when a field declared a join that had no SQL behind it.
- */
-const NOT_DRIFT = /missing FROM-clause entry/i;
-
-export function isSchemaDrift(error: unknown): boolean {
-  const e = (error ?? {}) as PgError;
-  if (!DRIFT_CODES.has(String(e.code))) return false;
-  return !NOT_DRIFT.test(e.message ?? '');
-}
 
 export function dbErrorResponse(error: unknown, action: string): NextResponse {
   const e = (error ?? {}) as PgError;

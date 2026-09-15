@@ -27,7 +27,14 @@ interface Duplicate {
  * A contact typed in from a business card gets no deal at all — an empty
  * opportunity on the board and in the forecast is worse than no opportunity.
  */
-export function CreateContactForm({ refs }: { refs: IntakeRefs }) {
+export function CreateContactForm({
+  refs,
+  ready = true,
+}: {
+  refs: IntakeRefs;
+  /** False when the database is missing the file that creates contacts. */
+  ready?: boolean;
+}) {
   const router = useRouter();
   const [values, setValues] = useState<IntakeValues>({ stage: 'new' });
   const [missing, setMissing] = useState<Set<string>>(new Set());
@@ -114,10 +121,10 @@ export function CreateContactForm({ refs }: { refs: IntakeRefs }) {
         <Link className="btn secondary" href="/admin/people">
           Cancel
         </Link>
-        <button className="btn secondary" type="button" disabled={busy} onClick={() => void save(true)}>
+        <button className="btn secondary" type="button" disabled={busy || !ready} onClick={() => void save(true)}>
           Save and New
         </button>
-        <button className="btn" type="button" disabled={busy} onClick={() => void save(false)}>
+        <button className="btn" type="button" disabled={busy || !ready} onClick={() => void save(false)}>
           {busy ? 'Saving…' : 'Save'}
         </button>
       </div>
@@ -173,7 +180,7 @@ export function CreateContactForm({ refs }: { refs: IntakeRefs }) {
         <Link className="btn secondary" href="/admin/people">
           Cancel
         </Link>
-        <button className="btn" type="button" disabled={busy} onClick={() => void save(false)}>
+        <button className="btn" type="button" disabled={busy || !ready} onClick={() => void save(false)}>
           {busy ? 'Saving…' : 'Save'}
         </button>
       </div>

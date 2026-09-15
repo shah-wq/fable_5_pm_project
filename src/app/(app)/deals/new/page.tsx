@@ -24,7 +24,7 @@ export default async function NewDealPage() {
       c,
       'who can own a deal',
       `select id, coalesce(full_name, email) as name from public.profiles
-        where role in ('admin','ops','sales') and is_active and deleted_at is null order by 2`
+        where role::text in ('admin','ops','sales') and is_active and deleted_at is null order by 2`
     ),
   }));
 

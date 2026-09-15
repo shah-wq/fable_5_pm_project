@@ -1,4 +1,5 @@
 import type { PoolClient, QueryResultRow } from 'pg';
+import { isMissingEnumValue } from './db-drift';
 
 /**
  * A query for something a *newer* migration introduced.
@@ -30,6 +31,10 @@ import type { PoolClient, QueryResultRow } from 'pg';
 
 /** Undefined table / column / function / object — the schema is behind. */
 const SCHEMA_BEHIND = new Set(['42P01', '42703', '42883', '42704']);
+
+// The other shape of a database that has not caught up — a value the code knows
+// about that its enum type does not have yet — is decided in db-drift.ts, so
+// this file and the API error path cannot disagree about what counts.
 
 const warned = new Set<string>();
 let counter = 0;
@@ -68,7 +73,7 @@ export async function optionalQuery<T extends QueryResultRow = QueryResultRow>(
     await client.query(`rollback to savepoint ${savepoint}`).catch(() => undefined);
 
     const code = (error as { code?: string }).code;
-    if (!code || !SCHEMA_BEHIND.has(code)) throw error;
+    if (!code || !(SCHEMA_BEHIND.has(code) || isMissingEnumValue(error))) throw error;
 
     // Once per process per feature: enough to diagnose, not enough to drown
     // the log on every request.
