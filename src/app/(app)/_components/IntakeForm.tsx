@@ -32,6 +32,8 @@ export function IntakeForm({
   documents,
   dealId,
   disabled,
+  mode = 'record',
+  missing,
   onChange,
   onUpload,
   onRemoveDoc,
@@ -41,15 +43,27 @@ export function IntakeForm({
   documents: IntakeDoc[];
   dealId: string | null;
   disabled?: boolean;
+  /**
+   * 'create' is the same form before anything exists: a couple of recorded
+   * fields become editable for their one settable moment, and the uploads say
+   * to save first rather than pretending to accept a file with nowhere to put
+   * it.
+   */
+  mode?: 'record' | 'create';
+  /** Required fields the form has asked for and not been given. */
+  missing?: Set<string>;
   onChange: (field: IntakeField, value: unknown) => void;
   onUpload: (category: string, files: FileList | null) => void;
   onRemoveDoc: (id: string) => void;
 }) {
   const [busyCategory, setBusyCategory] = useState<string | null>(null);
+  const creating = mode === 'create';
 
   function renderField(field: IntakeField) {
     const value = values[field.name];
-    const locked = disabled || (field.on === 'deal' && !dealId);
+    const editable = field.type !== 'readonly' || (creating && field.editableOnCreate);
+    const locked = disabled || (!creating && field.on === 'deal' && !dealId);
+    const flagged = field.required && missing?.has(field.name);
 
     if (field.type === 'upload') {
       const files = documents.filter((d) => d.category === field.name);
@@ -72,7 +86,9 @@ export function IntakeForm({
               ))}
             </ul>
           )}
-          {locked ? (
+          {creating ? (
+            <em className="field-note">Save the contact first, then the file has somewhere to go.</em>
+          ) : locked ? (
             <em className="field-note">
               {dealId ? 'Read-only' : 'Add a deal for this person before uploading.'}
             </em>
@@ -99,13 +115,33 @@ export function IntakeForm({
       );
     }
 
-    if (field.type === 'readonly') {
+    if (field.type === 'readonly' && !editable) {
       return (
         <div className="field" key={field.name}>
           <span>{field.label}</span>
           <p className="readonly-value">{value ? String(value).replaceAll('_', ' ') : '—'}</p>
           {field.note && <em className="field-note">{field.note}</em>}
         </div>
+      );
+    }
+
+    if (field.type === 'yesno') {
+      return (
+        <label className="field" key={field.name}>
+          <span>{field.label}</span>
+          <select
+            disabled={locked}
+            value={value === true ? 'yes' : value === false ? 'no' : ''}
+            onChange={(e) =>
+              onChange(field, e.target.value === '' ? null : e.target.value === 'yes')
+            }
+          >
+            <option value="">— not asked</option>
+            <option value="yes">Yes</option>
+            <option value="no">No</option>
+          </select>
+          {field.note && <em className="field-note">{field.note}</em>}
+        </label>
       );
     }
 
@@ -127,9 +163,12 @@ export function IntakeForm({
     }
 
     return (
-      <label className="field" key={field.name}>
-        <span>{field.label}</span>
-        {field.type === 'select' ? (
+      <label className={`field${flagged ? ' field-missing' : ''}`} key={field.name}>
+        <span>
+          {field.label}
+          {field.required && <b className="req" aria-hidden="true"> *</b>}
+        </span>
+        {field.type === 'select' || (field.type === 'readonly' && editable) ? (
           <select
             disabled={locked}
             value={String(value ?? '')}

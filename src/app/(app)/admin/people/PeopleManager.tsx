@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { CustomerRow } from '@/lib/customers/service';
 import { LIFECYCLE_LABELS, type Lifecycle, type PersonCrmRow } from '@/lib/people/service';
 import { STAGE_LABELS, type StageKey } from '@/lib/stages/definitions';
@@ -26,9 +26,10 @@ type LifecycleFilter = 'any' | Lifecycle;
  * row menu, bulk invite for switching portal access on across an existing book,
  * and CSV export of what is on screen.
  *
- * The lifecycle filter defaults to Customers (Part 1), so the screen opens
- * showing exactly what it showed before this module existed. Prospects are one
- * dropdown away rather than mixed into a list somebody uses to find a customer.
+ * The lifecycle filter opens on Everyone, because this is Contacts: some of the
+ * people on it have signed and some never will, and a list that hides half of
+ * them by default is a list people stop trusting. The chip on each row says
+ * which is which, and the filter narrows to customers in one click.
  */
 export function PeopleManager({
   customers,
@@ -49,7 +50,7 @@ export function PeopleManager({
   const [search, setSearch] = useState('');
   const [portalFilter, setPortalFilter] = useState<PortalFilter>('any');
   const [projectFilter, setProjectFilter] = useState<ProjectFilter>('any');
-  const [lifecycle, setLifecycle] = useState<LifecycleFilter>(crmReady ? 'customer' : 'any');
+  const [lifecycle, setLifecycle] = useState<LifecycleFilter>('any');
   const [showArchived, setShowArchived] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [drawer, setDrawer] = useState<{ customer: CustomerRow | null } | null>(null);
@@ -59,6 +60,16 @@ export function PeopleManager({
   const [notice, setNotice] = useState<string | null>(null);
 
   const byId = useMemo(() => new Map(customers.map((c) => [c.id, c])), [customers]);
+
+  // ?person=… opens that record. Create Contact and the duplicate warnings both
+  // hand people back here with an id, and landing on a list of four hundred rows
+  // with no idea which one was meant is not an answer.
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get('person');
+    if (!id) return;
+    const row = customers.find((c) => c.id === id);
+    if (row) setDrawer({ customer: row });
+  }, [customers]);
   const crmById = useMemo(() => new Map(crm.map((r) => [r.id, r])), [crm]);
 
   const visible = useMemo(() => {
@@ -225,9 +236,6 @@ export function PeopleManager({
         <span className="spacer" />
         <button className="btn secondary" type="button" onClick={exportCsv}>
           Export CSV
-        </button>
-        <button className="btn" type="button" onClick={() => setDrawer({ customer: null })}>
-          + Add person
         </button>
       </div>
 

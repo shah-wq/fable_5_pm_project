@@ -5,6 +5,7 @@ import { withUser } from '@/lib/db';
 import { dbErrorResponse } from '@/lib/db-error';
 import { optionalRows } from '@/lib/db-optional';
 import { intakeColumns, type IntakeField } from '@/lib/crm/intake';
+import { loadIntakeRefs } from '@/lib/crm/refs';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -17,19 +18,6 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
  * rather than an edit in four places.
  */
 
-const REF_SQL: Record<string, string> = {
-  owners: `select id, coalesce(full_name, email) as name from public.profiles
-            where role in ('admin','ops','sales') and is_active and deleted_at is null order by 2`,
-  sources: `select id, name from public.client_sources where is_active order by sort_order, name`,
-  dealers: `select id, name from public.dealers where is_active order by name`,
-  modules: `select id, name from public.module_types where is_active order by name`,
-  inverters: `select id, name from public.inverter_types where is_active order by name`,
-  batteries: `select id, name from public.battery_types where is_active order by name`,
-  financingCompanies: `select id, name from public.financing_companies where is_active order by name`,
-  utilities: `select id, name from public.utilities order by name`,
-  lossReasons: `select id, name from public.deal_loss_reasons where is_active order by sort_order, name`,
-  roofTypes: `select id, name from public.roof_types where is_active order by sort_order, name`,
-};
 
 function guard(session: Awaited<ReturnType<typeof getSession>>) {
   if (!session) return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
@@ -98,10 +86,7 @@ export async function GET(request: Request, ctx: { params: Promise<{ id: string 
           )
         : [];
 
-      const refs: Record<string, Array<{ id: string; name: string }>> = {};
-      for (const [key, sql] of Object.entries(REF_SQL)) {
-        refs[key] = await optionalRows<{ id: string; name: string }>(client, `the ${key} list`, sql);
-      }
+      const refs = await loadIntakeRefs(client);
 
       return {
         values: { ...person[0], ...(deal[0] ?? {}) },
@@ -130,6 +115,12 @@ function coerce(field: IntakeField, raw: unknown): unknown {
     }
     case 'toggle':
       return raw === true;
+    // Yes, No, or nothing — and nothing is a real answer here ("we have not
+    // asked yet"), which is why it is not folded into false.
+    case 'yesno':
+      if (raw === true || raw === 'yes') return true;
+      if (raw === false || raw === 'no') return false;
+      return null;
     case 'ref':
       return UUID_RE.test(String(raw)) ? String(raw) : null;
     case 'select':

@@ -20,6 +20,8 @@ export type IntakeType =
   | 'number'
   | 'currency'
   | 'select'
+  /** A boolean asked as a question: Yes, No, or left blank for "not asked". */
+  | 'yesno'
   | 'ref'
   | 'toggle'
   | 'upload'
@@ -48,6 +50,14 @@ export interface IntakeField {
   options?: Array<{ value: string; label: string }>;
   refKey?: IntakeRefKey;
   note?: string;
+  /** Marked on the form, and checked by the create route before it inserts. */
+  required?: boolean;
+  /**
+   * Read-only on an existing record, but editable while creating one. The lead
+   * status is the case: it is moved on the board afterwards, but a contact typed
+   * in after a site visit does not start at New.
+   */
+  editableOnCreate?: boolean;
 }
 
 export interface IntakeGroup {
@@ -69,10 +79,38 @@ export const INTAKE_GROUPS: IntakeGroup[] = [
     title: 'Contact',
     fields: [
       { name: 'owner_id', label: 'Contact owner', type: 'ref', refKey: 'owners', on: 'client' },
+      {
+        name: 'salutation',
+        label: 'Salutation',
+        type: 'select',
+        on: 'client',
+        options: [
+          { value: 'Mr.', label: 'Mr.' },
+          { value: 'Ms.', label: 'Ms.' },
+          { value: 'Mrs.', label: 'Mrs.' },
+          { value: 'Dr.', label: 'Dr.' },
+          { value: 'Prof.', label: 'Prof.' },
+        ],
+      },
       { name: 'first_name', label: 'First name', type: 'text', on: 'client' },
-      { name: 'last_name', label: 'Last name', type: 'text', on: 'client' },
-      { name: 'email', label: 'Email', type: 'email', on: 'client' },
-      { name: 'phone', label: 'Phone', type: 'phone', on: 'client' },
+      { name: 'last_name', label: 'Last name', type: 'text', on: 'client', required: true },
+      {
+        name: 'email',
+        label: 'Email',
+        type: 'email',
+        on: 'client',
+        required: true,
+        note: 'Email or phone — at least one, so somebody can be reached.',
+      },
+      { name: 'secondary_email', label: 'Secondary email', type: 'email', on: 'client' },
+      { name: 'phone', label: 'Phone', type: 'phone', on: 'client', required: true },
+      {
+        name: 'alternate_phone',
+        label: 'Mobile',
+        type: 'phone',
+        on: 'client',
+        note: 'Also matched on when checking for duplicates.',
+      },
       {
         name: 'owner_phone',
         label: "Owner's phone number",
@@ -90,6 +128,13 @@ export const INTAKE_GROUPS: IntakeGroup[] = [
       },
       { name: 'dealer_id', label: 'Dealer name', type: 'ref', refKey: 'dealers', on: 'client' },
       {
+        name: 'consultant',
+        label: 'Consultant',
+        type: 'text',
+        on: 'client',
+        note: 'The rep working the account, in or out of house.',
+      },
+      {
         name: 'created_by_name',
         label: 'Created by',
         type: 'readonly',
@@ -97,6 +142,18 @@ export const INTAKE_GROUPS: IntakeGroup[] = [
         note: 'Recorded when the record is made.',
       },
       { name: 'description', label: 'Description', type: 'textarea', on: 'client' },
+    ],
+  },
+  {
+    key: 'attribution',
+    title: 'Campaign attribution',
+    blurb:
+      'What the enquiry arrived with. Lead source above is the tidy internal list; these are the raw values, and they are what a marketing spend report has to reconcile against.',
+    fields: [
+      { name: 'original_source', label: 'Original source', type: 'text', on: 'client' },
+      { name: 'utm_source', label: 'UTM campaign source', type: 'text', on: 'client' },
+      { name: 'utm_medium', label: 'UTM campaign medium', type: 'text', on: 'client' },
+      { name: 'utm_campaign', label: 'UTM campaign name', type: 'text', on: 'client' },
     ],
   },
   {
@@ -120,7 +177,16 @@ export const INTAKE_GROUPS: IntakeGroup[] = [
         label: 'Lead status',
         type: 'readonly',
         on: 'deal',
-        note: 'Moved on the Deals board, so the board and this screen can never disagree.',
+        editableOnCreate: true,
+        note: 'Moved on the Deals board afterwards, so the board and this screen can never disagree.',
+        options: [
+          { value: 'new', label: 'New' },
+          { value: 'contacted', label: 'Contacted' },
+          { value: 'qualified', label: 'Qualified' },
+          { value: 'proposal', label: 'Proposal' },
+          { value: 'negotiation', label: 'Negotiation' },
+          { value: 'contract_out', label: 'Contract out' },
+        ],
       },
       { name: 'lost_reason_id', label: 'Lost reason', type: 'ref', refKey: 'lossReasons', on: 'deal' },
       { name: 'reschedule_reason', label: 'Reschedule reason', type: 'text', on: 'deal' },
@@ -142,7 +208,7 @@ export const INTAKE_GROUPS: IntakeGroup[] = [
       {
         name: 'includes_battery',
         label: 'System includes battery?',
-        type: 'toggle',
+        type: 'yesno',
         on: 'deal',
         note: 'Answers itself once a battery quantity is entered.',
       },
@@ -162,8 +228,9 @@ export const INTAKE_GROUPS: IntakeGroup[] = [
       {
         name: 'comparable_brand_ok',
         label: 'Okay to install comparable module & inverter brand',
-        type: 'toggle',
+        type: 'yesno',
         on: 'deal',
+        note: 'Left blank until they have been asked — which is not the same as no.',
       },
     ],
   },
@@ -259,3 +326,24 @@ export function intakeColumns(owner: IntakeOwner): IntakeField[] {
     g.fields.filter((f) => f.on === owner && f.type !== 'upload' && f.type !== 'readonly')
   );
 }
+
+/**
+ * The same list for a record being created, which is slightly longer: a couple
+ * of fields are recorded rather than edited afterwards but have to be settable
+ * once, at the start.
+ */
+export function intakeCreateColumns(owner: IntakeOwner): IntakeField[] {
+  return INTAKE_GROUPS.flatMap((g) =>
+    g.fields.filter(
+      (f) =>
+        f.on === owner &&
+        f.type !== 'upload' &&
+        (f.type !== 'readonly' || f.editableOnCreate === true)
+    )
+  );
+}
+
+/** Everything the form marks with a red rule, in the order it is asked. */
+export const INTAKE_REQUIRED: IntakeField[] = INTAKE_GROUPS.flatMap((g) =>
+  g.fields.filter((f) => f.required)
+);

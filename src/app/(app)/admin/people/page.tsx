@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { guardPath } from '@/lib/auth/session';
 import { withUser } from '@/lib/db';
 import { loadCustomers, loadDuplicateCandidates } from '@/lib/customers/service';
@@ -37,10 +38,17 @@ export default async function AdminPeoplePage() {
     <main className="table-page">
       <h1>Admin</h1>
       <AdminTabs />
-      <h2 className="section-title">People</h2>
+      <div className="section-head">
+        <h2 className="section-title">Contacts</h2>
+        <Link className="btn" href="/admin/people/new">
+          + Create Contact
+        </Link>
+      </div>
       <p className="dim">
-        The person is the record; a project is a job and a deal is an opportunity. One record
-        carries several of each — a second property, a battery added later, a referral in the
+        Everybody, on one list: the ones who have signed, the ones being quoted, and the ones who
+        only ever downloaded the e-book. The lifecycle chip on each row says which is which, and
+        the filter narrows to customers when that is what you are after. One record carries several
+        projects and several deals — a second property, a battery added later, a referral in the
         family — which is what gives you accurate history, one portal login and clean reporting.
       </p>
 

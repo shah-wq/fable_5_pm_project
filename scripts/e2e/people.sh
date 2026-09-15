@@ -98,8 +98,9 @@ has "the People screen" "Prospects"
 python3 - "$W/page.html" <<'PY'
 import re, sys
 html = open(sys.argv[1], encoding='utf-8').read()
-# The filter must default to Customers (Part 1), so the screen opens showing
-# what it showed before this module existed.
+# The filter must offer Customers. It no longer opens on it: Contacts holds
+# everybody, and which lifecycle the screen starts on is checked in
+# contact-intake.sh, where the decision was made.
 sel = re.search(r'<select[^>]*aria-label="Lifecycle"(.*?)</select>', html, re.S)
 assert sel, 'no lifecycle filter'
 chosen = re.search(r'<option[^>]*selected[^>]*value="([^"]+)"|value="([^"]+)"[^>]*selected', sel.group(1))
@@ -108,7 +109,7 @@ print('LIFECYCLE-FILTER-OK')
 PY
 [ "$(q "select lifecycle from public.people_overview where id='$CUST'")" = customer ] || fail "wrong lifecycle"
 [ "$(q "select lifecycle from public.people_overview where id='$PROSPECT'")" = prospect ] || fail "wrong lifecycle"
-pass "the list carries a lifecycle chip and a filter that defaults to customers"
+pass "the list carries a lifecycle chip and a filter that can narrow to customers"
 
 # --- 3. the two new tabs -----------------------------------------------
 R=$(curl -s -b "$JAR" "$BASE/api/customers/$PROSPECT/detail?include=deals")

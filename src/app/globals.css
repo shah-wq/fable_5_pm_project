@@ -1102,7 +1102,7 @@ a {
 
 /* A next action that has come due, on the deals table. */
 .overdue {
-  color: var(--danger, #b42318);
+  color: var(--danger);
   font-weight: 600;
 }
 
@@ -1121,7 +1121,7 @@ a {
 
 /* A next action that has come due, on the deals table. */
 .overdue {
-  color: var(--danger, #b42318);
+  color: var(--danger);
   font-weight: 600;
 }
 
@@ -5172,4 +5172,89 @@ a {
       opacity: 1;
     }
   }
+}
+
+/* --- Create Contact ------------------------------------------------------ */
+/* The header bar on a full-page record form: title on the left, the three
+   actions on the right, and it stays put while fifty fields scroll past. */
+.record-bar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 0 14px;
+  margin-bottom: 8px;
+  background: var(--paper);
+  border-bottom: 1px solid var(--line);
+}
+
+.record-bar h1 {
+  margin: 0;
+  font-size: 22px;
+}
+
+.record-bar .spacer {
+  flex: 1;
+}
+
+.record-bar .btn {
+  width: auto;
+  padding: 9px 20px;
+}
+
+.save-bar .btn.secondary {
+  background: transparent;
+  border-color: rgb(255 255 255 / 0.4);
+  color: #fff;
+}
+
+/* The intake form renders outside the drawer on this page, so it needs the
+   control styling the drawer was giving it — otherwise the selects fall back to
+   the browser's own and the field notes land on top of them. */
+.stage-form select,
+.stage-form textarea {
+  width: 100%;
+  padding: 10px 12px;
+  font: inherit;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--card);
+  color: var(--ink);
+}
+
+/* A heading with its one action on the right. */
+.section-head {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 4px;
+}
+
+.section-head .section-title {
+  margin-bottom: 0;
+}
+
+.section-head .btn {
+  width: auto;
+  margin-left: auto;
+  padding: 9px 18px;
+}
+
+a.btn {
+  text-decoration: none;
+}
+
+/* The fields that have to be answered, and the ones that were not. */
+.req {
+  color: var(--danger);
+  font-weight: 700;
+}
+
+.field-missing input,
+.field-missing select,
+.field-missing textarea {
+  border-color: var(--danger);
+  border-left-width: 3px;
 }

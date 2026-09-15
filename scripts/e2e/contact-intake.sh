@@ -118,6 +118,15 @@ WANTED = {
   'Mailing Zip': 'mailing_postal_code',
   'Mailing Country': 'mailing_country',
   'Description': 'description',
+  # The fields the Create Contact layout adds to that list.
+  'Salutation': 'salutation',
+  'Secondary Email': 'secondary_email',
+  'Mobile': 'alternate_phone',
+  'Consultant': 'consultant',
+  'Original Source': 'original_source',
+  'UTM Campaign Source': 'utm_source',
+  'UTM Campaign Medium': 'utm_medium',
+  'UTM Campaign Name': 'utm_campaign',
 }
 
 src = pathlib.Path('/home/user/fable_5_pm_project/src/lib/crm/intake.ts').read_text()
@@ -279,5 +288,144 @@ CODE=$(curl -s -o /dev/null -w '%{http_code}' -b "$W/dealer.txt" "$BASE/api/cust
 CODE=$(curl -s -o /dev/null -w '%{http_code}' "$BASE/api/customers/$C/intake")
 [ "$CODE" != 200 ] || fail "the contact intake is open to anonymous visitors"
 pass "the intake is staff-only"
+
+# --- 11. Contacts is everybody, and carries the Create Contact button ---
+CODE=$(curl -s -o "$W/list.html" -w '%{http_code}' -b "$JAR" "$BASE/admin/people")
+[ "$CODE" = 200 ] || fail "the Contacts screen answered $CODE"
+grep -q "Create Contact" "$W/list.html" || fail "no Create Contact button on the list"
+grep -q 'href="/admin/people/new"' "$W/list.html" || fail "the button does not open the create page"
+python3 - "$W/list.html" <<'PY2'
+import re, sys
+html = open(sys.argv[1], encoding='utf-8').read()
+sel = re.search(r'<select[^>]*aria-label="Lifecycle"(.*?)</select>', html, re.S)
+assert sel, 'no lifecycle filter'
+# Contacts holds everybody: the filter must open on Everyone, not on Customers.
+chosen = re.findall(r'<option[^>]*selected[^>]*value="([^"]+)"|value="([^"]+)"[^>]*selected', sel.group(1))
+flat = [a or b for a, b in chosen]
+assert flat and flat[0] == 'any', f'the lifecycle filter opens on {flat or "nothing"}, not Everyone'
+print('CONTACTS-EVERYBODY-OK')
+PY2
+pass "Contacts opens on everybody and offers Create Contact"
+
+# --- 12. the create page renders the whole form ------------------------
+CODE=$(curl -s -o "$W/new.html" -w '%{http_code}' -b "$JAR" "$BASE/admin/people/new")
+[ "$CODE" = 200 ] || fail "the create page answered $CODE"
+for label in "Contact owner" "Last name" "Salutation" "Secondary email" "Mobile" "Consultant" \
+             "UTM campaign source" "Mailing street" "Lead status" "System size (kW)" \
+             "Module quantity" "Down payment" "Dealer code" "Updated solar proposal"; do
+  grep -qi "$label" "$W/new.html" || fail "the create page is missing the $label field"
+done
+grep -q "Save and New" "$W/new.html" || fail "no Save and New on the create page"
+grep -qi "Save the contact first" "$W/new.html" \
+  || fail "the create page does not say why the uploads wait"
+pass "Create Contact renders every field, with the uploads honest about waiting"
+
+# --- 13. a person with nothing to sell is a person, not a deal ---------
+CODE=$(curl -s -o "$W/c1.json" -w '%{http_code}' -X POST -b "$JAR" -H 'content-type: application/json' \
+  -d '{"values":{"salutation":"Ms.","first_name":"Cora","last_name":"Card",
+       "email":"CORA@in.test","phone":"512-555-0300","consultant":"Ray Sunshine",
+       "original_source":"Trade show","utm_source":"google","utm_medium":"cpc",
+       "utm_campaign":"spring-24","description":"Met at the home show"}}' \
+  "$BASE/api/contacts")
+[ "$CODE" = 201 ] || fail "creating a plain contact answered $CODE: $(cat "$W/c1.json")"
+C1=$(python3 -c "import json;print(json.load(open('$W/c1.json'))['clientId'])")
+ROW=$(q "select salutation || '|' || email || '|' || consultant || '|' || original_source || '|' ||
+         utm_source || '|' || utm_medium || '|' || utm_campaign
+         from public.clients where id = '$C1'")
+[ "$ROW" = "Ms.|cora@in.test|Ray Sunshine|Trade show|google|cpc|spring-24" ] \
+  || fail "the new contact's fields did not save ($ROW)"
+[ "$(q "select count(*) from public.deals where client_id = '$C1'")" = 0 ] \
+  || fail "a contact with no system details invented a deal"
+[ "$(q "select created_by from public.clients where id='$C1'")" = "$AID" ] \
+  || fail "created_by was not recorded by the create route"
+[ "$(q "select count(*) from public.client_channels where client_id='$C1'")" = 2 ] \
+  || fail "the new contact's email and phone were not recorded as channels"
+pass "a contact with no system details is created as a person, with no phantom deal"
+
+# --- 14. the whole form at once creates the person and the deal --------
+CODE=$(curl -s -o "$W/c2.json" -w '%{http_code}' -X POST -b "$JAR" -H 'content-type: application/json' \
+  -d "{\"values\":{\"first_name\":\"Sol\",\"last_name\":\"Seeker\",
+       \"email\":\"sol@in.test\",\"phone\":\"512-555-0400\",
+       \"secondary_email\":\"sol.work@in.test\",\"alternate_phone\":\"512-555-0401\",
+       \"owner_id\":\"$AID\",\"dealer_id\":\"$D\",\"source_id\":\"$SRC\",
+       \"mailing_street\":\"9 Ray Road\",\"mailing_city\":\"Austin\",\"mailing_state\":\"TX\",
+       \"stage\":\"qualified\",\"system_size_kw\":9.6,\"module_id\":\"$MOD\",
+       \"module_quantity\":24,\"module_wattage\":400,\"battery_qty\":1,
+       \"battery_size_kwh\":13.5,\"hoa\":\"unknown\",\"mount_type\":\"ground\",
+       \"comparable_brand_ok\":false,\"gross_price\":36000,\"down_payment\":3000,
+       \"amount_financed\":33000,\"financing_route\":\"loan\",
+       \"financing_company_id\":\"$FIN\",\"utility_id\":\"$UTIL\",
+       \"dealer_code\":\"HEL-7\"}}" "$BASE/api/contacts")
+[ "$CODE" = 201 ] || fail "creating a full contact answered $CODE: $(cat "$W/c2.json")"
+C2=$(python3 -c "import json;print(json.load(open('$W/c2.json'))['clientId'])")
+D2=$(python3 -c "import json;print(json.load(open('$W/c2.json'))['dealId'] or '')")
+[ -n "$D2" ] || fail "the system details did not make a deal"
+ROW=$(q "select stage || '|' || system_size_kw || '|' || module_quantity || '|' ||
+         battery_qty || '|' || hoa || '|' || mount_type || '|' || comparable_brand_ok || '|' ||
+         includes_battery || '|' || gross_price || '|' || down_payment || '|' ||
+         financing_route || '|' || client_id
+         from public.deals where id = '$D2'")
+[ "$ROW" = "qualified|9.600|24|1|unknown|ground|false|true|36000.00|3000.00|loan|$C2" ] \
+  || fail "the deal made alongside the contact is wrong ($ROW)"
+[ "$(q "select secondary_email from public.clients where id='$C2'")" = "sol.work@in.test" ] \
+  || fail "the secondary email did not save"
+# The person's half went to clients, not onto the deal.
+[ "$(q "select mailing_city from public.clients where id='$C2'")" = Austin ] \
+  || fail "the mailing address did not land on the person"
+# And the whole thing reads back through the contact's own screen.
+R=$(curl -s -b "$JAR" "$BASE/api/customers/$C2/intake")
+grep -q '"stage":"qualified"' <<<"$R" || fail "the new deal is not on the contact: $R"
+grep -q '"module_quantity":24' <<<"$R" || fail "the system details are not on the contact: $R"
+pass "one Create Contact makes the person and their deal, each field on its own table"
+
+# --- 15. what it insists on ---------------------------------------------
+CODE=$(curl -s -o "$W/bad.json" -w '%{http_code}' -X POST -b "$JAR" -H 'content-type: application/json' \
+  -d '{"values":{"first_name":"No","email":"nolast@in.test"}}' "$BASE/api/contacts")
+[ "$CODE" = 400 ] || fail "a contact with no last name was accepted ($CODE)"
+grep -qi "last name" "$W/bad.json" || fail "the refusal does not say what is missing"
+CODE=$(curl -s -o "$W/bad2.json" -w '%{http_code}' -X POST -b "$JAR" -H 'content-type: application/json' \
+  -d '{"values":{"first_name":"No","last_name":"Contact"}}' "$BASE/api/contacts")
+[ "$CODE" = 400 ] || fail "a contact with no way to reach them was accepted ($CODE)"
+grep -qi "reach them" "$W/bad2.json" || fail "the refusal does not explain itself"
+# A phone and no email is a real contact, and saves.
+CODE=$(curl -s -o "$W/ok.json" -w '%{http_code}' -X POST -b "$JAR" -H 'content-type: application/json' \
+  -d '{"values":{"first_name":"Dee","last_name":"Driveway","phone":"512-555-0500"}}' \
+  "$BASE/api/contacts")
+[ "$CODE" = 201 ] || fail "a phone-only contact was refused ($CODE): $(cat "$W/ok.json")"
+pass "a last name and one way to reach them, and nothing else, is enough"
+
+# --- 16. the same person twice ------------------------------------------
+CODE=$(curl -s -o "$W/dup.json" -w '%{http_code}' -X POST -b "$JAR" -H 'content-type: application/json' \
+  -d '{"values":{"first_name":"Cora","last_name":"Card","email":"cora@in.test"}}' \
+  "$BASE/api/contacts")
+[ "$CODE" = 409 ] || fail "the same email was accepted a second time ($CODE)"
+grep -q '"duplicates"' "$W/dup.json" || fail "the clash does not offer the record on file"
+grep -q "$C1" "$W/dup.json" || fail "the clash names the wrong person"
+# Matched on a second email too, not just the primary column.
+q "insert into public.client_channels (client_id, kind, value, value_normalised, is_primary)
+   values ('$C1','email','cora.home@in.test','',false)" >/dev/null
+CODE=$(curl -s -o /dev/null -w '%{http_code}' -X POST -b "$JAR" -H 'content-type: application/json' \
+  -d '{"values":{"first_name":"Cora","last_name":"Card","email":"cora.home@in.test"}}' \
+  "$BASE/api/contacts")
+[ "$CODE" = 409 ] || fail "a second address on the same person was not matched ($CODE)"
+# Overriding is allowed, deliberately.
+CODE=$(curl -s -o /dev/null -w '%{http_code}' -X POST -b "$JAR" -H 'content-type: application/json' \
+  -d '{"allowDuplicate":true,"values":{"first_name":"Cora","last_name":"Card2","phone":"512-555-0300"}}' \
+  "$BASE/api/contacts")
+[ "$CODE" = 201 ] || fail "an overridden duplicate was still refused ($CODE)"
+pass "Create Contact offers the record on file rather than making a second one, and can be overridden"
+
+# --- 17. who may create --------------------------------------------------
+CODE=$(curl -s -o /dev/null -w '%{http_code}' -X POST -b "$W/dealer.txt" -H 'content-type: application/json' \
+  -d '{"values":{"first_name":"Dealer","last_name":"Made","email":"dm@in.test"}}' "$BASE/api/contacts")
+[ "$CODE" != 201 ] || fail "a dealer created a contact"
+CODE=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'content-type: application/json' \
+  -d '{"values":{"first_name":"Anon","last_name":"Made","email":"an@in.test"}}' "$BASE/api/contacts")
+[ "$CODE" != 201 ] || fail "an anonymous visitor created a contact"
+pass "creating a contact is staff-only"
+
+mkdir -p "$W/shots"
+bash "$ROOT/scripts/e2e/shoot.sh" "$BASE" "$JAR" /admin/people/new "$W/shots/create-contact.png" 1440 2200 || true
+bash "$ROOT/scripts/e2e/shoot.sh" "$BASE" "$JAR" /admin/people "$W/shots/contacts.png" 1440 1100 || true
 
 echo "CONTACT INTAKE CHECKS PASSED"

@@ -1,0 +1,182 @@
+'use client';
+
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useState } from 'react';
+import { IntakeForm, type IntakeRefs, type IntakeValues } from '@/app/(app)/_components/IntakeForm';
+import { INTAKE_REQUIRED, type IntakeField } from '@/lib/crm/intake';
+
+interface Duplicate {
+  id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  projects: number;
+}
+
+/**
+ * Create Contact: the whole record on one page.
+ *
+ * Contacts holds everybody — the ones who have signed and the ones who never
+ * will — so this form asks for what is known and insists on almost nothing. The
+ * three fields it does insist on are the ones that make the record findable: a
+ * surname, and a way to reach them.
+ *
+ * The system, price and paperwork answers go onto a deal created alongside the
+ * person, because those are true of an opportunity rather than of a human being.
+ * A contact typed in from a business card gets no deal at all — an empty
+ * opportunity on the board and in the forecast is worse than no opportunity.
+ */
+export function CreateContactForm({ refs }: { refs: IntakeRefs }) {
+  const router = useRouter();
+  const [values, setValues] = useState<IntakeValues>({ stage: 'new' });
+  const [missing, setMissing] = useState<Set<string>>(new Set());
+  const [duplicates, setDuplicates] = useState<Duplicate[] | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  function change(field: IntakeField, value: unknown) {
+    setValues((v) => ({ ...v, [field.name]: value }));
+    setMissing((m) => {
+      if (!m.has(field.name)) return m;
+      const next = new Set(m);
+      next.delete(field.name);
+      return next;
+    });
+    setDuplicates(null);
+  }
+
+  /**
+   * What the form checks before it asks the server. Deliberately the same rule
+   * the server enforces: a surname, and either an email or a phone number. A rep
+   * standing on a driveway with a mobile number and no email still gets to save.
+   */
+  function shortfall(): Set<string> {
+    const gaps = new Set<string>();
+    const has = (name: string) => String(values[name] ?? '').trim() !== '';
+    if (!has('last_name')) gaps.add('last_name');
+    if (!has('email') && !has('phone')) {
+      gaps.add('email');
+      gaps.add('phone');
+    }
+    return gaps;
+  }
+
+  async function save(again: boolean, allowDuplicate = false) {
+    const gaps = shortfall();
+    if (gaps.size > 0) {
+      setMissing(gaps);
+      setError(
+        gaps.has('last_name') && gaps.size === 1
+          ? 'A last name, so the record can be found again.'
+          : 'A last name and a way to reach them — an email or a phone number.'
+      );
+      return;
+    }
+
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/contacts', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ values, allowDuplicate }),
+      });
+      const json = await res.json().catch(() => null);
+      if (res.status === 409 && json?.duplicates) {
+        setDuplicates(json.duplicates);
+        setError(json.error ?? 'Somebody with this email or phone is already on file.');
+        return;
+      }
+      if (!res.ok) {
+        setError(json?.error ?? `Could not save (${res.status}).`);
+        return;
+      }
+      if (again) {
+        setValues({ stage: 'new' });
+        setDuplicates(null);
+        setError(null);
+        window.scrollTo({ top: 0 });
+        router.refresh();
+        return;
+      }
+      router.push(`/admin/people?person=${json.clientId}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <>
+      <div className="record-bar">
+        <h1>Create Contact</h1>
+        <span className="spacer" />
+        <Link className="btn secondary" href="/admin/people">
+          Cancel
+        </Link>
+        <button className="btn secondary" type="button" disabled={busy} onClick={() => void save(true)}>
+          Save and New
+        </button>
+        <button className="btn" type="button" disabled={busy} onClick={() => void save(false)}>
+          {busy ? 'Saving…' : 'Save'}
+        </button>
+      </div>
+
+      {error && (
+        <p className="notice error" role="alert">
+          {error}
+        </p>
+      )}
+
+      {duplicates && duplicates.length > 0 && (
+        <div className="notice hold">
+          <strong>Already on file.</strong> Open the existing record rather than making a second one:
+          <ul>
+            {duplicates.map((d) => (
+              <li key={d.id}>
+                <Link href={`/admin/people?person=${d.id}`}>{d.name}</Link>{' '}
+                <span className="dim">
+                  {[d.email, d.phone].filter(Boolean).join(' · ')}
+                  {d.projects > 0 ? ` · ${d.projects} project${d.projects === 1 ? '' : 's'}` : ''}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <button className="btn secondary" type="button" disabled={busy} onClick={() => void save(false, true)}>
+            They are a different person — save anyway
+          </button>
+        </div>
+      )}
+
+      <p className="dim">
+        {INTAKE_REQUIRED.length > 0 && (
+          <>
+            Fields marked <b className="req">*</b> are needed to save. Everything else can be filled
+            in later from the contact’s Solar details tab.
+          </>
+        )}
+      </p>
+
+      <IntakeForm
+        mode="create"
+        values={values}
+        refs={refs}
+        documents={[]}
+        dealId={null}
+        missing={missing}
+        onChange={change}
+        onUpload={() => undefined}
+        onRemoveDoc={() => undefined}
+      />
+
+      <div className="save-bar">
+        <Link className="btn secondary" href="/admin/people">
+          Cancel
+        </Link>
+        <button className="btn" type="button" disabled={busy} onClick={() => void save(false)}>
+          {busy ? 'Saving…' : 'Save'}
+        </button>
+      </div>
+    </>
+  );
+}

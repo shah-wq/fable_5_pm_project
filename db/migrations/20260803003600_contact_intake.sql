@@ -270,7 +270,13 @@ grant execute on function public.record_deal_document(uuid, text, text, text, by
  * opens on, and what a report reads when it asks for "the contact's system
  * size" without naming a deal.
  */
-create or replace view public.contact_intake
+-- Dropped first rather than replaced: create or replace view can only append
+-- columns, so a later migration that adds one in the middle would make this file
+-- un-runnable the second time. Migrations are pasted in order, so the last file
+-- to define this view is the one whose shape survives.
+drop view if exists public.contact_intake;
+
+create view public.contact_intake
 with (security_invoker = true) as
 select c.id as client_id,
        c.first_name, c.last_name, c.email, c.phone, c.owner_phone,

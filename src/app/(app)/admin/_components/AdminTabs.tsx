@@ -16,7 +16,7 @@ const GROUPS: Array<{ label?: string; tabs: Array<{ href: string; label: string 
       // customers with a lifecycle filter defaulting to customers. Renaming one
       // screen is cheaper than building a second one that does the same thing
       // for people who have not signed yet."
-      { href: '/admin/people', label: 'People' },
+      { href: '/admin/people', label: 'Contacts' },
       { href: '/admin/sales_reps', label: 'Sales reps' },
       { href: '/admin/canned_replies', label: 'Canned replies' },
       { href: '/admin/settings', label: 'Settings' },

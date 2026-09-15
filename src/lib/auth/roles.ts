@@ -49,6 +49,7 @@ export const ROUTE_ACCESS: Record<string, readonly UserRole[]> = {
   '/admin/people': ['admin', 'ops', 'sales'],
   '/admin/customers': ['admin', 'ops', 'sales'],
   '/api/customers': ['admin', 'ops', 'sales'],
+  '/api/contacts': ['admin', 'ops', 'sales'],
   // Consent records are admin's, with the marketing and consent capability
   // flags deciding who may change them (Part 8).
   '/admin/subscribers': ['admin'],
