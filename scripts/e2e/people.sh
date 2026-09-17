@@ -85,7 +85,20 @@ has "the People screen" "Maria"
 # Everything the Customers screen already did is still on it.
 has "the People screen" "Export CSV"
 has "the People screen" "Show archived"
-has "the People screen" "Portal access"
+# Portal access is no longer a column — Contacts lists the person, not their
+# login — but it is still reachable: the Invite button appears on anybody who
+# has an email address and no login yet.
+has "the People screen" "Invite"
+python3 - "$W/page.html" <<'COLUMNS'
+import re, sys
+html = open(sys.argv[1], encoding='utf-8').read()
+head = re.search(r'<thead>(.*?)</thead>', html, re.S)
+assert head, 'no table header on the People screen'
+cols = [re.sub(r'<[^>]*>', '', c).strip() for c in re.findall(r'<th[^>]*>(.*?)</th>', head.group(1), re.S)]
+cols = [c for c in cols if c]
+assert cols == ['Name', 'Lifecycle', 'Email', 'Phone', 'City / state', 'Last activity'], cols
+print('CONTACT-COLUMNS-OK', cols)
+COLUMNS
 # Merge lives on the bulk bar, which appears once rows are selected — checked
 # in the component rather than the first render.
 grep -q 'Merge…' "$ROOT/src/app/(app)/admin/people/PeopleManager.tsx" \

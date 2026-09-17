@@ -1,23 +1,13 @@
 'use client';
 
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import type { CustomerRow } from '@/lib/customers/service';
 import { LIFECYCLE_LABELS, type Lifecycle, type PersonCrmRow } from '@/lib/people/service';
-import { STAGE_LABELS, type StageKey } from '@/lib/stages/definitions';
 import { PersonDrawer } from './PersonDrawer';
 import { MergeDialog } from './MergeDialog';
 
-const PORTAL_LABELS: Record<CustomerRow['portal'], string> = {
-  none: 'no access',
-  invited: 'invited',
-  active: 'active',
-  disabled: 'disabled',
-};
-
 type PortalFilter = 'any' | 'none' | 'invited' | 'active' | 'disabled';
-type ProjectFilter = 'any' | 'has_active' | 'completed_only' | 'none';
 type LifecycleFilter = 'any' | Lifecycle;
 
 /**
@@ -25,6 +15,13 @@ type LifecycleFilter = 'any' | Lifecycle;
  * remember the house before the name — filters for the states that matter, a
  * row menu, bulk invite for switching portal access on across an existing book,
  * and CSV export of what is on screen.
+ *
+ * The columns are the person: name, lifecycle, email, phone, where they are and
+ * when they were last heard from. What was there before — a project count, the
+ * project's current stage, the portal state — described jobs and logins rather
+ * than people, and a contact list that leads with a project stage reads as a
+ * project list. All three are still on the record behind the row, under their
+ * own tabs, and the Invite button still appears on anybody without a login.
  *
  * The lifecycle filter opens on Everyone, because this is Contacts: some of the
  * people on it have signed and some never will, and a list that hides half of
@@ -49,7 +46,6 @@ export function PeopleManager({
   const router = useRouter();
   const [search, setSearch] = useState('');
   const [portalFilter, setPortalFilter] = useState<PortalFilter>('any');
-  const [projectFilter, setProjectFilter] = useState<ProjectFilter>('any');
   const [lifecycle, setLifecycle] = useState<LifecycleFilter>('any');
   const [showArchived, setShowArchived] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -77,11 +73,6 @@ export function PeopleManager({
     return customers.filter((c) => {
       if (!showArchived && c.isArchived) return false;
       if (portalFilter !== 'any' && c.portal !== portalFilter) return false;
-      if (projectFilter === 'has_active'
-          && !(c.projectCount > c.completedCount)) return false;
-      if (projectFilter === 'completed_only'
-          && !(c.projectCount > 0 && c.projectCount === c.completedCount)) return false;
-      if (projectFilter === 'none' && c.projectCount > 0) return false;
       if (lifecycle !== 'any' && (crmById.get(c.id)?.lifecycle ?? 'prospect') !== lifecycle) {
         return false;
       }
@@ -90,7 +81,7 @@ export function PeopleManager({
               c.alternatePhone, c.cityState, c.mailingAddress]
         .some((v) => v?.toLowerCase().includes(q));
     });
-  }, [customers, search, portalFilter, projectFilter, showArchived, lifecycle, crmById]);
+  }, [customers, search, portalFilter, showArchived, lifecycle, crmById]);
 
   const dupPairs = duplicates
     .map((d) => ({ ...d, aRow: byId.get(d.a), bRow: byId.get(d.b) }))
@@ -147,12 +138,12 @@ export function PeopleManager({
       return /[",\n]/.test(s) ? `"${s.replaceAll('"', '""')}"` : s;
     };
     const lines = [
-      ['Name', 'Email', 'Phone', 'City/State', 'Projects', 'Current stage', 'Portal access',
-       'Last activity', 'Status'].join(','),
+      ['Name', 'Lifecycle', 'Email', 'Phone', 'City/State', 'Last activity', 'Status'].join(','),
       ...visible.map((c) =>
-        [`${c.firstName} ${c.lastName}`, c.email ?? '', c.phone ?? '', c.cityState ?? '',
-         c.projectCount, c.currentStage ? (STAGE_LABELS[c.currentStage as StageKey] ?? c.currentStage) : '',
-         PORTAL_LABELS[c.portal], c.lastActivity?.slice(0, 10) ?? '',
+        [`${c.firstName} ${c.lastName}`,
+         LIFECYCLE_LABELS[crmById.get(c.id)?.lifecycle ?? 'prospect'],
+         c.email ?? '', c.phone ?? '', c.cityState ?? '',
+         c.lastActivity?.slice(0, 10) ?? '',
          c.isArchived ? 'archived' : 'active'].map(esc).join(',')
       ),
     ];
@@ -219,12 +210,6 @@ export function PeopleManager({
           <option value="active">Active</option>
           <option value="disabled">Disabled</option>
         </select>
-        <select value={projectFilter} onChange={(e) => setProjectFilter(e.target.value as ProjectFilter)}>
-          <option value="any">Any projects</option>
-          <option value="has_active">Has an active project</option>
-          <option value="completed_only">Completed only</option>
-          <option value="none">No projects yet</option>
-        </select>
         <label className="check-inline">
           <input
             type="checkbox"
@@ -279,9 +264,6 @@ export function PeopleManager({
               <th>Email</th>
               <th>Phone</th>
               <th>City / state</th>
-              <th>Projects</th>
-              <th>Current stage</th>
-              <th>Portal access</th>
               <th>Last activity</th>
               <th></th>
             </tr>
@@ -326,20 +308,6 @@ export function PeopleManager({
                 </td>
                 <td>{c.phone ?? '—'}</td>
                 <td>{c.cityState ?? '—'}</td>
-                <td>
-                  {c.projectCount === 0 ? '0' : (
-                    <Link href={`/projects?q=${encodeURIComponent(`${c.firstName} ${c.lastName}`)}`}>
-                      {c.projectCount}
-                    </Link>
-                  )}
-                  {c.completedCount > 0 && <span className="dim"> ({c.completedCount} done)</span>}
-                </td>
-                <td>
-                  {c.currentStage
-                    ? (STAGE_LABELS[c.currentStage as StageKey] ?? c.currentStage)
-                    : '—'}
-                </td>
-                <td>{PORTAL_LABELS[c.portal]}</td>
                 <td>{c.lastActivity ? c.lastActivity.slice(0, 10) : '—'}</td>
                 <td>
                   <span className="ref-row">
