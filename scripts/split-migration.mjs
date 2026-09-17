@@ -109,8 +109,46 @@ mkdirSync(join(ROOT, 'db/dist/parts'), { recursive: true });
 const chunks = [];
 for (let i = 0; i < statements.length; i += perPart) chunks.push(statements.slice(i, i + perPart));
 
+/**
+ * Each part records that it finished, and checks that the one before it did.
+ *
+ * Without this, a part that quietly does nothing is indistinguishable from a
+ * part that worked — the next one simply fails on a missing table and blames
+ * the schema. A console that will not show an error can still be made to show
+ * this one, because it is the first statement in the file and it is the only
+ * thing that statement does.
+ */
+const LEDGER = `create table if not exists public.sf_migration_parts (
+  part       text primary key,
+  applied_at timestamptz not null default now()
+);`;
+
 chunks.forEach((chunk, index) => {
   const name = `${base}-part${index + 1}-of-${chunks.length}.sql`;
+  const me = `${base}-part${index + 1}`;
+  const previous = index === 0 ? null : `${base}-part${index}`;
+  const guard = previous
+    ? `
+${LEDGER}
+
+do $$
+begin
+  if not exists (select 1 from public.sf_migration_parts where part = '${previous}') then
+    raise exception 'Part ${index} has not been applied to this database — run ${previous}-of-${chunks.length}.sql first.'
+      using hint = 'If you believe you did run it, it did not finish: nothing it created is here. Run it again and read what the console says about it, because that message is the thing that has been missing all along.';
+  end if;
+end
+$$;
+`
+    : `
+${LEDGER}
+`;
+  const stamp = `
+
+-- Recorded so the next part can tell that this one finished.
+insert into public.sf_migration_parts (part) values ('${me}')
+  on conflict (part) do nothing;
+`;
   const header = `-- ============================================================================
 -- GENERATED FILE — do not edit. Rebuild with:
 --   node scripts/split-migration.mjs ${file} ${chunks.length}
@@ -125,6 +163,6 @@ chunks.forEach((chunk, index) => {
 -- ============================================================================
 
 `;
-  writeFileSync(join(ROOT, 'db/dist/parts', name), header + chunk.join('') + '\n');
+  writeFileSync(join(ROOT, 'db/dist/parts', name), header + guard + chunk.join('') + stamp);
   console.log(`wrote db/dist/parts/${name} (${chunk.length} statements)`);
 });
