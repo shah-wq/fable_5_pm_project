@@ -5,7 +5,7 @@ import { optionalRows } from '@/lib/db-optional';
 import { loadContactStageBoard } from '@/lib/contacts/stages';
 import { NO_DEAL } from '@/lib/contacts/stage-columns';
 import { dealsReady } from '@/lib/deals/service';
-import { CRM_CATCH_UP } from '@/lib/crm/catch-up';
+import { behindSentence, migrationState } from '@/lib/db-migrations';
 import { ContactStageBoard } from './ContactStageBoard';
 
 export const dynamic = 'force-dynamic';
@@ -25,6 +25,9 @@ export default async function ContactStagesPage() {
     const ready = await dealsReady(c);
     return {
       ready,
+      // Only when something is wrong: one extra query on a healthy database
+      // buys nothing, and on a broken one it is the whole answer.
+      behind: ready ? [] : (await migrationState(c)).behind,
       cards: ready ? await loadContactStageBoard(c) : [],
       lossReasons: ready
         ? await optionalRows<{ id: string; name: string }>(
@@ -64,7 +67,7 @@ export default async function ContactStagesPage() {
 
       {!data.ready ? (
         <p className="notice">
-          {`The database has not caught up yet, so there are no stages to show. ${CRM_CATCH_UP} Then reload this page.`}
+          {`The database has not caught up yet, so there are no stages to show. ${behindSentence(data.behind)} Then reload this page.`}
         </p>
       ) : data.cards.length === 0 ? (
         <section className="panel">

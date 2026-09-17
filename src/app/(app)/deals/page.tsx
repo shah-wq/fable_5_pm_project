@@ -3,7 +3,7 @@ import { guardPath } from '@/lib/auth/session';
 import { withUser } from '@/lib/db';
 import { optionalRows } from '@/lib/db-optional';
 import { dealsReady, loadDealCards } from '@/lib/deals/service';
-import { CRM_CATCH_UP } from '@/lib/crm/catch-up';
+import { behindSentence, migrationState } from '@/lib/db-migrations';
 import { DEAL_COLUMNS, DEAL_STAGE_LABELS } from '@/lib/deals/definitions';
 import { DealBoard } from './DealBoard';
 
@@ -28,9 +28,12 @@ export default async function DealsPage({
 
   const data = await withUser(session, async (c) => {
     const ready = await dealsReady(c);
-    if (!ready) return { ready, cards: [], lossReasons: [] };
+    if (!ready) {
+      return { ready, cards: [], lossReasons: [], behind: (await migrationState(c)).behind };
+    }
     return {
       ready,
+      behind: [] as string[],
       cards: await loadDealCards(c),
       lossReasons: await optionalRows<{ id: string; name: string }>(
         c,
@@ -45,7 +48,7 @@ export default async function DealsPage({
       <main className="surface wide">
         <h1>Deals</h1>
         <p className="notice">
-          {`The database has not caught up yet. ${CRM_CATCH_UP} Then reload this page.`}
+          {`The database has not caught up yet. ${behindSentence(data.behind)} Then reload this page.`}
         </p>
       </main>
     );

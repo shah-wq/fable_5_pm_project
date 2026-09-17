@@ -60,7 +60,10 @@ export DATABASE_URL="postgres://postgres@127.0.0.1:$PGPORT/$DB"
 
 # Each cut-off is a real state somebody's database is in: nothing of the CRM
 # pasted at all, then each file of it in turn.
-for CUT in 20260803003200_stage_feedback.sql \
+for CUT in 20260803002300_customer_portal.sql \
+           20260803002600_customer_passwords.sql \
+           20260803002900_project_chat.sql \
+           20260803003200_stage_feedback.sql \
            20260803003300_add_sales_role.sql \
            20260803003400_crm_foundation.sql \
            20260803003500_deals.sql \
@@ -109,6 +112,20 @@ for f in behind:
         raise SystemExit(f'health says {f} is missing, but it was applied')
 print('HEALTH-OK', len(behind), 'behind')
 HEALTHCHECK
+
+  # A degraded screen names the files this database is missing, not a generic
+  # list — the generic list is what somebody has already tried by the time they
+  # are reading an error.
+  # Only where the board actually degrades: once deals exists it renders, and a
+  # warning about the files after it would be noise on a working screen.
+  STAGES=$(curl -s -b "$W/jar" "$BASE/admin/people/stages")
+  if [ "$CUT" \< 20260803003400_crm_foundation.sql ]; then
+    grep -q "is missing" <<<"$STAGES" \
+      || fail "at $CUT the stages screen does not say what is missing"
+    NEXT=$(ls "$ROOT/db/migrations" | awk -v c="$CUT" '$0 > c' | head -1 | sed 's/\.sql$//')
+    grep -q "$NEXT" <<<"$STAGES" \
+      || fail "at $CUT the stages screen does not name $NEXT as missing"
+  fi
 
   # Create Contact must say so before fifty fields are typed, not after.
   BODY=$(curl -s -b "$W/jar" "$BASE/admin/people/new")

@@ -3,7 +3,8 @@ import { guardPath } from '@/lib/auth/session';
 import { withUser } from '@/lib/db';
 import { loadCustomers, loadDuplicateCandidates } from '@/lib/customers/service';
 import { crmReady, loadPersonCrm } from '@/lib/people/service';
-import { CRM_CATCH_UP } from '@/lib/crm/catch-up';
+import { behindSentence, migrationState } from '@/lib/db-migrations';
+import { isSchemaDrift } from '@/lib/db-drift';
 import { AdminTabs } from '../_components/AdminTabs';
 import { PeopleManager } from './PeopleManager';
 
@@ -24,16 +25,39 @@ export const dynamic = 'force-dynamic';
 export default async function AdminPeoplePage() {
   const session = await guardPath('/admin/people');
 
-  const data = await withUser(session, async (c) => {
-    const ready = await crmReady(c);
-    return {
-      ready,
-      customers: await loadCustomers(c),
-      crm: ready ? [...(await loadPersonCrm(c)).values()] : [],
-      duplicates: await loadDuplicateCandidates(c),
-      dealers: (await c.query('select id, name from public.dealers where is_active order by name')).rows,
-    };
-  });
+  // The list itself selects columns that a much older database does not have —
+  // an alternate phone, an archived flag — and a query like that cannot degrade
+  // to an empty result without claiming there are no contacts. So it is allowed
+  // to fail, and the failure is answered with the files to paste rather than
+  // with a crash page: an operator who sees "Application error" goes looking for
+  // a bug in the product, which is the one place it is not.
+  let data;
+  try {
+    data = await withUser(session, async (c) => {
+      const ready = await crmReady(c);
+      return {
+        ready,
+        behind: ready ? [] : (await migrationState(c)).behind,
+        customers: await loadCustomers(c),
+        crm: ready ? [...(await loadPersonCrm(c)).values()] : [],
+        duplicates: await loadDuplicateCandidates(c),
+        dealers: (await c.query('select id, name from public.dealers where is_active order by name')).rows,
+      };
+    });
+  } catch (error) {
+    if (!isSchemaDrift(error)) throw error;
+    const behind = await withUser(session, async (c) => (await migrationState(c)).behind);
+    return (
+      <main className="table-page">
+        <h1>Admin</h1>
+        <AdminTabs />
+        <h2 className="section-title">Contacts</h2>
+        <p className="notice" role="alert">
+          {`This screen needs part of the schema that is not there yet, so it cannot list anybody. ${behindSentence(behind)} Then reload this page.`}
+        </p>
+      </main>
+    );
+  }
 
   return (
     <main className="table-page">
@@ -55,7 +79,7 @@ export default async function AdminPeoplePage() {
 
       {!data.ready && (
         <p className="notice">
-          {`The database has not caught up yet, so lifecycle, deals and subscriptions are hidden — everything else on this screen works as it did. ${CRM_CATCH_UP}`}
+          {`The database has not caught up yet, so lifecycle, deals and subscriptions are hidden — everything else on this screen works as it did. ${behindSentence(data.behind)}`}
         </p>
       )}
 

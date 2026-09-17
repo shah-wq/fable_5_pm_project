@@ -1,4 +1,5 @@
 import type { PoolClient } from 'pg';
+import { optionalRows } from '@/lib/db-optional';
 
 /**
  * The Customers section's data layer. A customer is a person and a project is a
@@ -56,11 +57,16 @@ export async function loadCustomers(client: PoolClient): Promise<CustomerRow[]> 
     lastSignInAt: unknown;
     invitePending: boolean;
   }>();
-  const loginRows = await client.query(
+  // Through optionalRows: on a database that has not had the customer-portal
+  // migration yet this function does not exist, and a Contacts screen that
+  // cannot open is a worse answer than one that cannot tell you who has a login.
+  const loginRows = await optionalRows<Record<string, unknown>>(
+    client,
+    'customer login state (public.customer_login_state)',
     `select client_id, user_id, is_active, last_sign_in_at, invite_pending
      from public.customer_login_state()`
   );
-  for (const r of loginRows.rows) {
+  for (const r of loginRows as Array<Record<string, any>>) {
     logins.set(r.client_id, {
       userId: r.user_id,
       isActive: r.is_active,
