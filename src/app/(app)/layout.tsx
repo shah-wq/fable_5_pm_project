@@ -16,6 +16,9 @@ import { TabBar } from './portal/_components/TabBar';
 // way, so moving them back out is a one-line change and breaks no links.
 const CRM: NavItem[] = [
   { href: '/admin/people', label: 'Contacts', icon: '☺', group: 'CRM' },
+  // The same contacts as a board. Sits directly under them because it is the
+  // same list read a different way, not a different list.
+  { href: '/admin/people/stages', label: 'Contact stages', icon: '▥', group: 'CRM' },
   { href: '/deals', label: 'Deals', icon: '◈', group: 'CRM' },
   { href: '/admin/dealers', label: 'Dealers', icon: '⌂', group: 'CRM' },
   { href: '/admin/subscribers', label: 'E-book subscribers', icon: '✉', group: 'CRM' },
@@ -46,7 +49,9 @@ const NAV: Record<UserRole, NavItem[]> = {
     { href: '/reports', label: 'Reports', icon: '▤' },
     // Ops work deals and people; the dealer record and the subscriber consent
     // records are admin's (Part 8).
-    ...CRM.filter((i) => i.href === '/deals' || i.href === '/admin/people'),
+    ...CRM.filter((i) =>
+      ['/deals', '/admin/people', '/admin/people/stages'].includes(i.href)
+    ),
   ],
   // Part 8: "Own deals and their people, plus the unassigned pool. Read-only on
   // projects that came from their own deals. No access to other stages'
@@ -54,6 +59,7 @@ const NAV: Record<UserRole, NavItem[]> = {
   sales: [
     { href: '/deals', label: 'Deals', icon: '◈' },
     { href: '/admin/people', label: 'Contacts', icon: '☺' },
+    { href: '/admin/people/stages', label: 'Contact stages', icon: '▥' },
     { href: '/reports', label: 'Reports', icon: '▤' },
   ],
   designer: [{ href: '/designer', label: 'My queue', icon: '▦' }],

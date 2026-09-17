@@ -119,7 +119,11 @@ export async function POST(request: Request) {
           last,
           email,
           phone,
-          text(body?.address, 300),
+          // deals.address is NOT NULL and always has been — it came across from
+          // the leads table. A deal started from the contact board has no
+          // address yet, and refusing it over a field the rep is about to fill
+          // in on the record would be the wrong place to insist.
+          text(body?.address, 300) ?? 'Address to be confirmed',
           uuid(body?.dealerId),
           uuid(body?.sourceId),
           // Unassigned by default: Part 8 gives every rep the unassigned pool,

@@ -26,7 +26,7 @@ pass() { echo "PASS: $*"; }
 # The screens a member of staff can reach, with the role that reaches them.
 PAGES=(
   /dashboard /projects /pipeline /leads /tasks /messages /feedback /reports
-  /deals /deals/new /admin /admin/people /admin/people/new /admin/dealers /admin/users
+  /deals /deals/new /admin /admin/people /admin/people/new /admin/people/stages /admin/dealers /admin/users
 )
 
 cut_at() {
