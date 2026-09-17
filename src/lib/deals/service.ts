@@ -1,6 +1,7 @@
 import type { PoolClient } from 'pg';
 import { withUser } from '../db';
 import type { Session } from '../auth/session';
+import { CRM_FIRST_FILE } from '@/lib/crm/catch-up';
 import { optionalRows } from '../db-optional';
 import {
   DEAL_COLUMNS,
@@ -25,7 +26,7 @@ import {
  * second pipeline engine that behaves subtly differently on the same gesture."
  */
 
-export const CRM_MIGRATION_FILE = 'db/dist/20260803003400-crm-foundation.sql';
+export { CRM_FIRST_FILE as CRM_MIGRATION_FILE } from '@/lib/crm/catch-up';
 
 const asIso = (value: unknown): string =>
   value instanceof Date ? value.toISOString() : String(value ?? '');
@@ -337,7 +338,7 @@ export async function moveDeal(
           code: 'invalid',
           message:
             'The project could not be created, so the deal has not moved. ' +
-            `If this database has not caught up yet, run ${CRM_MIGRATION_FILE}.`,
+            `If this database has not caught up yet, run ${CRM_FIRST_FILE} and the files after it.`,
         };
       }
     }

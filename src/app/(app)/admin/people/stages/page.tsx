@@ -4,7 +4,8 @@ import { withUser } from '@/lib/db';
 import { optionalRows } from '@/lib/db-optional';
 import { loadContactStageBoard } from '@/lib/contacts/stages';
 import { NO_DEAL } from '@/lib/contacts/stage-columns';
-import { CRM_MIGRATION_FILE, dealsReady } from '@/lib/deals/service';
+import { dealsReady } from '@/lib/deals/service';
+import { CRM_CATCH_UP } from '@/lib/crm/catch-up';
 import { ContactStageBoard } from './ContactStageBoard';
 
 export const dynamic = 'force-dynamic';
@@ -63,7 +64,7 @@ export default async function ContactStagesPage() {
 
       {!data.ready ? (
         <p className="notice">
-          {`The database has not caught up yet, so there are no stages to show. Run ${CRM_MIGRATION_FILE} in the SQL editor — and the files after it — then reload this page.`}
+          {`The database has not caught up yet, so there are no stages to show. ${CRM_CATCH_UP} Then reload this page.`}
         </p>
       ) : data.cards.length === 0 ? (
         <section className="panel">

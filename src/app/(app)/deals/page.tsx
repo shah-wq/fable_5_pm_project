@@ -2,7 +2,8 @@ import Link from 'next/link';
 import { guardPath } from '@/lib/auth/session';
 import { withUser } from '@/lib/db';
 import { optionalRows } from '@/lib/db-optional';
-import { CRM_MIGRATION_FILE, dealsReady, loadDealCards } from '@/lib/deals/service';
+import { dealsReady, loadDealCards } from '@/lib/deals/service';
+import { CRM_CATCH_UP } from '@/lib/crm/catch-up';
 import { DEAL_COLUMNS, DEAL_STAGE_LABELS } from '@/lib/deals/definitions';
 import { DealBoard } from './DealBoard';
 
@@ -44,7 +45,7 @@ export default async function DealsPage({
       <main className="surface wide">
         <h1>Deals</h1>
         <p className="notice">
-          {`The database has not caught up yet. Run ${CRM_MIGRATION_FILE} in the SQL editor — and 20260803003500-deals.sql after it — then reload this page.`}
+          {`The database has not caught up yet. ${CRM_CATCH_UP} Then reload this page.`}
         </p>
       </main>
     );

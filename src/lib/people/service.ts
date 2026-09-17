@@ -16,7 +16,7 @@ import { optionalRows } from '../db-optional';
  * than a screen that is briefly missing its lifecycle chips.
  */
 
-export const CRM_MIGRATION_FILE = 'db/dist/20260803003400-crm-foundation.sql';
+export { CRM_FIRST_FILE as CRM_MIGRATION_FILE } from '@/lib/crm/catch-up';
 
 export type Lifecycle = 'prospect' | 'customer' | 'past_customer';
 

@@ -83,7 +83,23 @@ export async function GET() {
              -- 003000's visible object is a function in the auth schema, which
              -- the app role cannot read the catalogue of — to_regprocedure needs
              -- no privilege on it, only the name.
-             to_regprocedure('auth.sign_in(text,text,text)')::text as m_003000`
+             to_regprocedure('auth.sign_in(text,text,text)')::text as m_003000,
+             -- 003100 creates nothing: it adds two columns to the dashboard's
+             -- stage_thresholds table, so the columns are the probe.
+             (select count(*) from information_schema.columns
+               where table_schema = 'public' and table_name = 'stage_thresholds'
+                 and column_name in ('typical_min_days', 'typical_max_days')) as m_003100,
+             to_regclass('public.stage_feedback')::text       as m_003200,
+             -- The CRM files. 003300 adds one enum value and creates nothing,
+             -- so it is probed by the value itself.
+             (select count(*) from pg_enum e join pg_type t on t.oid = e.enumtypid
+               where t.typname = 'user_role' and e.enumlabel = 'sales') as m_003300,
+             to_regclass('public.deals')::text                as m_003400,
+             to_regprocedure('public.convert_deal_to_project(uuid,public.project_stage)')::text as m_003500,
+             (select count(*) from information_schema.columns
+               where table_schema = 'public' and table_name = 'clients'
+                 and column_name = 'mailing_street')          as m_003600,
+             to_regprocedure('public.create_contact(jsonb,jsonb)')::text as m_003700`
         )
       );
       const p = probes.rows[0];
@@ -103,6 +119,13 @@ export async function GET() {
         '20260803002800_dashboard.sql': Boolean(p.m_002800),
         '20260803002900_project_chat.sql': Boolean(p.m_002900),
         '20260803003000_sign_in.sql': Boolean(p.m_003000),
+        '20260803003100_typical_durations.sql': Number(p.m_003100) === 2,
+        '20260803003200_stage_feedback.sql': Boolean(p.m_003200),
+        '20260803003300_add_sales_role.sql': Number(p.m_003300) === 1,
+        '20260803003400_crm_foundation.sql': Boolean(p.m_003400),
+        '20260803003500_deals.sql': Boolean(p.m_003500),
+        '20260803003600_contact_intake.sql': Number(p.m_003600) === 1,
+        '20260803003700_contact_create.sql': Boolean(p.m_003700),
       };
       const behind = Object.entries(applied)
         .filter(([, present]) => !present)

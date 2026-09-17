@@ -2,7 +2,8 @@ import Link from 'next/link';
 import { guardPath } from '@/lib/auth/session';
 import { withUser } from '@/lib/db';
 import { loadCustomers, loadDuplicateCandidates } from '@/lib/customers/service';
-import { CRM_MIGRATION_FILE, crmReady, loadPersonCrm } from '@/lib/people/service';
+import { crmReady, loadPersonCrm } from '@/lib/people/service';
+import { CRM_CATCH_UP } from '@/lib/crm/catch-up';
 import { AdminTabs } from '../_components/AdminTabs';
 import { PeopleManager } from './PeopleManager';
 
@@ -54,7 +55,7 @@ export default async function AdminPeoplePage() {
 
       {!data.ready && (
         <p className="notice">
-          {`The database has not caught up yet, so lifecycle, deals and subscriptions are hidden. Run ${CRM_MIGRATION_FILE} in the SQL editor; everything else on this screen works as it did.`}
+          {`The database has not caught up yet, so lifecycle, deals and subscriptions are hidden — everything else on this screen works as it did. ${CRM_CATCH_UP}`}
         </p>
       )}
 

@@ -90,6 +90,26 @@ for CUT in 20260803003200_stage_feedback.sql \
     tail -30 "$W/next.log" >&2
     fail "at $CUT these screens broke: ${BAD[*]}"
   }
+  # /api/health is what the error page tells people to open, so it has to name
+  # the files this database is actually missing — silence there sends somebody
+  # hunting for a bug in the app instead of pasting one file.
+  HEALTH=$(curl -s "$BASE/api/health")
+  python3 - "$CUT" <<HEALTHCHECK
+import json, subprocess, sys
+cut = sys.argv[1]
+health = json.loads(subprocess.run(
+    ['curl', '-s', '$BASE/api/health'], capture_output=True, text=True).stdout)
+behind = health.get('migrations', {}).get('behind', [])
+after = [f for f in sorted(__import__('os').listdir('$ROOT/db/migrations')) if f > cut]
+missing_named = [f for f in after if f in behind]
+if after and not missing_named:
+    raise SystemExit(f'health says nothing is behind, but {len(after)} files are: {after}')
+for f in behind:
+    if f <= cut:
+        raise SystemExit(f'health says {f} is missing, but it was applied')
+print('HEALTH-OK', len(behind), 'behind')
+HEALTHCHECK
+
   # Create Contact must say so before fifty fields are typed, not after.
   BODY=$(curl -s -b "$W/jar" "$BASE/admin/people/new")
   if [ "$CUT" = 20260803003700_contact_create.sql ]; then
