@@ -108,3 +108,26 @@ export function withUser<T>(
     fn
   );
 }
+
+/**
+ * A connection as the database's own user — no claims, no role switch.
+ *
+ * Everything else in this module drops to the `authenticated` role so the RLS
+ * policies decide what a request may see. Applying a migration is the one job
+ * that must not: it creates the tables those policies are written against, and
+ * the role the policies are written for cannot create anything.
+ *
+ * Reserved for src/lib/db-apply.ts. A query written against this connection
+ * anywhere else has stepped around every access rule the product has.
+ */
+export function withOwner<T>(fn: (client: PoolClient) => Promise<T>): Promise<T> {
+  return getPool()
+    .connect()
+    .then(async (client) => {
+      try {
+        return await fn(client);
+      } finally {
+        client.release();
+      }
+    });
+}

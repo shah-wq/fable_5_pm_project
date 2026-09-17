@@ -74,18 +74,10 @@ export interface MigrationState {
 /** What to paste, given what is missing. */
 export function catchUpAdvice(behind: string[]): string {
   if (behind.length === 0) return 'up to date';
-  if (behind.length === 1) {
-    const file = behind[0];
-    const dist = `db/dist/${file.slice(0, 14)}-${file
-      .slice(15)
-      .replace(/_/g, '-')
-      .replace(/\.sql$/, '')}.sql`;
-    return `Run ${dist} in the SQL editor.`;
-  }
+
   return (
-    `Run db/dist/catch-up-1.sql, then catch-up-2.sql, then catch-up-3.sql — ` +
-    `three separate executions, in that order. They carry every migration from ` +
-    `001400 onwards and are safe on a database that already has some of them.`
+    `Open Admin → Database and click Apply: the application runs the missing ` +
+    `files itself, through its own connection, and shows what happened to each one.`
   );
 }
 
