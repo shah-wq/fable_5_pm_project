@@ -50,8 +50,12 @@ export async function GET() {
   if (process.env.DATABASE_URL) {
     try {
       const host = new URL(process.env.DATABASE_URL).hostname;
-      const id = host.split('.')[0];
-      endpoint = id.length > 12 ? `${id.slice(0, 3)}****${id.slice(-8)}` : '****';
+      // The pooled endpoint is the same branch reached through a connection
+      // pooler, and the '-pooler' suffix is the same on every one of them — so
+      // it is dropped before masking, or the eight characters kept would be the
+      // eight every branch shares.
+      const id = host.split('.')[0].replace(/-pooler$/, '');
+      endpoint = id.length > 12 ? `${id.slice(0, 3)}****${id.slice(-8)}` : id;
     } catch {
       endpoint = 'unparseable';
     }
@@ -59,6 +63,16 @@ export async function GET() {
 
   let database = 'skipped: DATABASE_URL missing';
   let migrations: unknown = null;
+  /**
+   * A table anybody can create by hand, reported here.
+   *
+   * Matching endpoint ids against a dashboard is comparing two descriptions of a
+   * thing. This compares the thing: create public.sf_branch_marker in the SQL
+   * console, reload this page, and if it does not appear then the console and
+   * this deployment are not looking at the same database — no names, no ids, no
+   * room for either of us to be reading the wrong screen.
+   */
+  let marker: string | null = null;
   if (env.DATABASE_URL) {
     try {
       const { rows } = await withAnon((c) =>
@@ -77,6 +91,14 @@ export async function GET() {
       // The probes themselves live in lib/db-migrations.ts, because the screens
       // that degrade name the same files and two copies of that list would
       // eventually disagree about what is missing.
+      marker = (
+        await withAnon((c) =>
+          c.query<{ m: string | null }>(
+            `select to_regclass('public.sf_branch_marker')::text as m`
+          )
+        )
+      ).rows[0]?.m ?? null;
+
       const state = await withAnon((c) => migrationState(c));
       migrations = { applied: state.applied, behind: state.behind, fix: state.advice };
     } catch (cause) {
@@ -94,6 +116,7 @@ export async function GET() {
       env,
       database,
       endpoint,
+      marker: marker ?? 'not present — see the two-ended test in the route comment',
       migrations,
       email: env.SMTP_HOST ? 'smtp configured' : 'no SMTP — dev-logging only',
       node: process.version,
