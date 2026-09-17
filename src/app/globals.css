@@ -1302,7 +1302,9 @@ a {
 }
 
 .drawer select,
-.drawer textarea {
+.drawer textarea,
+.record-body select,
+.record-body textarea {
   width: 100%;
   padding: 10px 12px;
   font: inherit;
@@ -2274,7 +2276,8 @@ a {
   text-decoration: none;
 }
 
-.drawer h3 {
+.drawer h3,
+.record-body h3 {
   font-size: 13px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -5262,4 +5265,31 @@ a.btn {
 .field-missing textarea {
   border-color: var(--danger);
   border-left-width: 3px;
+}
+
+/* --- A record at its own address ---------------------------------------- */
+/* The same component the list opens as a drawer, given the width of the page.
+   Only the chrome differs: no backdrop, no shadow, no fixed panel — the record
+   is the page, and the contact's fields lay out across it exactly as they do on
+   Create Contact. */
+.record-page {
+  display: block;
+}
+
+.record-body {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 18px 22px 28px;
+}
+
+/* The tab strip and the field grid both want the full width here, where in the
+   drawer they were stacked into 440px. */
+.record-body .form-grid {
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 0 18px;
+}
+
+.record-body .record-bar {
+  margin-bottom: 10px;
 }

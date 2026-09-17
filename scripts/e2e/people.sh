@@ -105,6 +105,44 @@ grep -q 'Merge…' "$ROOT/src/app/(app)/admin/people/PeopleManager.tsx" \
   || fail "the guided merge disappeared with the rename"
 pass "the Customers screen is now People, at a new path, with its old controls intact"
 
+# --- 1b. one contact, at its own address --------------------------------
+# Open is a link to a page now, not a panel over the list: editing a contact and
+# creating one are the same screen at the same width.
+python3 - "$W/page.html" <<'OPENS'
+import re, sys
+html = open(sys.argv[1], encoding='utf-8').read()
+assert re.search(r'<a[^>]+href="/admin/people/[0-9a-f-]{36}"[^>]*>\s*Open\s*</a>', html), \
+    'Open is not a link to the contact page'
+assert 'drawer-backdrop' not in html, 'the list still renders the drawer'
+print('OPEN-IS-A-PAGE-OK')
+OPENS
+CUST_ID=$(q "select id from public.clients where last_name = 'Martinez'")
+get "$BASE/admin/people/$CUST_ID" 200 "$JAR"
+has "the contact page" "Maria"
+# The same tabs the drawer had, and the contact's own fields open first.
+for t in "Contact details" "Projects" "Deals" "Subscriptions" "Portal access" "Activity"; do
+  has "the contact page" "$t"
+done
+# It opens on the contact's own fields — the same registry Create Contact
+# renders — and lays them out on the page rather than in a 440px panel. The
+# fields themselves arrive from the intake endpoint once the page is running,
+# so what the server HTML can show is which tab is selected and where it is.
+python3 - "$W/page.html" <<'RECORD'
+import re, sys
+html = open(sys.argv[1], encoding='utf-8').read()
+assert 'drawer-backdrop' not in html, 'the contact page renders as a drawer'
+assert 'record-body' in html, 'the contact page is not laid out as a page'
+active = re.findall(r'class="linklike active"[^>]*>([^<]+)<', html)
+assert active == ['Contact details'], f'the page opens on {active}, not the contact fields'
+print('RECORD-PAGE-OK')
+RECORD
+# A contact that does not exist is a 404, not an empty record.
+get "$BASE/admin/people/00000000-0000-0000-0000-000000000000" 404 "$JAR"
+pass "a contact opens as its own page, with every tab and the Create Contact layout"
+# The sections below read the list again, since this one left a record in the
+# buffer they share.
+get "$BASE/admin/people" 200 "$JAR"
+
 # --- 2. lifecycle, derived and filtered --------------------------------
 has "the People screen" "Lifecycle"
 has "the People screen" "Prospects"

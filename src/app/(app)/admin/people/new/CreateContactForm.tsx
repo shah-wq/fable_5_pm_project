@@ -111,7 +111,7 @@ export function CreateContactForm({
         router.refresh();
         return;
       }
-      router.push(`/admin/people?person=${json.clientId}`);
+      router.push(`/admin/people/${json.clientId}`);
     } finally {
       setBusy(false);
     }
@@ -145,7 +145,7 @@ export function CreateContactForm({
           <ul>
             {duplicates.map((d) => (
               <li key={d.id}>
-                <Link href={`/admin/people?person=${d.id}`}>{d.name}</Link>{' '}
+                <Link href={`/admin/people/${d.id}`}>{d.name}</Link>{' '}
                 <span className="dim">
                   {[d.email, d.phone].filter(Boolean).join(' · ')}
                   {d.projects > 0 ? ` · ${d.projects} project${d.projects === 1 ? '' : 's'}` : ''}

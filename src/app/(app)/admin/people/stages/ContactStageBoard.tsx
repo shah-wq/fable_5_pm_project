@@ -201,7 +201,7 @@ export function ContactStageBoard({
                   >
                     {card.clientId ? (
                       <Link
-                        href={`/admin/people?person=${card.clientId}`}
+                        href={`/admin/people/${card.clientId}`}
                         className="card-title"
                         draggable={false}
                       >

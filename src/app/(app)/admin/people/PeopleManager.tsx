@@ -1,10 +1,11 @@
 'use client';
 
+import Link from 'next/link';
+
 import { useRouter } from 'next/navigation';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { CustomerRow } from '@/lib/customers/service';
 import { LIFECYCLE_LABELS, type Lifecycle, type PersonCrmRow } from '@/lib/people/service';
-import { PersonDrawer } from './PersonDrawer';
 import { MergeDialog } from './MergeDialog';
 
 type PortalFilter = 'any' | 'none' | 'invited' | 'active' | 'disabled';
@@ -49,7 +50,6 @@ export function PeopleManager({
   const [lifecycle, setLifecycle] = useState<LifecycleFilter>('any');
   const [showArchived, setShowArchived] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [drawer, setDrawer] = useState<{ customer: CustomerRow | null } | null>(null);
   const [merging, setMerging] = useState<string[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -57,15 +57,6 @@ export function PeopleManager({
 
   const byId = useMemo(() => new Map(customers.map((c) => [c.id, c])), [customers]);
 
-  // ?person=… opens that record. Create Contact and the duplicate warnings both
-  // hand people back here with an id, and landing on a list of four hundred rows
-  // with no idea which one was meant is not an answer.
-  useEffect(() => {
-    const id = new URLSearchParams(window.location.search).get('person');
-    if (!id) return;
-    const row = customers.find((c) => c.id === id);
-    if (row) setDrawer({ customer: row });
-  }, [customers]);
   const crmById = useMemo(() => new Map(crm.map((r) => [r.id, r])), [crm]);
 
   const visible = useMemo(() => {
@@ -286,9 +277,9 @@ export function PeopleManager({
                   />
                 </td>
                 <td>
-                  <button className="linklike" type="button" onClick={() => setDrawer({ customer: c })}>
+                  <Link className="linklike" href={`/admin/people/${c.id}`}>
                     {c.firstName} {c.lastName}
-                  </button>
+                  </Link>
                   {c.anonymisedAt && <span className="dim"> · anonymised</span>}
                   {c.isArchived && !c.anonymisedAt && <span className="dim"> · archived</span>}
                 </td>
@@ -311,13 +302,9 @@ export function PeopleManager({
                 <td>{c.lastActivity ? c.lastActivity.slice(0, 10) : '—'}</td>
                 <td>
                   <span className="ref-row">
-                    <button
-                      className="btn secondary small"
-                      type="button"
-                      onClick={() => setDrawer({ customer: c })}
-                    >
+                    <Link className="btn secondary small" href={`/admin/people/${c.id}`}>
                       Open
-                    </button>
+                    </Link>
                     {c.portal === 'none' && c.email && (
                       <button
                         className="btn secondary small"
@@ -361,18 +348,6 @@ export function PeopleManager({
         </table>
       </div>
 
-      {drawer && (
-        <PersonDrawer
-          customer={drawer.customer}
-          dealers={dealers}
-          isAdmin={isAdmin}
-          onClose={() => setDrawer(null)}
-          onSaved={() => {
-            setDrawer(null);
-            router.refresh();
-          }}
-        />
-      )}
 
       {merging && (
         <MergeDialog

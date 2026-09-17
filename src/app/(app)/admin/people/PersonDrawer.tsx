@@ -47,21 +47,33 @@ interface ProjectRow {
  * Activity. The whole point of the section is that it answers 'what is our
  * entire history with this person?' in one place — which now covers the half of
  * that history that happens before anybody signs anything.
+ *
+ * The same component renders two ways. As a drawer it slides over the list,
+ * which suits a glance and a one-field correction. As a page it is the record
+ * at its own address, laid out like Create Contact — because a contact's fields
+ * are the same fields whether they are being typed for the first time or
+ * corrected a year later, and a form that changes shape between those two
+ * moments teaches people two screens instead of one.
  */
 export function PersonDrawer({
   customer,
   dealers,
   isAdmin,
+  variant = 'drawer',
   onClose,
   onSaved,
 }: {
   customer: CustomerRow | null;
   dealers: Array<{ id: string; name: string }>;
   isAdmin: boolean;
+  variant?: 'drawer' | 'page';
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const [tab, setTab] = useState<Tab>('details');
+  const asPage = variant === 'page';
+  // On its own page the contact's own fields are what somebody came for, so
+  // they open on them rather than on the account panel behind them.
+  const [tab, setTab] = useState<Tab>(asPage ? 'intake' : 'details');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -160,11 +172,27 @@ export function PersonDrawer({
       .then((ok) => ok && onSaved());
 
   return (
-    <div className="drawer-backdrop" onClick={() => !busy && onClose()}>
-      <div className="drawer wide-drawer" onClick={(e) => e.stopPropagation()}>
-        <h2>
-          {customer ? `${customer.firstName} ${customer.lastName}` : '+ Add person'}
-        </h2>
+    <div
+      className={asPage ? 'record-page' : 'drawer-backdrop'}
+      onClick={asPage ? undefined : () => !busy && onClose()}
+    >
+      <div
+        className={asPage ? 'record-body' : 'drawer wide-drawer'}
+        onClick={asPage ? undefined : (e) => e.stopPropagation()}
+      >
+        {asPage ? (
+          <div className="record-bar">
+            <h1>{customer ? `${customer.firstName} ${customer.lastName}` : 'Contact'}</h1>
+            <span className="spacer" />
+            <button className="btn secondary" type="button" onClick={onClose}>
+              Back to contacts
+            </button>
+          </div>
+        ) : (
+          <h2>
+            {customer ? `${customer.firstName} ${customer.lastName}` : '+ Add person'}
+          </h2>
+        )}
 
         {customer && (
           <div className="admin-tabs">

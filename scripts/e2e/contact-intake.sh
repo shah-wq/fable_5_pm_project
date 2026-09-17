@@ -277,17 +277,14 @@ pass "without a deal the person's fields still save, and the deal fields say why
 # --- 9. the screen itself ----------------------------------------------
 CODE=$(curl -s -o "$W/page.html" -w '%{http_code}' -b "$JAR" "$BASE/admin/people")
 [ "$CODE" = 200 ] || fail "the People screen answered $CODE"
-# The record itself is a drawer, so it is not in the server HTML until a row is
-# clicked — the honest check is that the tab shipped in the JavaScript the page
-# just asked the browser to load, which is what a rep will actually run.
-CHUNKS=$(grep -o '/_next/static/chunks/[^"\\]*\.js' "$W/page.html" | sort -u)
-[ -n "$CHUNKS" ] || fail "the People screen loaded no JavaScript at all"
-FOUND=no
-for u in $CHUNKS; do
-  curl -s -b "$JAR" "$BASE$u" | grep -q "Contact details" && { FOUND=yes; break; }
-done
-[ "$FOUND" = yes ] || fail "the Contact details tab is not in the code the People screen loads"
-pass "the contact record carries a Contact details tab"
+grep -q "href=\"/admin/people/$C\"" "$W/page.html" || fail "the list does not link to the contact page"
+# The record is a page of its own now, so its tab strip is server-rendered and
+# the fields open on the contact's own.
+CODE=$(curl -s -o "$W/record.html" -w '%{http_code}' -b "$JAR" "$BASE/admin/people/$C")
+[ "$CODE" = 200 ] || fail "the contact page answered $CODE"
+grep -q "Contact details" "$W/record.html" || fail "no Contact details tab on the contact page"
+grep -q "record-body" "$W/record.html" || fail "the contact page renders as a drawer, not a page"
+pass "a contact opens as its own page, carrying the Contact details tab"
 
 # --- 10. who may read it ------------------------------------------------
 DEALERU=$(q "insert into auth.users (email, encrypted_password, email_confirmed_at, raw_app_meta_data)
@@ -477,5 +474,6 @@ pass "creating a contact is staff-only"
 mkdir -p "$W/shots"
 bash "$ROOT/scripts/e2e/shoot.sh" "$BASE" "$JAR" /admin/people/new "$W/shots/create-contact.png" 1440 2200 || true
 bash "$ROOT/scripts/e2e/shoot.sh" "$BASE" "$JAR" /admin/people "$W/shots/contacts.png" 1440 1100 || true
+bash "$ROOT/scripts/e2e/shoot.sh" "$BASE" "$JAR" "/admin/people/$C" "$W/shots/contact-record.png" 1440 1200 || true
 
 echo "CONTACT INTAKE CHECKS PASSED"
