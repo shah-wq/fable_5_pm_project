@@ -36,10 +36,12 @@
 do $$
 begin
   if to_regclass('public.leads') is null and to_regclass('public.deals') is null then
-    raise exception 'Run 20260803001900_dealer_portal.sql first — leads is the table this renames.';
+    raise exception 'Run 20260803001900_dealer_portal.sql first — leads is the table this renames.'
+      using hint = 'If that file refuses too, this database is behind by more than one module: run db/dist/catch-up-1.sql, then catch-up-2.sql, then catch-up-3.sql, each as its own execution. They carry everything from 001400 onwards and are safe on a database that already has some of it.';
   end if;
   if to_regclass('public.clients') is null then
-    raise exception 'Run 20260803000200_tables.sql first — clients is the person record this extends.';
+    raise exception 'Run 20260803000200_tables.sql first — clients is the person record this extends.'
+      using hint = 'If that file refuses too, this database is behind by more than one module: run db/dist/catch-up-1.sql, then catch-up-2.sql, then catch-up-3.sql, each as its own execution. They carry everything from 001400 onwards and are safe on a database that already has some of it.';
   end if;
 end
 $$;
@@ -55,7 +57,8 @@ begin
   if not exists (select 1 from pg_enum e
                   join pg_type t on t.oid = e.enumtypid
                  where t.typname = 'user_role' and e.enumlabel = 'sales') then
-    raise exception 'Run 20260803003300_add_sales_role.sql first, in its own script.';
+    raise exception 'Run 20260803003300_add_sales_role.sql first, in its own script.'
+      using hint = 'If that file refuses too, this database is behind by more than one module: run db/dist/catch-up-1.sql, then catch-up-2.sql, then catch-up-3.sql, each as its own execution. They carry everything from 001400 onwards and are safe on a database that already has some of it.';
   end if;
 end
 $$;
@@ -1067,7 +1070,8 @@ create trigger audit_touch_client after insert on public.audit_log
 do $$
 begin
   if to_regclass('public.deals') is null then
-    raise exception 'Run 20260803003400_crm_foundation.sql first — it creates deals.';
+    raise exception 'Run 20260803003400_crm_foundation.sql first — it creates deals.'
+      using hint = 'If that file refuses too, this database is behind by more than one module: run db/dist/catch-up-1.sql, then catch-up-2.sql, then catch-up-3.sql, each as its own execution. They carry everything from 001400 onwards and are safe on a database that already has some of it.';
   end if;
 end
 $$;
@@ -1579,7 +1583,8 @@ grant select on public.deals_needing_action to authenticated;
 do $$
 begin
   if to_regclass('public.deals') is null then
-    raise exception 'Run 20260803003400_crm_foundation.sql first — it creates deals.';
+    raise exception 'Run 20260803003400_crm_foundation.sql first — it creates deals.'
+      using hint = 'If that file refuses too, this database is behind by more than one module: run db/dist/catch-up-1.sql, then catch-up-2.sql, then catch-up-3.sql, each as its own execution. They carry everything from 001400 onwards and are safe on a database that already has some of it.';
   end if;
 end
 $$;
@@ -1896,12 +1901,14 @@ grant select on public.contact_intake to authenticated;
 do $$
 begin
   if to_regclass('public.deals') is null then
-    raise exception 'Run 20260803003400_crm_foundation.sql first — it creates deals.';
+    raise exception 'Run 20260803003400_crm_foundation.sql first — it creates deals.'
+      using hint = 'If that file refuses too, this database is behind by more than one module: run db/dist/catch-up-1.sql, then catch-up-2.sql, then catch-up-3.sql, each as its own execution. They carry everything from 001400 onwards and are safe on a database that already has some of it.';
   end if;
   if not exists (select 1 from information_schema.columns
                   where table_schema = 'public' and table_name = 'clients'
                     and column_name = 'mailing_street') then
-    raise exception 'Run 20260803003600_contact_intake.sql first — it adds the intake fields.';
+    raise exception 'Run 20260803003600_contact_intake.sql first — it adds the intake fields.'
+      using hint = 'If that file refuses too, this database is behind by more than one module: run db/dist/catch-up-1.sql, then catch-up-2.sql, then catch-up-3.sql, each as its own execution. They carry everything from 001400 onwards and are safe on a database that already has some of it.';
   end if;
 end
 $$;

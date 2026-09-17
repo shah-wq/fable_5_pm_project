@@ -44,7 +44,8 @@
 do $$
 begin
   if to_regclass('public.deals') is null then
-    raise exception 'Run 20260803003400_crm_foundation.sql first — it creates deals.';
+    raise exception 'Run 20260803003400_crm_foundation.sql first — it creates deals.'
+      using hint = 'If that file refuses too, this database is behind by more than one module: run db/dist/catch-up-1.sql, then catch-up-2.sql, then catch-up-3.sql, each as its own execution. They carry everything from 001400 onwards and are safe on a database that already has some of it.';
   end if;
 end
 $$;

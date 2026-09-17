@@ -27,10 +27,12 @@
 do $$
 begin
   if to_regclass('public.leads') is null and to_regclass('public.deals') is null then
-    raise exception 'Run 20260803001900_dealer_portal.sql first — leads is the table this renames.';
+    raise exception 'Run 20260803001900_dealer_portal.sql first — leads is the table this renames.'
+      using hint = 'If that file refuses too, this database is behind by more than one module: run db/dist/catch-up-1.sql, then catch-up-2.sql, then catch-up-3.sql, each as its own execution. They carry everything from 001400 onwards and are safe on a database that already has some of it.';
   end if;
   if to_regclass('public.clients') is null then
-    raise exception 'Run 20260803000200_tables.sql first — clients is the person record this extends.';
+    raise exception 'Run 20260803000200_tables.sql first — clients is the person record this extends.'
+      using hint = 'If that file refuses too, this database is behind by more than one module: run db/dist/catch-up-1.sql, then catch-up-2.sql, then catch-up-3.sql, each as its own execution. They carry everything from 001400 onwards and are safe on a database that already has some of it.';
   end if;
 end
 $$;
@@ -46,7 +48,8 @@ begin
   if not exists (select 1 from pg_enum e
                   join pg_type t on t.oid = e.enumtypid
                  where t.typname = 'user_role' and e.enumlabel = 'sales') then
-    raise exception 'Run 20260803003300_add_sales_role.sql first, in its own script.';
+    raise exception 'Run 20260803003300_add_sales_role.sql first, in its own script.'
+      using hint = 'If that file refuses too, this database is behind by more than one module: run db/dist/catch-up-1.sql, then catch-up-2.sql, then catch-up-3.sql, each as its own execution. They carry everything from 001400 onwards and are safe on a database that already has some of it.';
   end if;
 end
 $$;
