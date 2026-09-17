@@ -9,6 +9,7 @@ import {
   type DealColumn,
 } from '@/lib/deals/definitions';
 import type { DealCard } from '@/lib/deals/service';
+import { DealSolarDetails } from './DealSolarDetails';
 
 export interface RefLists {
   roofTypes: Array<{ id: string; name: string }>;
@@ -426,6 +427,18 @@ export function DealRecord({
             {`Probability ${deal.probability}% — from the stage`}
             {deal.probabilityIsOverride ? ', overridden by hand' : ''}.
           </p>
+        </div>
+      </details>
+
+      <details className="track-card">
+        <summary>
+          <span className="track-title">Solar details</span>
+          <span className="dim">
+            {' '}system, usage, price and the paperwork
+          </span>
+        </summary>
+        <div className="track-body wide-body">
+          <DealSolarDetails clientId={deal.clientId} dealId={deal.id} readOnly={terminal} />
         </div>
       </details>
 

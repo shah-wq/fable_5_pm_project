@@ -1,169 +1,87 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { IntakeForm, type IntakeDoc, type IntakeRefs, type IntakeValues } from '@/app/(app)/_components/IntakeForm';
-import type { IntakeField } from '@/lib/crm/intake';
-
-interface DealOption {
-  id: string;
-  code: string | null;
-  stage: string;
-  updated_at: string;
-}
+import { IntakeForm } from '@/app/(app)/_components/IntakeForm';
+import { useIntake } from '@/app/(app)/_components/useIntake';
+import { CONTACT_GROUPS } from '@/lib/crm/intake';
 
 /**
- * The intake tab on a contact: every field, against the deal being worked.
+ * The contact's own fields: who they are, where post goes, where they are in the
+ * pipeline, and the notes that travel with them.
  *
- * The deal picker at the top is the honest part. A person with one deal never
- * sees a choice; a person with two gets told which set of system details they
- * are looking at, because "System size 8.4 kW" is meaningless on a record that
- * covers two houses.
+ * The system, the price and the paperwork are not here. Those belong to a deal —
+ * a person with two properties has two of each — and they are edited on the deal
+ * record, under Solar details.
+ *
+ * A couple of the fields below (lead status, dealer code, the notes) are stored
+ * on the deal even though they are asked for here. The picker at the top says
+ * which deal, and only appears when there is more than one to be confused about.
  */
 export function ContactIntake({ clientId }: { clientId: string }) {
   const router = useRouter();
-  const [loading, setLoading] = useState(true);
-  const [values, setValues] = useState<IntakeValues>({});
-  const [refs, setRefs] = useState<IntakeRefs | null>(null);
-  const [docs, setDocs] = useState<IntakeDoc[]>([]);
-  const [deals, setDeals] = useState<DealOption[]>([]);
-  const [dealId, setDealId] = useState<string | null>(null);
-  const [dirty, setDirty] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+  const intake = useIntake(clientId);
 
-  async function load(deal?: string | null) {
-    setLoading(true);
-    try {
-      const res = await fetch(
-        `/api/customers/${clientId}/intake${deal ? `?deal=${deal}` : ''}`
-      );
-      const json = await res.json().catch(() => null);
-      if (!res.ok) {
-        setError(json?.error ?? `Could not load the contact (${res.status}).`);
-        return;
-      }
-      setValues(json.values ?? {});
-      setRefs(json.refs ?? null);
-      setDocs(json.documents ?? []);
-      setDeals(json.deals ?? []);
-      setDealId(json.dealId ?? null);
-      setDirty(false);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    void load();
-    // clientId is the only thing that should re-fetch from scratch.
-  }, [clientId]);
-
-  function change(field: IntakeField, value: unknown) {
-    setValues((v) => ({ ...v, [field.name]: value }));
-    setDirty(true);
-    setNotice(null);
-  }
-
-  async function save() {
-    setBusy(true);
-    setError(null);
-    try {
-      const res = await fetch(`/api/customers/${clientId}/intake`, {
-        method: 'PATCH',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ dealId, values }),
-      });
-      const json = await res.json().catch(() => null);
-      if (!res.ok) {
-        setError(json?.error ?? `Save failed (${res.status}).`);
-        return;
-      }
-      setDirty(false);
-      setNotice('Saved.');
-      router.refresh();
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function upload(category: string, files: FileList | null) {
-    if (!files || files.length === 0 || !dealId) return;
-    setError(null);
-    const body = new FormData();
-    body.append('category', category);
-    body.append('file', files[0]);
-    const res = await fetch(`/api/deals/${dealId}/documents`, { method: 'POST', body });
-    if (!res.ok) {
-      const json = await res.json().catch(() => null);
-      setError(json?.error ?? `Upload failed (${res.status}).`);
-      return;
-    }
-    await load(dealId);
-  }
-
-  async function removeDoc(id: string) {
-    if (!window.confirm('Remove this file? (Logged to the activity log.)')) return;
-    const res = await fetch(`/api/documents/${id}`, { method: 'DELETE' });
-    if (res.ok) await load(dealId);
-  }
-
-  if (loading) return <p className="dim">Loading…</p>;
+  if (intake.loading) return <p className="dim">Loading…</p>;
 
   return (
     <>
-      {error && (
+      {intake.error && (
         <p className="notice error" role="alert">
-          {error}
+          {intake.error}
         </p>
       )}
-      {notice && !dirty && <p className="notice ok">{notice}</p>}
+      {intake.notice && !intake.dirty && <p className="notice ok">{intake.notice}</p>}
 
-      {deals.length === 0 ? (
+      {intake.deals.length === 0 ? (
         <p className="notice">
-          The system, price and document fields belong to a deal, and this person has none yet.
-          Create one from the Deals board and they will fill in here.
+          Lead status and the dealer notes belong to a deal, and this person has none yet. Create
+          one from the Deals board and they will fill in here.
         </p>
-      ) : deals.length > 1 ? (
+      ) : intake.deals.length > 1 ? (
         <label className="field">
           <span>Which deal</span>
           <select
-            value={dealId ?? ''}
+            value={intake.dealId ?? ''}
             onChange={(e) => {
-              setDealId(e.target.value);
-              void load(e.target.value);
+              intake.setDealId(e.target.value);
+              void intake.load(e.target.value);
             }}
           >
-            {deals.map((d) => (
+            {intake.deals.map((d) => (
               <option key={d.id} value={d.id}>
                 {`${d.code ?? d.id.slice(0, 8)} · ${d.stage.replaceAll('_', ' ')} · updated ${d.updated_at.slice(0, 10)}`}
               </option>
             ))}
           </select>
           <em className="field-note">
-            This person has {deals.length} deals. The system and price fields below belong to the
-            one selected here.
+            This person has {intake.deals.length} deals. The status and dealer fields below belong
+            to the one selected here.
           </em>
         </label>
       ) : null}
 
-      {refs && (
+      {intake.refs && (
         <IntakeForm
-          values={values}
-          refs={refs}
-          documents={docs}
-          dealId={dealId}
-          onChange={change}
-          onUpload={upload}
-          onRemoveDoc={removeDoc}
+          groups={CONTACT_GROUPS}
+          values={intake.values}
+          refs={intake.refs}
+          documents={intake.documents}
+          dealId={intake.dealId}
+          onChange={intake.change}
+          onUpload={intake.upload}
+          onRemoveDoc={intake.removeDoc}
         />
       )}
 
       <div className="save-bar">
-        {dirty && <span className="save-dirty">Unsaved changes</span>}
-        <button className="btn" type="button" disabled={busy || !dirty} onClick={() => void save()}>
-          {busy ? 'Saving…' : 'Save'}
+        {intake.dirty && <span className="save-dirty">Unsaved changes</span>}
+        <button
+          className="btn"
+          type="button"
+          disabled={intake.busy || !intake.dirty}
+          onClick={() => void intake.save(() => router.refresh())}
+        >
+          {intake.busy ? 'Saving…' : 'Save'}
         </button>
       </div>
     </>

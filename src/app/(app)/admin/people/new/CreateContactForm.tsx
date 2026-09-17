@@ -22,10 +22,14 @@ interface Duplicate {
  * three fields it does insist on are the ones that make the record findable: a
  * surname, and a way to reach them.
  *
- * The system, price and paperwork answers go onto a deal created alongside the
- * person, because those are true of an opportunity rather than of a human being.
- * A contact typed in from a business card gets no deal at all — an empty
- * opportunity on the board and in the forecast is worse than no opportunity.
+ * A few of the fields here — lead status, the dealer code, the sales notes —
+ * live on a deal rather than on the person, so filling any of them in creates
+ * the first deal alongside the contact. A contact typed in from a business card
+ * gets no deal at all: an empty opportunity on the board and in the forecast is
+ * worse than no opportunity.
+ *
+ * The system, the usage and the price are not asked for here at all. They belong
+ * to an opportunity, and they are edited on the deal record under Solar details.
  */
 export function CreateContactForm({
   refs,
@@ -159,7 +163,7 @@ export function CreateContactForm({
         {INTAKE_REQUIRED.length > 0 && (
           <>
             Fields marked <b className="req">*</b> are needed to save. Everything else can be filled
-            in later from the contact’s Solar details tab.
+            in later from the contact’s own record.
           </>
         )}
       </p>

@@ -63,80 +63,93 @@ curl -s -o /dev/null -c "$JAR" -H 'content-type: application/json' \
   -d '{"email":"admin@in.test","password":"Password1234!","door":"staff"}' "$BASE/api/auth/login"
 
 # --- 1. every field on the list is in the registry ---------------------
-python3 - <<'PY'
-import json, pathlib, re, subprocess, sys
+python3 - <<'CHECK'
+import pathlib, re
 
-# The business list, verbatim, mapped to the field the product calls it.
-WANTED = {
+# The list the business asked for on the Contact form, verbatim, mapped to the
+# field the product calls it. Nothing else may appear there.
+CONTACT = {
   'Contact Owner': 'owner_id',
+  'Salutation': 'salutation',
   'First Name': 'first_name',
   'Last Name': 'last_name',
   'Email': 'email',
   'Phone': 'phone',
+  'Mobile': 'alternate_phone',
+  "Owner's Phone number": 'owner_phone',
   'Lead Source': 'source_id',
   'Dealer Name': 'dealer_id',
-  'System Size (KW)': 'system_size_kw',
-  'Module Quantity': 'module_quantity',
-  'Updated Solar Proposal': 'solar_proposal',
-  'Number of Batteries': 'battery_qty',
-  'Battery Size': 'battery_size_kwh',
-  'Updated Electricity Bill (Front)': 'electricity_bill_front',
-  'Updated Electricity Bill (Back)': 'electricity_bill_back',
-  'HOA': 'hoa',
-  'Okay to Install Comparable Module & Inverter Brand': 'comparable_brand_ok',
-  'Financing Company': 'financing_company_id',
-  'Enter System Price': 'gross_price',
+  'Consultant': 'consultant',
   'Created By': 'created_by_name',
-  'Wave sales notes': 'wave_sales_notes',
-  'Annual kw Usage': 'annual_usage_kwh',
-  'Additional Information': 'additional_information',
-  'Dealer Code Form': 'dealer_code_form',
-  'System Includes Battery?': 'includes_battery',
-  'Estimated Annual Production (kwh)': 'production_estimate_kwh',
-  'Lead Status': 'stage',
-  'Reschedule Reason': 'reschedule_reason',
-  'Lost Reason': 'lost_reason_id',
-  'Inverter Brand Size': 'inverter_size_kw',
-  'Rooftop/ Ground Mount': 'mount_type',
-  'Module Brand': 'module_id',
-  'Module Wattage': 'module_wattage',
-  'Updated Signed Solar Installation Agreement': 'signed_installation_agreement',
-  'Updated Electrical Panel': 'electrical_panel',
-  'Updated Electrical Meter': 'electrical_meter',
-  'Battery Brand': 'battery_id',
-  'Average Pre-Solar Monthly Electric Bill': 'avg_monthly_bill',
-  'Electric Utility': 'utility_id',
-  'Amount': 'contract_value',
-  'Down Payment': 'down_payment',
-  'Amount Financed': 'amount_financed',
-  'Financed or Cash?': 'financing_route',
-  "Owner's Phone number": 'owner_phone',
-  'Electric bill': 'electric_bill',
+  'Description': 'description',
   'Mailing Street': 'mailing_street',
   'Mailing City': 'mailing_city',
   'Mailing State': 'mailing_state',
   'Mailing Zip': 'mailing_postal_code',
   'Mailing Country': 'mailing_country',
-  'Description': 'description',
-  # The fields the Create Contact layout adds to that list.
-  'Salutation': 'salutation',
-  'Secondary Email': 'secondary_email',
-  'Mobile': 'alternate_phone',
-  'Consultant': 'consultant',
-  'Original Source': 'original_source',
-  'UTM Campaign Source': 'utm_source',
-  'UTM Campaign Medium': 'utm_medium',
-  'UTM Campaign Name': 'utm_campaign',
+  'Lead Status': 'stage',
+  'Lost Reason': 'lost_reason_id',
+  'Reschedule Reason': 'reschedule_reason',
+  'Dealer Code': 'dealer_code',
+  'Wave sales notes': 'wave_sales_notes',
+  'Additional Information': 'additional_information',
+}
+
+# The rest of the original fifty. They are not gone — they moved to the deal,
+# which is the thing they are actually true of.
+DEAL = {
+  'System Size (KW)': 'system_size_kw',
+  'Module Brand': 'module_id',
+  'Module Quantity': 'module_quantity',
+  'Module Wattage': 'module_wattage',
+  'Inverter Brand Size': 'inverter_size_kw',
+  'Number of Batteries': 'battery_qty',
+  'Battery Size': 'battery_size_kwh',
+  'Battery Brand': 'battery_id',
+  'System Includes Battery?': 'includes_battery',
+  'Rooftop/ Ground Mount': 'mount_type',
+  'HOA': 'hoa',
+  'Okay to Install Comparable Module & Inverter Brand': 'comparable_brand_ok',
+  'Electric Utility': 'utility_id',
+  'Average Pre-Solar Monthly Electric Bill': 'avg_monthly_bill',
+  'Annual kw Usage': 'annual_usage_kwh',
+  'Estimated Annual Production (kwh)': 'production_estimate_kwh',
+  'Enter System Price': 'gross_price',
+  'Amount': 'contract_value',
+  'Down Payment': 'down_payment',
+  'Amount Financed': 'amount_financed',
+  'Financed or Cash?': 'financing_route',
+  'Financing Company': 'financing_company_id',
+  'Updated Solar Proposal': 'solar_proposal',
+  'Updated Signed Solar Installation Agreement': 'signed_installation_agreement',
+  'Updated Electricity Bill (Front)': 'electricity_bill_front',
+  'Updated Electricity Bill (Back)': 'electricity_bill_back',
+  'Electric bill': 'electric_bill',
+  'Updated Electrical Panel': 'electrical_panel',
+  'Updated Electrical Meter': 'electrical_meter',
+  'Dealer Code Form': 'dealer_code_form',
 }
 
 src = pathlib.Path('/home/user/fable_5_pm_project/src/lib/crm/intake.ts').read_text()
-present = set(re.findall(r"name:\s*'([a-z_]+)'", src))
-missing = {label: field for label, field in WANTED.items() if field not in present}
-assert not missing, 'fields on the business list with no entry in the registry:\n  ' + \
-    '\n  '.join(f'{k} → {v}' for k, v in missing.items())
-print(f'REGISTRY-OK ({len(WANTED)} requested fields, all present)')
-PY
-pass "every field on the business list exists in the intake registry"
+half = src.index('DEAL_DETAIL_GROUPS')
+names = lambda text: set(re.findall(r"name:\s*'([a-z_]+)'", text))
+contact_side = names(src[:half])
+deal_side = names(src[half:])
+
+missing = {k: v for k, v in CONTACT.items() if v not in contact_side}
+assert not missing, 'asked for on the contact, not there:\n  ' + \
+    '\n  '.join(f'{k} -> {v}' for k, v in missing.items())
+
+strays = contact_side - set(CONTACT.values())
+assert not strays, 'on the contact form but not on the list: ' + ', '.join(sorted(strays))
+
+missing = {k: v for k, v in DEAL.items() if v not in deal_side}
+assert not missing, 'dropped entirely rather than moved to the deal:\n  ' + \
+    '\n  '.join(f'{k} -> {v}' for k, v in missing.items())
+
+print(f'REGISTRY-OK (contact {len(CONTACT)} fields exactly, deal {len(DEAL)} fields)')
+CHECK
+pass "the contact form is exactly the list asked for, and the rest live on the deal"
 
 # --- 2. the tab loads, with the reference lists -------------------------
 R=$(curl -s -b "$JAR" "$BASE/api/customers/$C/intake")
@@ -243,7 +256,7 @@ python3 - <<'PY'
 import pathlib
 src = pathlib.Path('/home/user/fable_5_pm_project/src/app/(app)/admin/people/ContactIntake.tsx').read_text()
 assert 'Which deal' in src, 'no deal picker for a person with two deals'
-assert 'belong to the' in src, 'the screen does not say which deal the fields belong to'
+assert 'selected here' in src, 'the screen does not say which deal the fields belong to'
 print('PICKER-OK')
 PY
 pass "a person with two deals gets a picker, and the screen says which one the fields belong to"
@@ -271,10 +284,10 @@ CHUNKS=$(grep -o '/_next/static/chunks/[^"\\]*\.js' "$W/page.html" | sort -u)
 [ -n "$CHUNKS" ] || fail "the People screen loaded no JavaScript at all"
 FOUND=no
 for u in $CHUNKS; do
-  curl -s -b "$JAR" "$BASE$u" | grep -q "Solar details" && { FOUND=yes; break; }
+  curl -s -b "$JAR" "$BASE$u" | grep -q "Contact details" && { FOUND=yes; break; }
 done
-[ "$FOUND" = yes ] || fail "the Solar details tab is not in the code the People screen loads"
-pass "the contact record carries a Solar details tab"
+[ "$FOUND" = yes ] || fail "the Contact details tab is not in the code the People screen loads"
+pass "the contact record carries a Contact details tab"
 
 # --- 10. who may read it ------------------------------------------------
 DEALERU=$(q "insert into auth.users (email, encrypted_password, email_confirmed_at, raw_app_meta_data)
@@ -310,77 +323,110 @@ pass "Contacts opens on everybody and offers Create Contact"
 # --- 12. the create page renders the whole form ------------------------
 CODE=$(curl -s -o "$W/new.html" -w '%{http_code}' -b "$JAR" "$BASE/admin/people/new")
 [ "$CODE" = 200 ] || fail "the create page answered $CODE"
-for label in "Contact owner" "Last name" "Salutation" "Secondary email" "Mobile" "Consultant" \
-             "UTM campaign source" "Mailing street" "Lead status" "System size (kW)" \
-             "Module quantity" "Down payment" "Dealer code" "Updated solar proposal"; do
+for label in "Contact owner" "Salutation" "First name" "Last name" "Email" "Phone" "Mobile" \
+             "Owner&#x27;s phone number" "Lead source" "Dealer name" "Consultant" "Created by" \
+             "Description" "Mailing street" "Mailing city" "Mailing state" "Mailing ZIP" \
+             "Mailing country" "Lead status" "Lost reason" "Reschedule reason" "Dealer code" \
+             "Wave sales notes" "Additional information"; do
   grep -qi "$label" "$W/new.html" || fail "the create page is missing the $label field"
 done
+# And nothing else: the system, the money and the paperwork live on the deal.
+for label in "System size" "Module quantity" "Battery size" "Down payment" "Amount financed" \
+             "Updated solar proposal" "Electric utility" "Secondary email" "UTM campaign"; do
+  if grep -qi "$label" "$W/new.html"; then
+    fail "the create page still asks for $label, which belongs to the deal"
+  fi
+done
 grep -q "Save and New" "$W/new.html" || fail "no Save and New on the create page"
-grep -qi "Save the contact first" "$W/new.html" \
-  || fail "the create page does not say why the uploads wait"
 # On a database that has everything, no catch-up warning.
 if grep -qi "has not caught up" "$W/new.html"; then
   fail "the create page claims the database is behind when it is not"
 fi
-pass "Create Contact renders every field, with the uploads honest about waiting"
+pass "Create Contact renders the asked-for fields and nothing else"
 
 # --- 13. a person with nothing to sell is a person, not a deal ---------
 CODE=$(curl -s -o "$W/c1.json" -w '%{http_code}' -X POST -b "$JAR" -H 'content-type: application/json' \
   -d '{"values":{"salutation":"Ms.","first_name":"Cora","last_name":"Card",
-       "email":"CORA@in.test","phone":"512-555-0300","consultant":"Ray Sunshine",
-       "original_source":"Trade show","utm_source":"google","utm_medium":"cpc",
-       "utm_campaign":"spring-24","description":"Met at the home show"}}' \
+       "email":"CORA@in.test","phone":"512-555-0300","alternate_phone":"512-555-0301",
+       "consultant":"Ray Sunshine","description":"Met at the home show",
+       "stage":"new"}}' \
   "$BASE/api/contacts")
 [ "$CODE" = 201 ] || fail "creating a plain contact answered $CODE: $(cat "$W/c1.json")"
 C1=$(python3 -c "import json;print(json.load(open('$W/c1.json'))['clientId'])")
-ROW=$(q "select salutation || '|' || email || '|' || consultant || '|' || original_source || '|' ||
-         utm_source || '|' || utm_medium || '|' || utm_campaign
+ROW=$(q "select salutation || '|' || email || '|' || consultant || '|' || alternate_phone
          from public.clients where id = '$C1'")
-[ "$ROW" = "Ms.|cora@in.test|Ray Sunshine|Trade show|google|cpc|spring-24" ] \
+[ "$ROW" = "Ms.|cora@in.test|Ray Sunshine|512-555-0301" ] \
   || fail "the new contact's fields did not save ($ROW)"
+# Lead status New on its own is the absence of an answer, not an opportunity.
 [ "$(q "select count(*) from public.deals where client_id = '$C1'")" = 0 ] \
-  || fail "a contact with no system details invented a deal"
+  || fail "a contact typed in from a business card invented a deal on the board"
 [ "$(q "select created_by from public.clients where id='$C1'")" = "$AID" ] \
   || fail "created_by was not recorded by the create route"
-[ "$(q "select count(*) from public.client_channels where client_id='$C1'")" = 2 ] \
-  || fail "the new contact's email and phone were not recorded as channels"
-pass "a contact with no system details is created as a person, with no phantom deal"
+[ "$(q "select count(*) from public.client_channels where client_id='$C1'")" = 3 ] \
+  || fail "the new contact's email and phones were not recorded as channels"
+pass "a contact with nothing to sell is created as a person, with no phantom deal"
 
-# --- 14. the whole form at once creates the person and the deal --------
+# --- 14. the contact form's own deal fields make the first deal --------
 CODE=$(curl -s -o "$W/c2.json" -w '%{http_code}' -X POST -b "$JAR" -H 'content-type: application/json' \
   -d "{\"values\":{\"first_name\":\"Sol\",\"last_name\":\"Seeker\",
        \"email\":\"sol@in.test\",\"phone\":\"512-555-0400\",
-       \"secondary_email\":\"sol.work@in.test\",\"alternate_phone\":\"512-555-0401\",
        \"owner_id\":\"$AID\",\"dealer_id\":\"$D\",\"source_id\":\"$SRC\",
        \"mailing_street\":\"9 Ray Road\",\"mailing_city\":\"Austin\",\"mailing_state\":\"TX\",
-       \"stage\":\"qualified\",\"system_size_kw\":9.6,\"module_id\":\"$MOD\",
+       \"mailing_postal_code\":\"78702\",\"mailing_country\":\"USA\",
+       \"stage\":\"qualified\",\"dealer_code\":\"HEL-7\",
+       \"wave_sales_notes\":\"Wants the battery quoted separately\",
+       \"additional_information\":\"Gate code 4412\",
+       \"reschedule_reason\":\"Surveyor van broke down\"}}" "$BASE/api/contacts")
+[ "$CODE" = 201 ] || fail "creating a full contact answered $CODE: $(cat "$W/c2.json")"
+C2=$(python3 -c "import json;print(json.load(open('$W/c2.json'))['clientId'])")
+D2=$(python3 -c "import json;print(json.load(open('$W/c2.json'))['dealId'] or '')")
+[ -n "$D2" ] || fail "the status and dealer fields did not make a deal"
+ROW=$(q "select stage || '|' || dealer_code || '|' || wave_sales_notes || '|' ||
+         additional_information || '|' || reschedule_reason || '|' || client_id
+         from public.deals where id = '$D2'")
+[ "$ROW" = "qualified|HEL-7|Wants the battery quoted separately|Gate code 4412|Surveyor van broke down|$C2" ] \
+  || fail "the deal made alongside the contact is wrong ($ROW)"
+# The person's half went to clients, not onto the deal.
+ROW=$(q "select mailing_city || '|' || mailing_postal_code || '|' || mailing_address
+         from public.clients where id = '$C2'")
+[ "$ROW" = "Austin|78702|9 Ray Road, Austin, TX, 78702, USA" ] \
+  || fail "the mailing address did not land on the person ($ROW)"
+# And the whole thing reads back through the contact's own screen.
+R=$(curl -s -b "$JAR" "$BASE/api/customers/$C2/intake")
+grep -q '"stage":"qualified"' <<<"$R" || fail "the new deal is not on the contact: $R"
+grep -q '"dealer_code":"HEL-7"' <<<"$R" || fail "the dealer code is not on the contact: $R"
+pass "one Create Contact makes the person and their deal, each field on its own table"
+
+# --- 14b. the solar fields, on the deal where they now live ------------
+CODE=$(curl -s -o "$W/deal.html" -w '%{http_code}' -b "$JAR" "$BASE/deals/$D2")
+[ "$CODE" = 200 ] || fail "the deal record answered $CODE"
+grep -q "Solar details" "$W/deal.html" || fail "the deal record has no Solar details panel"
+# The panel saves through the same endpoint the contact uses, against this deal.
+CODE=$(curl -s -o "$W/ds.json" -w '%{http_code}' -X PATCH -b "$JAR" -H 'content-type: application/json' \
+  -d "{\"dealId\":\"$D2\",\"values\":{\"system_size_kw\":9.6,\"module_id\":\"$MOD\",
        \"module_quantity\":24,\"module_wattage\":400,\"battery_qty\":1,
        \"battery_size_kwh\":13.5,\"hoa\":\"unknown\",\"mount_type\":\"ground\",
        \"comparable_brand_ok\":false,\"gross_price\":36000,\"down_payment\":3000,
        \"amount_financed\":33000,\"financing_route\":\"loan\",
        \"financing_company_id\":\"$FIN\",\"utility_id\":\"$UTIL\",
-       \"dealer_code\":\"HEL-7\"}}" "$BASE/api/contacts")
-[ "$CODE" = 201 ] || fail "creating a full contact answered $CODE: $(cat "$W/c2.json")"
-C2=$(python3 -c "import json;print(json.load(open('$W/c2.json'))['clientId'])")
-D2=$(python3 -c "import json;print(json.load(open('$W/c2.json'))['dealId'] or '')")
-[ -n "$D2" ] || fail "the system details did not make a deal"
-ROW=$(q "select stage || '|' || system_size_kw || '|' || module_quantity || '|' ||
-         battery_qty || '|' || hoa || '|' || mount_type || '|' || comparable_brand_ok || '|' ||
-         includes_battery || '|' || gross_price || '|' || down_payment || '|' ||
-         financing_route || '|' || client_id
+       \"annual_usage_kwh\":15200,\"production_estimate_kwh\":13100}}" \
+  "$BASE/api/customers/$C2/intake")
+[ "$CODE" = 200 ] || fail "saving the deal's solar details answered $CODE: $(cat "$W/ds.json")"
+ROW=$(q "select system_size_kw || '|' || module_quantity || '|' || module_wattage || '|' ||
+         battery_qty || '|' || battery_size_kwh || '|' || includes_battery || '|' ||
+         hoa || '|' || mount_type || '|' || comparable_brand_ok || '|' ||
+         gross_price || '|' || down_payment || '|' || amount_financed || '|' ||
+         annual_usage_kwh || '|' || production_estimate_kwh
          from public.deals where id = '$D2'")
-[ "$ROW" = "qualified|9.600|24|1|unknown|ground|false|true|36000.00|3000.00|loan|$C2" ] \
-  || fail "the deal made alongside the contact is wrong ($ROW)"
-[ "$(q "select secondary_email from public.clients where id='$C2'")" = "sol.work@in.test" ] \
-  || fail "the secondary email did not save"
-# The person's half went to clients, not onto the deal.
-[ "$(q "select mailing_city from public.clients where id='$C2'")" = Austin ] \
-  || fail "the mailing address did not land on the person"
-# And the whole thing reads back through the contact's own screen.
-R=$(curl -s -b "$JAR" "$BASE/api/customers/$C2/intake")
-grep -q '"stage":"qualified"' <<<"$R" || fail "the new deal is not on the contact: $R"
-grep -q '"module_quantity":24' <<<"$R" || fail "the system details are not on the contact: $R"
-pass "one Create Contact makes the person and their deal, each field on its own table"
+[ "$ROW" = "9.600|24|400|1|13.50|true|unknown|ground|false|36000.00|3000.00|33000.00|15200|13100" ] \
+  || fail "the deal's solar details did not save ($ROW)"
+# The documents go here too, not on the contact.
+printf 'a proposal' > "$W/p2.pdf"
+CODE=$(curl -s -o /dev/null -w '%{http_code}' -X POST -b "$JAR" \
+  -F 'category=solar_proposal' -F "file=@$W/p2.pdf;type=application/pdf" \
+  "$BASE/api/deals/$D2/documents")
+[ "$CODE" = 201 ] || fail "uploading against the deal answered $CODE"
+pass "the system, the money and the paperwork are edited on the deal"
 
 # --- 15. what it insists on ---------------------------------------------
 CODE=$(curl -s -o "$W/bad.json" -w '%{http_code}' -X POST -b "$JAR" -H 'content-type: application/json' \

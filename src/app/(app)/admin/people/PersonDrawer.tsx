@@ -176,7 +176,7 @@ export function PersonDrawer({
                 onClick={() => setTab(t)}
               >
                 {t === 'details' ? 'Details'
-                  : t === 'intake' ? 'Solar details'
+                  : t === 'intake' ? 'Contact details'
                   : t === 'projects' ? `Projects (${customer.projectCount})`
                   : t === 'deals' ? 'Deals'
                   : t === 'subscriptions' ? 'Subscriptions'

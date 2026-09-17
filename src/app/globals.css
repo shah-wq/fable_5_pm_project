@@ -5224,6 +5224,11 @@ a {
   color: var(--ink);
 }
 
+/* A panel that holds a whole form of its own rather than a row of fields. */
+.track-body.wide-body {
+  display: block;
+}
+
 /* A heading with its one action on the right. */
 .section-head {
   display: flex;

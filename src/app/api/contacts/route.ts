@@ -76,6 +76,15 @@ export async function POST(request: Request) {
 
   const person = pick('client', incoming);
   const deal = pick('deal', incoming);
+
+  // The form always carries a lead status, because the dropdown has to show
+  // something. A status of New on its own is the absence of an answer, not an
+  // opportunity — so it does not, by itself, conjure a deal onto the board. Any
+  // other status, or any other deal field filled in, does.
+  const dealKeys = Object.keys(deal);
+  if (dealKeys.length === 0 || (dealKeys.length === 1 && deal.stage === 'new')) {
+    for (const key of dealKeys) delete deal[key];
+  }
   const email = typeof person.email === 'string' ? person.email.trim().toLowerCase() : null;
   const phone = typeof person.phone === 'string' ? person.phone.trim() : null;
   if (email) person.email = email;

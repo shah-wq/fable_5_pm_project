@@ -2,8 +2,9 @@
 
 import { useState } from 'react';
 import {
-  INTAKE_GROUPS,
+  CONTACT_GROUPS,
   type IntakeField,
+  type IntakeGroup,
   type IntakeRefKey,
 } from '@/lib/crm/intake';
 
@@ -32,6 +33,7 @@ export function IntakeForm({
   documents,
   dealId,
   disabled,
+  groups = CONTACT_GROUPS,
   mode = 'record',
   missing,
   onChange,
@@ -43,6 +45,11 @@ export function IntakeForm({
   documents: IntakeDoc[];
   dealId: string | null;
   disabled?: boolean;
+  /**
+   * Which half to draw: the contact's fields, or the deal's. One component, two
+   * screens, one definition behind both.
+   */
+  groups?: IntakeGroup[];
   /**
    * 'create' is the same form before anything exists: a couple of recorded
    * fields become editable for their one settable moment, and the uploads say
@@ -232,7 +239,7 @@ export function IntakeForm({
 
   return (
     <div className="stage-form">
-      {INTAKE_GROUPS.map((group) => (
+      {groups.map((group) => (
         <details className="track-card" key={group.key} open>
           <summary>
             <span className="track-title">{group.title}</span>

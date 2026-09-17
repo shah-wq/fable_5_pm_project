@@ -73,7 +73,7 @@ const YES_NO_UNKNOWN = [
   { value: 'unknown', label: 'Not asked yet' },
 ];
 
-export const INTAKE_GROUPS: IntakeGroup[] = [
+export const CONTACT_GROUPS: IntakeGroup[] = [
   {
     key: 'contact',
     title: 'Contact',
@@ -102,7 +102,6 @@ export const INTAKE_GROUPS: IntakeGroup[] = [
         required: true,
         note: 'Email or phone — at least one, so somebody can be reached.',
       },
-      { name: 'secondary_email', label: 'Secondary email', type: 'email', on: 'client' },
       { name: 'phone', label: 'Phone', type: 'phone', on: 'client', required: true },
       {
         name: 'alternate_phone',
@@ -145,18 +144,6 @@ export const INTAKE_GROUPS: IntakeGroup[] = [
     ],
   },
   {
-    key: 'attribution',
-    title: 'Campaign attribution',
-    blurb:
-      'What the enquiry arrived with. Lead source above is the tidy internal list; these are the raw values, and they are what a marketing spend report has to reconcile against.',
-    fields: [
-      { name: 'original_source', label: 'Original source', type: 'text', on: 'client' },
-      { name: 'utm_source', label: 'UTM campaign source', type: 'text', on: 'client' },
-      { name: 'utm_medium', label: 'UTM campaign medium', type: 'text', on: 'client' },
-      { name: 'utm_campaign', label: 'UTM campaign name', type: 'text', on: 'client' },
-    ],
-  },
-  {
     key: 'mailing',
     title: 'Mailing address',
     blurb: 'Where post goes, when that is not the property being quoted.',
@@ -192,6 +179,26 @@ export const INTAKE_GROUPS: IntakeGroup[] = [
       { name: 'reschedule_reason', label: 'Reschedule reason', type: 'text', on: 'deal' },
     ],
   },
+  {
+    key: 'dealer',
+    title: 'Dealer and notes',
+    fields: [
+      { name: 'dealer_code', label: 'Dealer code', type: 'text', on: 'deal' },
+      { name: 'wave_sales_notes', label: 'Wave sales notes', type: 'textarea', on: 'deal' },
+      { name: 'additional_information', label: 'Additional information', type: 'textarea', on: 'deal' },
+    ],
+  },
+];
+
+/**
+ * The other half: what is true of one opportunity rather than of a person.
+ *
+ * These live on the deal record. They were on the contact for a while and came
+ * back off it — a screen for filing a phone number should not ask for a module
+ * wattage, and a person with two properties has two answers to every question
+ * here anyway.
+ */
+export const DEAL_DETAIL_GROUPS: IntakeGroup[] = [
   {
     key: 'system',
     title: 'System',
@@ -284,15 +291,6 @@ export const INTAKE_GROUPS: IntakeGroup[] = [
     ],
   },
   {
-    key: 'dealer',
-    title: 'Dealer and notes',
-    fields: [
-      { name: 'dealer_code', label: 'Dealer code', type: 'text', on: 'deal' },
-      { name: 'wave_sales_notes', label: 'Wave sales notes', type: 'textarea', on: 'deal' },
-      { name: 'additional_information', label: 'Additional information', type: 'textarea', on: 'deal' },
-    ],
-  },
-  {
     key: 'documents',
     title: 'Documents',
     blurb:
@@ -314,6 +312,9 @@ export const INTAKE_GROUPS: IntakeGroup[] = [
     ],
   },
 ];
+
+/** Both halves, for the allowlists the API writes through. */
+export const INTAKE_GROUPS: IntakeGroup[] = [...CONTACT_GROUPS, ...DEAL_DETAIL_GROUPS];
 
 /** Every document category the intake form can hold. */
 export const INTAKE_DOCUMENT_CATEGORIES: string[] = INTAKE_GROUPS.flatMap((g) =>
@@ -344,6 +345,6 @@ export function intakeCreateColumns(owner: IntakeOwner): IntakeField[] {
 }
 
 /** Everything the form marks with a red rule, in the order it is asked. */
-export const INTAKE_REQUIRED: IntakeField[] = INTAKE_GROUPS.flatMap((g) =>
+export const INTAKE_REQUIRED: IntakeField[] = CONTACT_GROUPS.flatMap((g) =>
   g.fields.filter((f) => f.required)
 );
