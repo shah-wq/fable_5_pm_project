@@ -30,6 +30,33 @@ export async function GET() {
     NEXT_PUBLIC_SITE_URL: Boolean(process.env.NEXT_PUBLIC_SITE_URL),
   };
 
+  /**
+   * Which server this deployment is talking to, in a form that identifies it
+   * without handing anybody a way in.
+   *
+   * A hosted Postgres with branches gives every branch the same database name
+   * and the same role, so `current_database()` and `current_user` are identical
+   * across all of them. The only thing that differs is the host — which means a
+   * paste that lands in the wrong branch is invisible from both ends: the SQL
+   * console says the table is there, the application says it is not, and both
+   * are telling the truth about different servers.
+   *
+   * This endpoint is public, so the host is not printed. The first label of it —
+   * the endpoint id — has its middle masked, leaving enough to match against the
+   * branch list in the provider's dashboard and not enough to be a connection
+   * string.
+   */
+  let endpoint: string | null = null;
+  if (process.env.DATABASE_URL) {
+    try {
+      const host = new URL(process.env.DATABASE_URL).hostname;
+      const id = host.split('.')[0];
+      endpoint = id.length > 12 ? `${id.slice(0, 3)}****${id.slice(-8)}` : '****';
+    } catch {
+      endpoint = 'unparseable';
+    }
+  }
+
   let database = 'skipped: DATABASE_URL missing';
   let migrations: unknown = null;
   if (env.DATABASE_URL) {
@@ -66,6 +93,7 @@ export async function GET() {
       build,
       env,
       database,
+      endpoint,
       migrations,
       email: env.SMTP_HOST ? 'smtp configured' : 'no SMTP — dev-logging only',
       node: process.version,
