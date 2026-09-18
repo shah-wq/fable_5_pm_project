@@ -8,13 +8,26 @@ asks each connected integration for the resources it owes the deployment, one of
 them refuses, and the deployment is marked failed having never run `next build`.
 The integration doing the refusing here is Neon.
 
-The Neon–Vercel integration is normally set to create a **database branch per
-deployment**, so every preview gets its own copy of the data. Neon's free plan
-caps how many branches a project may have. Once the cap is reached the next
-request for a branch is refused, and from that moment on *every* deployment fails
-at provisioning — including production, which does not even need a new branch.
-Nothing recovers on its own, because the branches from failed deployments are not
-always cleaned up, so the cap stays reached.
+The step that fails is named in the deployment log: **`Create database branch for
+deployment`**, under Provisioning Integrations. The integration is set to cut a
+database branch per deployment, production included, and Neon does not give it
+one. Expand that row and follow the ↗ link for Neon's own words; the plausible
+reasons, none of which can be told apart from the Vercel side, are:
+
+- the branch limit on the plan has been reached — likely if the failure began
+  after a run of deployments, since branches from failed ones are not always
+  cleaned up, so the cap stays reached and nothing recovers on its own
+- the Neon project is suspended, or out of compute hours on the free tier
+- the API credentials the integration holds have been revoked
+
+A long duration on the step before it fails — minutes rather than seconds —
+points at the first two rather than the third, which refuses immediately.
+
+What it is *not*: the **Needs Attention** badges on the integration's variables in
+Vercel. Those say a variable holds a secret but is stored as a plain Config value
+readable by anyone with project access. That is worth fixing (see below), but it
+is a storage-type advisory, not an error, and it has no bearing on provisioning.
+"Rotate Neon Secrets" does not address this failure.
 
 ### The permanent fix: stop letting the integration own the database
 
@@ -36,7 +49,7 @@ holding it:
    Neon project or its branches — that is the actual database.
 3. **Vercel → Project → Settings → Environment Variables**, add for Production,
    Preview and Development:
-   - `DATABASE_URL` = the pooled string from step 1
+   - `DATABASE_URL` = the pooled string from step 1, marked **Sensitive**
    - `DATABASE_SSL` = `require`
 4. **Deployments → the most recent one → Redeploy**, with "Use existing build
    cache" *off*.
@@ -44,6 +57,24 @@ holding it:
 Vercel now has no integration to provision, the build runs, and the app connects
 to the same database it was connecting to before — the data is untouched by any
 of this.
+
+It also settles the **Needs Attention** advisory, for the same reason and in the
+same move. A variable an integration owns cannot be marked sensitive — the
+integration sets it, as a Config value, and resets it whenever it likes. One set
+by hand can be, so its value stops being readable by everyone with access to the
+project. The integration was publishing eighteen variables, nine of them carrying
+the database password in one encoding or another: `DATABASE_URL`,
+`DATABASE_URL_UNPOOLED`, `PGPASSWORD`, `POSTGRES_PASSWORD`, `POSTGRES_URL`,
+`POSTGRES_PRISMA_URL`, `POSTGRES_URL_NO_SSL`, `POSTGRES_URL_NON_POOLING`,
+`NEON_AUTH_BASE_URL`. The application reads one of them. The remaining sixteen —
+Prisma, Neon Auth, a Vite variable — are for tools this project does not use, and
+they leave with the integration.
+
+Since that password has been sitting in plain view, rotate it at the source
+rather than copying the old one across: **Neon → Roles → the role → Reset
+password**, then take the new pooled connection string into step 1. Doing it in
+this order means the string that ends up stored as a plain Config value is one
+that is already retired.
 
 ### If you would rather keep the integration
 
