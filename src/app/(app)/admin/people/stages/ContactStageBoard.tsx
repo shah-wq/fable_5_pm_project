@@ -116,7 +116,7 @@ export function ContactStageBoard({ cards }: { cards: ContactStageCard[] }) {
           return (
             <section
               key={col}
-              className={`board-col${col === 'lost' ? ' side' : ''}${
+              className={`board-col${col === 'lost' ? ' side lost' : ''}${
                 col === 'contract_signed' ? ' terminal' : ''
               }${over === col ? ' over' : ''}`}
               onDragOver={(e) => {

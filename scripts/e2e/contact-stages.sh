@@ -112,6 +112,21 @@ assert column_of('Quinn Quoted') == 'Quoted', column_of('Quinn Quoted')
 assert column_of('Lou Lost') == 'Lost', column_of('Lou Lost')
 print('COLUMNS-OK')
 CARDS
+# Lost is red, the way signed is green: the two ends of the board are the two
+# that have to be told apart at a glance, without reading the headings.
+python3 - "$W/board.html" <<'RED'
+import pathlib, re, sys
+html = open(sys.argv[1], encoding='utf-8').read()
+lost = [c for c in re.split(r'<section class="', html)[1:] if 'Lou Lost' in c][0]
+classes = lost[:lost.index('"')].split()
+assert 'lost' in classes, f'the Lost column carries no lost class: {classes}'
+css = pathlib.Path('/home/user/fable_5_pm_project/src/app/globals.css').read_text()
+block = css[css.index('.contact-board .board-col.lost {'):][:200]
+assert 'background: #f7e6e4' in block, block
+assert '--danger' in block, block
+assert '.contact-board .board-col.lost > header' in css, 'the Lost heading is not coloured'
+print('RED-OK')
+RED
 # Every contact is on it from the moment they exist — no waiting room.
 grep -q "Start a deal" "$W/board.html" && fail "the board still asks for a deal to be started"
 pass "every contact has a card, in the column their own stage says"

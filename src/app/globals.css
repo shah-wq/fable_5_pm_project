@@ -5359,6 +5359,31 @@ a.btn {
   background: #e6efe8;
 }
 
+/* Lost reads red, the way signed reads green: the two ends of the board are the
+   two a rep scanning it needs to tell apart without reading the headings. The
+   dashed border from .side stays — lost is still the column off to one side —
+   but in the colour of the thing it means rather than in grey. */
+.contact-board .board-col.lost {
+  background: #f7e6e4;
+  border-color: color-mix(in srgb, var(--danger) 40%, white);
+}
+
+.contact-board .board-col.lost > header,
+.contact-board .board-col.lost > header span {
+  color: var(--danger);
+}
+
+.contact-board .board-col.lost .col-sub {
+  color: color-mix(in srgb, var(--danger) 72%, var(--ink-soft));
+}
+
+/* Dropping into lost still lights up like every other column, so the drag
+   feedback is not lost inside the colour that is already there. */
+.contact-board .board-col.lost.over {
+  border-color: var(--amber);
+  background: #f2ded9;
+}
+
 /* The record's tab strip sits inside a card rather than under a page heading,
    so it needs a rule beneath it to separate the tabs from the panel they
    switch — and a little less air above, since the name is right there. */
