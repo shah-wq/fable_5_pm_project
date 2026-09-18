@@ -22,11 +22,11 @@ interface Duplicate {
  * three fields it does insist on are the ones that make the record findable: a
  * surname, and a way to reach them.
  *
- * A few of the fields here — lead status, the dealer code, the sales notes —
- * live on a deal rather than on the person, so filling any of them in creates
- * the first deal alongside the contact. A contact typed in from a business card
- * gets no deal at all: an empty opportunity on the board and in the forecast is
- * worse than no opportunity.
+ * A few of the fields here — the dealer code, the sales notes, the reschedule
+ * reason — live on a deal rather than on the person, so filling any of them in
+ * creates the first deal alongside the contact. A contact typed in from a
+ * business card gets no deal at all: an empty opportunity on the board and in
+ * the forecast is worse than no opportunity.
  *
  * The system, the usage and the price are not asked for here at all. They belong
  * to an opportunity, and they are edited on the deal record under Solar details.
@@ -40,7 +40,7 @@ export function CreateContactForm({
   ready?: boolean;
 }) {
   const router = useRouter();
-  const [values, setValues] = useState<IntakeValues>({ stage: 'new' });
+  const [values, setValues] = useState<IntakeValues>({ contact_stage: 'created' });
   const [missing, setMissing] = useState<Set<string>>(new Set());
   const [duplicates, setDuplicates] = useState<Duplicate[] | null>(null);
   const [busy, setBusy] = useState(false);
@@ -104,7 +104,7 @@ export function CreateContactForm({
         return;
       }
       if (again) {
-        setValues({ stage: 'new' });
+        setValues({ contact_stage: 'created' });
         setDuplicates(null);
         setError(null);
         window.scrollTo({ top: 0 });

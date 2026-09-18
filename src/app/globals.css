@@ -5293,3 +5293,37 @@ a.btn {
 .record-body .record-bar {
   margin-bottom: 10px;
 }
+
+/* --- The contact board, edge to edge ------------------------------------ */
+/* Eight columns do not fit in the 1100px the other screens are held to, and a
+   board is the one screen where the answer is more width rather than a
+   narrower column: the cards are already as small as they read at. */
+.surface.full-bleed {
+  max-width: none;
+  margin: 24px 0 48px;
+  padding: 0 24px;
+}
+
+/* Narrower than the deal board's 205px, because there are eight of them, and
+   still scrolling sideways when the window cannot take it. */
+.contact-board {
+  grid-auto-columns: minmax(170px, 1fr);
+  gap: 10px;
+  padding-bottom: 8px;
+}
+
+/* The column being dragged over says so, rather than leaving somebody to guess
+   where the card will land. */
+.board-col.over {
+  border-color: var(--amber);
+  background: #e9e6df;
+}
+
+.contact-board .card-meta {
+  font-size: 11.5px;
+}
+
+/* Signed is the end of this board, and lost is off to the side of it. */
+.contact-board .board-col.terminal {
+  background: #e6efe8;
+}

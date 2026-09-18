@@ -62,7 +62,10 @@ const PROBE_SQL = `select
            (select count(*) from information_schema.columns
              where table_schema = 'public' and table_name = 'clients'
                and column_name = 'mailing_street')          as m_003600,
-           to_regprocedure('public.create_contact(jsonb,jsonb)')::text as m_003700`;
+           to_regprocedure('public.create_contact(jsonb,jsonb)')::text as m_003700,
+           (select count(*) from information_schema.columns
+             where table_schema = 'public' and table_name = 'clients'
+               and column_name = 'contact_stage')            as m_003800`;
 
 export interface MigrationState {
   applied: Record<string, boolean>;
@@ -107,6 +110,7 @@ export async function migrationState(client: PoolClient): Promise<MigrationState
     '20260803003500_deals.sql': Boolean(p.m_003500),
     '20260803003600_contact_intake.sql': Number(p.m_003600) === 1,
     '20260803003700_contact_create.sql': Boolean(p.m_003700),
+    '20260803003800_contact_stages.sql': Number(p.m_003800) === 1,
   };
   const behind = Object.entries(applied)
     .filter(([, present]) => !present)

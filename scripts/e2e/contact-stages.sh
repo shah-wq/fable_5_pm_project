@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
-# Contact stages: the contact list as a board.
+# Contact stages: the contact list as a board, in the stages the business works.
 #
-# The rules it has to keep are the Deals board's rules, because it moves the same
-# deals: forward-only for a rep, a reason for going back, a reason for losing,
-# and the stage gates in between. What it adds is the column the Deals board
-# cannot have — people on file that nobody has opened a deal for.
+# Created · Appointment scheduled · Appointment rescheduled · No-show · Quoted ·
+# Financing approved · Contract signed · Lost.
+#
+# The rule that matters here is the one the deal board does not have: any stage
+# to any stage. Half the real movement is sideways or backwards — a no-show goes
+# back to rescheduled, somebody quoted in March rings in September — and a board
+# that refused those moves would be a board people worked around.
 set -euo pipefail
 
 ROOT=/home/user/fable_5_pm_project
@@ -38,30 +41,22 @@ cd "$ROOT"
 q() { "${PSQL[@]}" -c "$1"; }
 
 node scripts/create-admin.mjs admin@st.test "Password1234!" "Ada Admin" >/dev/null
-AID=$(q "select id from public.profiles where email='admin@st.test'")
 D=$(q "insert into public.dealers (name) values ('Helios') returning id")
-LOSS=$(q "select id from public.deal_loss_reasons order by sort_order limit 1")
-UTIL=$(q "insert into public.utilities (name, state) values ('Austin Energy','TX') returning id")
 
-# Three people: one with nothing open, one at New, one already qualified.
-BARE=$(q "insert into public.clients (first_name, last_name, email, phone)
+# Four people. One plain, one booked in, one already quoted with a deal behind
+# them, and one who has been written off.
+BEA=$(q "insert into public.clients (first_name, last_name, email, phone)
   values ('Bea','Bare','bea@st.test','512-555-0600') returning id")
-FRESH=$(q "insert into public.clients (first_name, last_name, email, phone)
-  values ('Fred','Fresh','fred@st.test','512-555-0601') returning id")
-FRESH_DEAL=$(q "insert into public.deals (client_id, dealer_id, stage, address)
-  values ('$FRESH','$D','new','1 First Street') returning id")
-QUAL=$(q "insert into public.clients (first_name, last_name, email, phone)
-  values ('Quinn','Qualified','quinn@st.test','512-555-0602') returning id")
-QUAL_DEAL=$(q "insert into public.deals (client_id, dealer_id, stage, address, homeowner_confirmed,
-                 decision_maker_identified, roof_type_id, avg_monthly_bill, credit_band,
-                 utility_id, next_action, next_action_at, first_contact_at, contact_count)
-  values ('$QUAL','$D','qualified','2 Second Street', true, true,
-          (select id from public.roof_types limit 1), 240, 'cash', '$UTIL',
-          'Send the proposal', current_date + 2, now(), 2) returning id")
-# A second deal on the same person: the board must still show them once.
+FRED=$(q "insert into public.clients (first_name, last_name, email, phone, contact_stage)
+  values ('Fred','Fresh','fred@st.test','512-555-0601','appointment_scheduled') returning id")
+QUINN=$(q "insert into public.clients (dealer_id, first_name, last_name, email, phone,
+             contact_stage, mailing_city, mailing_state)
+  values ('$D','Quinn','Quoted','quinn@st.test','512-555-0602','quoted','Austin','TX') returning id")
 q "insert into public.deals (client_id, dealer_id, stage, address)
-   values ('$QUAL','$D','lost','3 Third Street')" >/dev/null
-echo "==> fixture: one contact with no deal, one at New, one at Qualified with a second lost deal"
+   values ('$QUINN','$D','proposal','2 Second Street')" >/dev/null
+LOU=$(q "insert into public.clients (first_name, last_name, email, contact_stage)
+  values ('Lou','Lost','lou@st.test','lost') returning id")
+echo "==> fixture: four contacts, across four stages"
 
 PORT=$APPPORT nohup npx next start -p $APPPORT >"$W/next.log" 2>&1 &
 NEXT_PID=$!
@@ -73,135 +68,139 @@ JAR="$W/admin.txt"
 curl -s -o /dev/null -c "$JAR" -H 'content-type: application/json' \
   -d '{"email":"admin@st.test","password":"Password1234!","door":"staff"}' "$BASE/api/auth/login"
 
-# --- 1. the board is in the sidebar, under Contacts --------------------
+# --- 1. the stages asked for, in order, and nothing else ----------------
 python3 - <<'CHECK'
 import pathlib, re
-src = pathlib.Path('/home/user/fable_5_pm_project/src/app/(app)/layout.tsx').read_text()
-crm = src[src.index('const CRM'):src.index('const NAV')]
-hrefs = re.findall(r"href: '([^']+)', label: '([^']+)'", crm)
-labels = [h for h in hrefs]
-assert ('/admin/people/stages', 'Contact stages') in labels, f'not in the CRM group: {labels}'
-i = [h for h, _ in labels]
-assert i.index('/admin/people/stages') == i.index('/admin/people') + 1, \
-    f'Contact stages is not directly under Contacts: {i}'
-# Sales work contacts too, so it has to be on their sidebar.
-sales = src[src.index('  sales: ['):src.index('  designer:')]
-assert '/admin/people/stages' in sales, 'sales cannot see the contact board'
-print('NAV-OK')
+WANTED = ['Contact created', 'Appointment scheduled', 'Appointment rescheduled', 'No-show',
+          'Quoted', 'Financing approved', 'Contract signed', 'Lost']
+src = pathlib.Path('/home/user/fable_5_pm_project/src/lib/contacts/stage-columns.ts').read_text()
+block = src[src.index('STAGE_COLUMN_LABELS'):src.index('STAGE_COLUMN_MEANS')]
+labels = re.findall(r":\s*'([^']+)'", block)
+assert labels == WANTED, f'the board has {labels}'
+# The database will only accept these eight, so a typo in one place fails here.
+sql = pathlib.Path('/home/user/fable_5_pm_project/db/migrations/20260803003800_contact_stages.sql').read_text()
+values = re.findall(r"contact_stage in \(([^)]*)\)", sql, re.S)[0]
+values = sorted(re.findall(r"'([a-z_]+)'", values))
+keys = sorted(re.findall(r"^  '([a-z_]+)',$", src, re.M))
+assert values == keys, f'the check constraint has {values}, the board has {keys}'
+print('STAGES-OK', len(keys))
 CHECK
-pass "Contact stages sits directly under Contacts in the CRM group, for sales too"
+pass "the eight stages asked for, in order, matching what the database will accept"
 
-# --- 2. the board renders, one card per person -------------------------
+# --- 2. the board renders them, one card per contact --------------------
 CODE=$(curl -s -o "$W/board.html" -w '%{http_code}' -b "$JAR" "$BASE/admin/people/stages")
 [ "$CODE" = 200 ] || fail "the board answered $CODE"
-for col in "Not being worked" "New" "Contacted" "Qualified" "Proposal" "Negotiation" \
-           "Contract out" "Won" "Lost"; do
+for col in "Contact created" "Appointment scheduled" "Appointment rescheduled" "No-show" \
+           "Quoted" "Financing approved" "Contract signed" "Lost"; do
   grep -q "$col" "$W/board.html" || fail "the board has no $col column"
 done
-# Counted as rendered cards, not raw occurrences: Next embeds the props in the
-# page as well, so a plain grep finds every name twice.
 python3 - "$W/board.html" <<'CARDS'
 import re, sys
 html = open(sys.argv[1], encoding='utf-8').read()
 titles = re.findall(r'class="card-title"[^>]*>([^<]+)<', html)
-for who in ('Bea Bare', 'Fred Fresh', 'Quinn Qualified'):
-    n = titles.count(who)
-    assert n == 1, f'{who} has {n} cards on the board — one card per person'
-print('ONE-CARD-EACH-OK')
-CARDS
-grep -q "Start a deal" "$W/board.html" || fail "the intake column offers no way to start a deal"
-pass "every contact appears exactly once, in the column for where they have got to"
-
-# --- 3. a contact with nothing open is in the first column -------------
-python3 - "$W/board.html" <<'CHECK'
-import re, sys
-html = open(sys.argv[1], encoding='utf-8').read()
+for who in ('Bea Bare', 'Fred Fresh', 'Quinn Quoted', 'Lou Lost'):
+    assert titles.count(who) == 1, f'{who} has {titles.count(who)} cards'
 cols = re.split(r'<section class="board-col', html)
 def column_of(name):
     for c in cols[1:]:
         if name in c:
             return re.search(r'<span>([^<]+)</span>', c).group(1)
-    raise AssertionError(f'{name} is not on the board at all')
-assert column_of('Bea Bare') == 'Not being worked', column_of('Bea Bare')
-assert column_of('Fred Fresh') == 'New', column_of('Fred Fresh')
-# The person with two deals sits on the open one, not the lost one.
-assert column_of('Quinn Qualified') == 'Qualified', column_of('Quinn Qualified')
+    raise AssertionError(f'{name} is not on the board')
+assert column_of('Bea Bare') == 'Contact created', column_of('Bea Bare')
+assert column_of('Fred Fresh') == 'Appointment scheduled', column_of('Fred Fresh')
+assert column_of('Quinn Quoted') == 'Quoted', column_of('Quinn Quoted')
+assert column_of('Lou Lost') == 'Lost', column_of('Lou Lost')
 print('COLUMNS-OK')
-CHECK
-pass "somebody with no deal waits in the first column, and two deals resolve to the open one"
+CARDS
+# Every contact is on it from the moment they exist — no waiting room.
+grep -q "Start a deal" "$W/board.html" && fail "the board still asks for a deal to be started"
+pass "every contact has a card, in the column their own stage says"
 
-# --- 4. starting a deal from the board ---------------------------------
-CODE=$(curl -s -o "$W/start.json" -w '%{http_code}' -X POST -b "$JAR" -H 'content-type: application/json' \
-  -d "{\"clientId\":\"$BARE\"}" "$BASE/api/deals")
-[ "$CODE" = 201 ] || fail "starting a deal from the board answered $CODE: $(cat "$W/start.json")"
-ROW=$(q "select stage || '|' || address from public.deals where client_id = '$BARE'")
-[ "$ROW" = "new|Address to be confirmed" ] \
-  || fail "the started deal is not a plain New with a placeholder address ($ROW)"
-curl -s -o "$W/board2.html" -b "$JAR" "$BASE/admin/people/stages"
-python3 - "$W/board2.html" <<'CHECK'
-import re, sys
-html = open(sys.argv[1], encoding='utf-8').read()
-cols = re.split(r'<section class="board-col', html)
-for c in cols[1:]:
-    if 'Bea Bare' in c:
-        assert re.search(r'<span>([^<]+)</span>', c).group(1) == 'New', 'Bea did not move to New'
-        break
-else:
-    raise AssertionError('Bea fell off the board')
-print('STARTED-OK')
-CHECK
-pass "Start a deal puts somebody on the board at New, with no invented address"
-
-# --- 5. the board moves the same deal, under the same gates ------------
-# Fred is at New with no two-way contact logged: the gate refuses him.
-CODE=$(curl -s -o "$W/gate.json" -w '%{http_code}' -X POST -b "$JAR" -H 'content-type: application/json' \
-  -d '{"move":"to","target":"contacted","via":"drag"}' "$BASE/api/deals/$FRESH_DEAL/move")
-[ "$CODE" != 200 ] || fail "the board moved a deal out of New with no contact logged"
-grep -qi "missing\|contact" "$W/gate.json" || fail "the refusal does not say what is missing"
-[ "$(q "select stage from public.deals where id='$FRESH_DEAL'")" = new ] \
-  || fail "a refused move changed the stage anyway"
-# Quinn has everything Proposal asks for.
-CODE=$(curl -s -o "$W/move.json" -w '%{http_code}' -X POST -b "$JAR" -H 'content-type: application/json' \
-  -d '{"move":"to","target":"proposal","via":"drag"}' "$BASE/api/deals/$QUAL_DEAL/move")
-[ "$CODE" = 200 ] || fail "a legitimate move from the board answered $CODE: $(cat "$W/move.json")"
-[ "$(q "select stage from public.deals where id='$QUAL_DEAL'")" = proposal \
-  ] || fail "the move did not stick"
-# Logged as deal.<target>, with kind stage_move — the same entry the Deals board
-# writes, because it is the same service.
-[ "$(q "select count(*) from public.audit_log
-        where entity_id = '$QUAL_DEAL'::text and action = 'deal.proposal'")" -gt 0 ] \
-  || fail "the move was not logged"
-pass "dragging on this board moves the deal behind the contact, gates and audit log included"
-
-# --- 6. what the board refuses ------------------------------------------
+# --- 3. the board is given the width --------------------------------------
+grep -q "full-bleed" "$W/board.html" || fail "the board is still held to the narrow page width"
+grep -q "contact-board" "$W/board.html" || fail "the board does not use the eight-column layout"
 python3 - <<'CHECK'
 import pathlib
-src = pathlib.Path(
-  '/home/user/fable_5_pm_project/src/app/(app)/admin/people/stages/ContactStageBoard.tsx'
-).read_text()
-# Every refusal a rep can hit has to be a sentence, not a silent snap-back.
-for phrase in ['cannot be un-started', 'no deal yet', 'forward-only', 'won deal is a project']:
-    assert phrase in src, f'the board does not explain: {phrase}'
-# Won cards are not draggable, and neither is anything in the intake column.
-assert "card.column !== NO_DEAL && card.column !== 'won'" in src, 'the wrong cards are draggable'
-print('REFUSALS-OK')
+css = pathlib.Path('/home/user/fable_5_pm_project/src/app/globals.css').read_text()
+block = css[css.index('.surface.full-bleed'):]
+assert 'max-width: none' in block[:200], 'full-bleed does not drop the max width'
+print('WIDTH-OK')
 CHECK
-pass "the board says why in a sentence whenever it refuses a drag"
+pass "the board runs the full width of the window"
 
-# --- 7. who can open it --------------------------------------------------
+# --- 4. dragging: forwards, sideways and back ---------------------------
+move() {
+  curl -s -o "$W/move.json" -w '%{http_code}' -X POST -b "$JAR" \
+    -H 'content-type: application/json' -d "{\"stage\":\"$2\"}" \
+    "$BASE/api/contacts/$1/stage"
+}
+[ "$(move "$BEA" appointment_scheduled)" = 200 ] || fail "booking Bea in was refused: $(cat "$W/move.json")"
+[ "$(q "select contact_stage from public.clients where id='$BEA'")" = appointment_scheduled ] \
+  || fail "Bea did not move"
+# Sideways: scheduled to rescheduled, then to a no-show.
+[ "$(move "$BEA" appointment_rescheduled)" = 200 ] || fail "rescheduling was refused"
+[ "$(move "$BEA" no_show)" = 200 ] || fail "a no-show was refused"
+# And back again, which a forward-only board would not allow.
+[ "$(move "$BEA" appointment_rescheduled)" = 200 ] || fail "going back to rescheduled was refused"
+[ "$(q "select contact_stage from public.clients where id='$BEA'")" = appointment_rescheduled \
+  ] || fail "the backwards move did not stick"
+# A lost contact comes back to life.
+[ "$(move "$LOU" appointment_scheduled)" = 200 ] || fail "reviving a lost contact was refused"
+# Straight to the end, skipping everything between.
+[ "$(move "$FRED" contract_signed)" = 200 ] || fail "a skip to Contract signed was refused"
+[ "$(q "select contact_stage from public.clients where id='$FRED'")" = contract_signed \
+  ] || fail "the skip did not stick"
+pass "any stage to any stage: forwards, sideways, backwards and skipping"
+
+# --- 5. what it refuses, and what it records ----------------------------
+[ "$(move "$BEA" "not_a_stage")" = 400 ] || fail "an invented stage was accepted"
+grep -qi "not a contact stage" "$W/move.json" || fail "the refusal does not say what was wrong"
+[ "$(q "select contact_stage from public.clients where id='$BEA'")" = appointment_rescheduled ] \
+  || fail "a refused move changed the stage anyway"
+# Every move is in the activity log, with where it came from and where it went.
+N=$(q "select count(*) from public.audit_log
+        where action = 'contact.stage_moved' and entity_id = '$BEA'::text")
+[ "$N" = 4 ] || fail "expected four logged moves for Bea, found $N"
+ROW=$(q "select (context ->> 'from') || '→' || (context ->> 'to') from public.audit_log
+          where action = 'contact.stage_moved' and entity_id = '$BEA'::text
+          order by occurred_at desc, id desc limit 1")
+[ "$ROW" = "no_show→appointment_rescheduled" ] || fail "the log does not carry the move ($ROW)"
+# The clock restarts on a move, and only on a move.
+q "update public.clients set phone = '512-555-9999' where id = '$BEA'" >/dev/null
+DAYS=$(q "select floor(extract(epoch from (now() - contact_stage_at)))::int from public.clients where id='$BEA'")
+[ "$DAYS" -lt 60 ] || fail "editing a phone number restarted the stage clock"
+pass "an invented stage is refused, and every real move is logged with its direction"
+
+# --- 6. the same stage on the contact record ----------------------------
+R=$(curl -s -b "$JAR" "$BASE/api/customers/$QUINN/intake")
+grep -q '"contact_stage":"quoted"' <<<"$R" || fail "the record does not carry the stage: $R"
+CODE=$(curl -s -o /dev/null -w '%{http_code}' -X PATCH -b "$JAR" -H 'content-type: application/json' \
+  -d '{"values":{"contact_stage":"financing_approved"}}' "$BASE/api/customers/$QUINN/intake")
+[ "$CODE" = 200 ] || fail "setting the stage from the record answered $CODE"
+[ "$(q "select contact_stage from public.clients where id='$QUINN'")" = financing_approved \
+  ] || fail "the record's Lead status does not move the contact"
+pass "Lead status on the record and the column on the board are the same field"
+
+# --- 7. who may move a contact -------------------------------------------
 DEALERU=$(q "insert into auth.users (email, encrypted_password, email_confirmed_at, raw_app_meta_data)
   values ('dealer@st.test', extensions.crypt('Password1234!', extensions.gen_salt('bf',12)), now(),
           '{\"user_role\":\"dealer\"}'::jsonb) returning id")
 q "insert into public.dealer_users (dealer_id, user_id) values ('$D','$DEALERU')" >/dev/null
 curl -s -o /dev/null -c "$W/dealer.txt" -H 'content-type: application/json' \
   -d '{"email":"dealer@st.test","password":"Password1234!","door":"dealer"}' "$BASE/api/auth/login"
+CODE=$(curl -s -o /dev/null -w '%{http_code}' -X POST -b "$W/dealer.txt" \
+  -H 'content-type: application/json' -d '{"stage":"lost"}' "$BASE/api/contacts/$QUINN/stage")
+[ "$CODE" != 200 ] || fail "a dealer moved a contact"
+CODE=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'content-type: application/json' \
+  -d '{"stage":"lost"}' "$BASE/api/contacts/$QUINN/stage")
+[ "$CODE" != 200 ] || fail "an anonymous visitor moved a contact"
+[ "$(q "select contact_stage from public.clients where id='$QUINN'")" = financing_approved ] \
+  || fail "a refused move changed the stage anyway"
 CODE=$(curl -s -o /dev/null -w '%{http_code}' -b "$W/dealer.txt" "$BASE/admin/people/stages")
 [ "$CODE" != 200 ] || fail "a dealer opened the contact board"
-CODE=$(curl -s -o /dev/null -w '%{http_code}' "$BASE/admin/people/stages")
-[ "$CODE" != 200 ] || fail "the contact board is open to anonymous visitors"
-pass "the board is staff-only"
+pass "the board and the move are staff-only"
 
 mkdir -p "$W/shots"
-bash "$ROOT/scripts/e2e/shoot.sh" "$BASE" "$JAR" /admin/people/stages "$W/shots/contact-stages.png" 1600 1000 || true
+bash "$ROOT/scripts/e2e/shoot.sh" "$BASE" "$JAR" /admin/people/stages "$W/shots/contact-stages.png" 1800 900 || true
 
 echo "CONTACT STAGES CHECKS PASSED"

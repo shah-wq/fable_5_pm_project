@@ -125,7 +125,8 @@ begin
     salutation, first_name, last_name, email, secondary_email, phone, alternate_phone,
     owner_phone, owner_id, source_id, dealer_id, description, consultant,
     original_source, utm_source, utm_medium, utm_campaign,
-    mailing_street, mailing_city, mailing_state, mailing_postal_code, mailing_country)
+    mailing_street, mailing_city, mailing_state, mailing_postal_code, mailing_country,
+    contact_stage)
   values (
     p_client ->> 'salutation', p_client ->> 'first_name', p_client ->> 'last_name',
     lower(nullif(btrim(coalesce(p_client ->> 'email', '')), '')),
@@ -137,7 +138,11 @@ begin
     p_client ->> 'original_source', p_client ->> 'utm_source',
     p_client ->> 'utm_medium', p_client ->> 'utm_campaign',
     p_client ->> 'mailing_street', p_client ->> 'mailing_city', p_client ->> 'mailing_state',
-    p_client ->> 'mailing_postal_code', p_client ->> 'mailing_country')
+    p_client ->> 'mailing_postal_code', p_client ->> 'mailing_country',
+    -- The stage is the contact's own, and a new one starts where they are: on
+    -- file. A form that offers it may say otherwise, and anything it does not
+    -- recognise falls back rather than failing the insert.
+    coalesce(nullif(p_client ->> 'contact_stage', ''), 'created'))
   returning id into v_client;
 
   -- The channels, so the person is findable by either address and the duplicate

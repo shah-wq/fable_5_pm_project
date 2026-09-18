@@ -1,131 +1,88 @@
 import type { PoolClient } from 'pg';
 import { optionalRows } from '@/lib/db-optional';
-import { loadDealCards, type DealCard } from '@/lib/deals/service';
+import { isContactStage, type ContactStageCard } from '@/lib/contacts/stage-columns';
 
 /**
  * Contact stages: the contact list, as a board.
  *
- * The same people as the Contacts table, in a column for where each one has
- * got to. It reads the deal's stage rather than keeping a stage of its own —
- * "Lead status" on the contact record is that same value, and a second stage
- * stored on the person would drift from the board within a week and then
- * nobody would know which one was true.
+ * One row per person, read straight from clients — the stage is theirs, not a
+ * reading of some deal behind them. That is what makes the board simple: every
+ * contact has exactly one card from the moment they are created, so there is no
+ * question of which of somebody's two deals a card is talking about, and nobody
+ * sits outside the board waiting for an opportunity to be invented for them.
  *
- * One card per person, not per deal. A contact with two live deals is one human
- * being, and seeing their name in two columns is how a rep loses ten minutes
- * working out whether they are looking at a duplicate.
+ * The deal is still on the card, when there is one, so a rep can jump to the
+ * money from the person. It just no longer decides where they stand.
  */
-
-import {
-  NO_DEAL,
-  type ContactStageCard,
-  type StageColumn,
-} from '@/lib/contacts/stage-columns';
 
 export * from '@/lib/contacts/stage-columns';
 
-function fromDeal(d: DealCard): ContactStageCard {
-  return {
-    clientId: d.clientId,
-    dealId: d.id,
-    column: d.column,
-    personName: d.personName,
-    subtitle: d.address ?? d.dealerName ?? d.code,
-    daysInStage: d.daysInStage,
-    ownerName: d.ownerName,
-    dealerName: d.dealerName,
-    nextAction: d.nextAction,
-    nextActionDue: d.nextActionDue,
-    lostReason: d.lostReason,
-    missing: d.missing,
-    email: null,
-    phone: null,
-    lastContact: null,
-  };
-}
-
-/**
- * Which of a person's deals the board shows: the one a rep means.
- *
- * An open deal beats a closed one, and among equals the one that moved most
- * recently wins — the same rule the contact record uses to decide which deal its
- * status field is talking about, so the two screens always agree.
- */
-function newestPerPerson(cards: DealCard[]): DealCard[] {
-  const best = new Map<string, DealCard>();
-  const unlinked: DealCard[] = [];
-  for (const card of cards) {
-    if (!card.clientId) {
-      unlinked.push(card);
-      continue;
-    }
-    const held = best.get(card.clientId);
-    if (!held) {
-      best.set(card.clientId, card);
-      continue;
-    }
-    const open = (c: DealCard) => (c.column === 'won' || c.column === 'lost' ? 0 : 1);
-    if (
-      open(card) > open(held) ||
-      (open(card) === open(held) && card.updatedAt > held.updatedAt)
-    ) {
-      best.set(card.clientId, card);
-    }
-  }
-  return [...best.values(), ...unlinked];
-}
-
-interface BareContact {
+interface StageRow {
   id: string;
   first_name: string | null;
   last_name: string | null;
   email: string | null;
   phone: string | null;
+  city_state: string | null;
   dealer_name: string | null;
   owner_name: string | null;
+  contact_stage: string;
+  days_in_stage: string | number;
   last_contacted_at: string | null;
+  deal_id: string | null;
 }
 
 export async function loadContactStageBoard(client: PoolClient): Promise<ContactStageCard[]> {
-  const deals = newestPerPerson(await loadDealCards(client)).map(fromDeal);
-
-  // Everyone else on file. They are the point of the intake column: a contact
-  // nobody has opened a deal for is exactly the one that goes quiet, and a board
-  // that only showed deals would never show them at all.
-  const bare = await optionalRows<BareContact>(
+  const rows = await optionalRows<StageRow>(
     client,
-    'the contacts with no deal (public.clients)',
+    'the contact board (public.clients.contact_stage)',
     `select c.id, c.first_name, c.last_name, c.email, c.phone,
+            -- clients has no city column: the mailing parts added with the
+            -- intake fields are the only structured place a town is written.
+            nullif(concat_ws(', ', nullif(btrim(coalesce(c.mailing_city, '')), ''),
+                                   nullif(btrim(coalesce(c.mailing_state, '')), '')), '')
+              as city_state,
             dl.name as dealer_name,
             coalesce(p.full_name, p.email) as owner_name,
-            c.last_contacted_at::text
+            c.contact_stage,
+            floor(extract(epoch from (now() - c.contact_stage_at)) / 86400) as days_in_stage,
+            c.last_contacted_at::text,
+            (select d.id from public.deals d
+              where d.client_id = c.id
+              order by (d.stage not in ('won', 'lost')) desc, d.updated_at desc
+              limit 1) as deal_id
        from public.clients c
        left join public.dealers dl on dl.id = c.dealer_id
        left join public.profiles p on p.id = c.owner_id
       where not coalesce(c.is_archived, false)
-        and not exists (select 1 from public.deals d where d.client_id = c.id)
-      order by c.created_at desc
-      limit 500`
+      order by c.contact_stage_at desc
+      limit 1000`
   );
 
-  return [
-    ...bare.map((c) => ({
-      clientId: c.id,
-      dealId: null,
-      column: NO_DEAL as StageColumn,
-      personName: [c.first_name, c.last_name].filter(Boolean).join(' ') || 'Unnamed contact',
-      subtitle: c.dealer_name,
-      daysInStage: null,
-      ownerName: c.owner_name,
-      dealerName: c.dealer_name,
-      nextAction: null,
-      nextActionDue: false,
-      lostReason: null,
-      missing: [],
-      email: c.email,
-      phone: c.phone,
-      lastContact: c.last_contacted_at ? c.last_contacted_at.slice(0, 10) : null,
-    })),
-    ...deals,
-  ];
+  return rows.map((r) => ({
+    clientId: r.id,
+    stage: isContactStage(r.contact_stage) ? r.contact_stage : 'created',
+    personName: [r.first_name, r.last_name].filter(Boolean).join(' ') || 'Unnamed contact',
+    email: r.email,
+    phone: r.phone,
+    subtitle: r.city_state ?? r.dealer_name,
+    ownerName: r.owner_name,
+    dealerName: r.dealer_name,
+    daysInStage: Number(r.days_in_stage ?? 0),
+    lastContact: r.last_contacted_at ? r.last_contacted_at.slice(0, 10) : null,
+    dealId: r.deal_id,
+  }));
+}
+
+/** Whether this database knows about contact stages yet. */
+export async function contactStagesReady(client: PoolClient): Promise<boolean> {
+  const rows = await optionalRows<{ ok: boolean }>(
+    client,
+    'the contact stage column (public.clients.contact_stage)',
+    `select true as ok
+       from information_schema.columns
+      where table_schema = 'public' and table_name = 'clients'
+        and column_name = 'contact_stage'`
+  );
+  return rows.length > 0;
 }

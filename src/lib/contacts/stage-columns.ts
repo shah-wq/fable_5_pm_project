@@ -1,7 +1,11 @@
-import { DEAL_COLUMNS, type DealColumn } from '@/lib/deals/definitions';
-
 /**
  * The columns of the contact board, and the shape of one card.
+ *
+ * These are the stages the business works, which are about reaching a person
+ * and getting in front of them rather than about money. They are the contact's
+ * own — stored on the person, not derived from a deal — because three of them
+ * are not forward steps: a no-show goes back to rescheduled, and a lost contact
+ * comes back to life when they ring in September.
  *
  * Kept apart from the loader beside it because this file is read by the board
  * itself, which runs in the browser: importing the loader there would drag the
@@ -9,55 +13,61 @@ import { DEAL_COLUMNS, type DealColumn } from '@/lib/deals/definitions';
  * lines of webpack.
  */
 
-/** The intake column: people on file who are not being worked yet. */
-export const NO_DEAL = 'none' as const;
+export const CONTACT_STAGES = [
+  'created',
+  'appointment_scheduled',
+  'appointment_rescheduled',
+  'no_show',
+  'quoted',
+  'financing_approved',
+  'contract_signed',
+  'lost',
+] as const;
 
-export type StageColumn = DealColumn | typeof NO_DEAL;
+export type ContactStage = (typeof CONTACT_STAGES)[number];
 
-export const STAGE_COLUMNS: StageColumn[] = [NO_DEAL, ...DEAL_COLUMNS];
+export const STAGE_COLUMNS: ContactStage[] = [...CONTACT_STAGES];
 
-export const STAGE_COLUMN_LABELS: Record<StageColumn, string> = {
-  none: 'Not being worked',
-  new: 'New',
-  contacted: 'Contacted',
-  qualified: 'Qualified',
-  proposal: 'Proposal',
-  negotiation: 'Negotiation',
-  contract_out: 'Contract out',
-  won: 'Won',
+export const STAGE_COLUMN_LABELS: Record<ContactStage, string> = {
+  created: 'Contact created',
+  appointment_scheduled: 'Appointment scheduled',
+  appointment_rescheduled: 'Appointment rescheduled',
+  no_show: 'No-show',
+  quoted: 'Quoted',
+  financing_approved: 'Financing approved',
+  contract_signed: 'Contract signed',
   lost: 'Lost',
 };
 
-export const STAGE_COLUMN_MEANS: Record<StageColumn, string> = {
-  none: 'On file, no deal open',
-  new: 'Arrived, untouched',
-  contacted: 'Two-way contact made',
-  qualified: 'Worth spending money on',
-  proposal: 'A number is out',
-  negotiation: 'Engaging with the number',
-  contract_out: 'Signature pending',
-  won: 'Signed',
-  lost: 'Closed, reversible',
+/** What each column means, under its heading — the same idea as the deal board. */
+export const STAGE_COLUMN_MEANS: Record<ContactStage, string> = {
+  created: 'On file, not booked in',
+  appointment_scheduled: 'A date in the diary',
+  appointment_rescheduled: 'Moved at least once',
+  no_show: 'Nobody there',
+  quoted: 'A number is with them',
+  financing_approved: 'The money is in place',
+  contract_signed: 'Signed',
+  lost: 'Closed, and reversible',
 };
 
-export interface ContactStageCard {
-  /** The person. Null only for an unlinked dealer submission. */
-  clientId: string | null;
-  /** The deal the card sits on, absent in the intake column. */
-  dealId: string | null;
-  column: StageColumn;
-  personName: string;
-  subtitle: string | null;
-  daysInStage: number | null;
-  ownerName: string | null;
-  dealerName: string | null;
-  nextAction: string | null;
-  nextActionDue: boolean;
-  lostReason: string | null;
-  missing: string[];
-  /** Contact details, so a rep can act without opening the record. */
-  email: string | null;
-  phone: string | null;
-  lastContact: string | null;
+/** True for a value that came from outside and might be anything. */
+export function isContactStage(value: unknown): value is ContactStage {
+  return typeof value === 'string' && (CONTACT_STAGES as readonly string[]).includes(value);
 }
 
+export interface ContactStageCard {
+  clientId: string;
+  stage: ContactStage;
+  personName: string;
+  email: string | null;
+  phone: string | null;
+  subtitle: string | null;
+  ownerName: string | null;
+  dealerName: string | null;
+  /** Days in the current stage — a contact stuck in Scheduled is the point. */
+  daysInStage: number;
+  lastContact: string | null;
+  /** The deal behind them, when there is one, for the link on the card. */
+  dealId: string | null;
+}

@@ -87,7 +87,7 @@ CONTACT = {
   'Mailing State': 'mailing_state',
   'Mailing Zip': 'mailing_postal_code',
   'Mailing Country': 'mailing_country',
-  'Lead Status': 'stage',
+  'Lead Status': 'contact_stage',
   'Lost Reason': 'lost_reason_id',
   'Reschedule Reason': 'reschedule_reason',
   'Dealer Code': 'dealer_code',
@@ -225,7 +225,7 @@ NEW=$(curl -s -X POST -b "$JAR" -H 'content-type: application/json' \
 [ "$(q "select created_by from public.clients where id='$NEW'")" = "$AID" ] \
   || fail "created_by was not recorded on a new contact"
 R=$(curl -s -b "$JAR" "$BASE/api/customers/$C/intake")
-grep -q '"stage":"qualified"' <<<"$R" || fail "lead status does not come from the deal's stage: $R"
+grep -q '"contact_stage":' <<<"$R" || fail "the contact carries no stage: $R"
 pass "created by is recorded automatically, and lead status is the deal's stage"
 
 # --- 6. the documents, filed against the deal --------------------------
@@ -346,7 +346,7 @@ CODE=$(curl -s -o "$W/c1.json" -w '%{http_code}' -X POST -b "$JAR" -H 'content-t
   -d '{"values":{"salutation":"Ms.","first_name":"Cora","last_name":"Card",
        "email":"CORA@in.test","phone":"512-555-0300","alternate_phone":"512-555-0301",
        "consultant":"Ray Sunshine","description":"Met at the home show",
-       "stage":"new"}}' \
+       "contact_stage":"created"}}' \
   "$BASE/api/contacts")
 [ "$CODE" = 201 ] || fail "creating a plain contact answered $CODE: $(cat "$W/c1.json")"
 C1=$(python3 -c "import json;print(json.load(open('$W/c1.json'))['clientId'])")
@@ -370,7 +370,7 @@ CODE=$(curl -s -o "$W/c2.json" -w '%{http_code}' -X POST -b "$JAR" -H 'content-t
        \"owner_id\":\"$AID\",\"dealer_id\":\"$D\",\"source_id\":\"$SRC\",
        \"mailing_street\":\"9 Ray Road\",\"mailing_city\":\"Austin\",\"mailing_state\":\"TX\",
        \"mailing_postal_code\":\"78702\",\"mailing_country\":\"USA\",
-       \"stage\":\"qualified\",\"dealer_code\":\"HEL-7\",
+       \"contact_stage\":\"quoted\",\"dealer_code\":\"HEL-7\",
        \"wave_sales_notes\":\"Wants the battery quoted separately\",
        \"additional_information\":\"Gate code 4412\",
        \"reschedule_reason\":\"Surveyor van broke down\"}}" "$BASE/api/contacts")
@@ -378,11 +378,14 @@ CODE=$(curl -s -o "$W/c2.json" -w '%{http_code}' -X POST -b "$JAR" -H 'content-t
 C2=$(python3 -c "import json;print(json.load(open('$W/c2.json'))['clientId'])")
 D2=$(python3 -c "import json;print(json.load(open('$W/c2.json'))['dealId'] or '')")
 [ -n "$D2" ] || fail "the status and dealer fields did not make a deal"
-ROW=$(q "select stage || '|' || dealer_code || '|' || wave_sales_notes || '|' ||
+ROW=$(q "select dealer_code || '|' || wave_sales_notes || '|' ||
          additional_information || '|' || reschedule_reason || '|' || client_id
          from public.deals where id = '$D2'")
-[ "$ROW" = "qualified|HEL-7|Wants the battery quoted separately|Gate code 4412|Surveyor van broke down|$C2" ] \
+[ "$ROW" = "HEL-7|Wants the battery quoted separately|Gate code 4412|Surveyor van broke down|$C2" ] \
   || fail "the deal made alongside the contact is wrong ($ROW)"
+# Lead status went to the person, not to the deal.
+[ "$(q "select contact_stage from public.clients where id = '$C2'")" = quoted ] \
+  || fail "the contact stage did not land on the person"
 # The person's half went to clients, not onto the deal.
 ROW=$(q "select mailing_city || '|' || mailing_postal_code || '|' || mailing_address
          from public.clients where id = '$C2'")
@@ -390,7 +393,7 @@ ROW=$(q "select mailing_city || '|' || mailing_postal_code || '|' || mailing_add
   || fail "the mailing address did not land on the person ($ROW)"
 # And the whole thing reads back through the contact's own screen.
 R=$(curl -s -b "$JAR" "$BASE/api/customers/$C2/intake")
-grep -q '"stage":"qualified"' <<<"$R" || fail "the new deal is not on the contact: $R"
+grep -q '"contact_stage":"quoted"' <<<"$R" || fail "the stage is not on the contact: $R"
 grep -q '"dealer_code":"HEL-7"' <<<"$R" || fail "the dealer code is not on the contact: $R"
 pass "one Create Contact makes the person and their deal, each field on its own table"
 

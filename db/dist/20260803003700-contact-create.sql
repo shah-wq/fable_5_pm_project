@@ -1,7 +1,7 @@
 -- ============================================================================
 -- GENERATED FILE — do not edit. Rebuild with: node scripts/build-sql-bootstrap.mjs
 --
---   SolarFlow PM · newest module · step 5 of 5 · 20260803003700_contact_create.sql
+--   SolarFlow PM · newest module · step 5 of 6 · 20260803003700_contact_create.sql
 --
 -- For a database that is already up to date apart from this module. Paste the
 -- whole file into a SQL console (e.g. the Neon SQL Editor) and run it once.
@@ -15,6 +15,7 @@
 --   3. 20260803003500-deals.sql
 --   4. 20260803003600-contact-intake.sql
 --   5. 20260803003700-contact-create.sql
+--   6. 20260803003800-contact-stages.sql
 -- Each break is where one script adds something the next one uses, which
 -- PostgreSQL will not allow inside a single pasted transaction.
 --
@@ -150,7 +151,8 @@ begin
     salutation, first_name, last_name, email, secondary_email, phone, alternate_phone,
     owner_phone, owner_id, source_id, dealer_id, description, consultant,
     original_source, utm_source, utm_medium, utm_campaign,
-    mailing_street, mailing_city, mailing_state, mailing_postal_code, mailing_country)
+    mailing_street, mailing_city, mailing_state, mailing_postal_code, mailing_country,
+    contact_stage)
   values (
     p_client ->> 'salutation', p_client ->> 'first_name', p_client ->> 'last_name',
     lower(nullif(btrim(coalesce(p_client ->> 'email', '')), '')),
@@ -162,7 +164,11 @@ begin
     p_client ->> 'original_source', p_client ->> 'utm_source',
     p_client ->> 'utm_medium', p_client ->> 'utm_campaign',
     p_client ->> 'mailing_street', p_client ->> 'mailing_city', p_client ->> 'mailing_state',
-    p_client ->> 'mailing_postal_code', p_client ->> 'mailing_country')
+    p_client ->> 'mailing_postal_code', p_client ->> 'mailing_country',
+    -- The stage is the contact's own, and a new one starts where they are: on
+    -- file. A form that offers it may say otherwise, and anything it does not
+    -- recognise falls back rather than failing the insert.
+    coalesce(nullif(p_client ->> 'contact_stage', ''), 'created'))
   returning id into v_client;
 
   -- The channels, so the person is findable by either address and the duplicate
@@ -239,49 +245,3 @@ $$;
 revoke execute on function public.create_contact(jsonb, jsonb) from public, anon;
 grant execute on function public.create_contact(jsonb, jsonb) to authenticated;
 
-
--- >>> migration bookkeeping (lets `npm run db:migrate` skip these later)
-create table if not exists public.schema_migrations (
-  name       text primary key,
-  applied_at timestamptz not null default now()
-);
-insert into public.schema_migrations (name) values
-  ('20260803000000_platform.sql'),
-  ('20260803000100_init_schema_and_enums.sql'),
-  ('20260803000200_tables.sql'),
-  ('20260803000300_access_helpers.sql'),
-  ('20260803000400_hooks_and_views.sql'),
-  ('20260803000500_audit.sql'),
-  ('20260803000600_rls_policies.sql'),
-  ('20260803000700_storage.sql'),
-  ('20260803000800_add_ops_role.sql'),
-  ('20260803000900_auth_module.sql'),
-  ('20260803001000_auth_engine.sql'),
-  ('20260803001100_file_storage.sql'),
-  ('20260803001200_manual_version.sql'),
-  ('20260803001300_admin_panel.sql'),
-  ('20260803001400_stage_fields.sql'),
-  ('20260803001500_complete_hold_cancel.sql'),
-  ('20260803001600_complete_stage_backfill.sql'),
-  ('20260803001700_project_details.sql'),
-  ('20260803001800_equipment_quantities.sql'),
-  ('20260803001900_dealer_portal.sql'),
-  ('20260803002000_dealer_companies.sql'),
-  ('20260803002100_restore_project_defaults.sql'),
-  ('20260803002200_report_builder.sql'),
-  ('20260803002300_customer_portal.sql'),
-  ('20260803002400_customer_management.sql'),
-  ('20260803002500_mobile_app.sql'),
-  ('20260803002600_customer_passwords.sql'),
-  ('20260803002700_invite_customers_with_tokens.sql'),
-  ('20260803002800_dashboard.sql'),
-  ('20260803002900_project_chat.sql'),
-  ('20260803003000_sign_in.sql'),
-  ('20260803003100_typical_durations.sql'),
-  ('20260803003200_stage_feedback.sql'),
-  ('20260803003300_add_sales_role.sql'),
-  ('20260803003400_crm_foundation.sql'),
-  ('20260803003500_deals.sql'),
-  ('20260803003600_contact_intake.sql'),
-  ('20260803003700_contact_create.sql')
-on conflict (name) do nothing;

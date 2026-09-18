@@ -2,163 +2,95 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { dealStageIndex, type DealColumn } from '@/lib/deals/definitions';
+import { useEffect, useMemo, useState } from 'react';
 import {
-  NO_DEAL,
   STAGE_COLUMNS,
   STAGE_COLUMN_LABELS,
   STAGE_COLUMN_MEANS,
+  type ContactStage,
   type ContactStageCard,
 } from '@/lib/contacts/stage-columns';
-
-interface ToastState {
-  kind: 'error' | 'ok';
-  title: string;
-  items?: string[];
-}
 
 /**
  * Contact stages.
  *
- * The same gesture, the same rules and the same class names as the Deals board:
- * dragging a contact forward moves the deal behind them, so the gates that
- * board enforces are enforced here too and the two can never tell a rep
- * different things about the same person.
+ * Drag a contact into any column. There is deliberately no ordering enforced:
+ * these stages are about the diary rather than the money, and half the real
+ * movement in them is sideways or backwards — a no-show goes back to
+ * rescheduled, somebody quoted in March rings in September and is scheduled
+ * again. A board that refused those moves would be a board people worked around.
  *
- * The first column is the one the Deals board cannot show: people on file whom
- * nobody has opened a deal for. They are not dragged out of it — a deal is
- * started, deliberately, with a button — because dropping somebody into
- * Negotiation would have to invent an opportunity that no conversation has
- * happened on.
+ * The move is written to the activity log, so "who moved this, and when" — the
+ * question every board eventually raises — has an answer.
  */
-export function ContactStageBoard({
-  cards,
-  isAdmin,
-  lossReasons,
-}: {
-  cards: ContactStageCard[];
-  isAdmin: boolean;
-  lossReasons: Array<{ id: string; name: string }>;
-}) {
+export function ContactStageBoard({ cards }: { cards: ContactStageCard[] }) {
   const router = useRouter();
   const [search, setSearch] = useState('');
+  const [mine, setMine] = useState(false);
   const [busy, setBusy] = useState(false);
   const [dragging, setDragging] = useState<ContactStageCard | null>(null);
-  const [rejectedColumn, setRejectedColumn] = useState<string | null>(null);
-  const [toast, setToast] = useState<ToastState | null>(null);
-  const [lost, setLost] = useState<ContactStageCard | null>(null);
-  const [lostReason, setLostReason] = useState('');
-  const [back, setBack] = useState<{ card: ContactStageCard; to: DealColumn } | null>(null);
-  const reasonRef = useRef<HTMLTextAreaElement>(null);
+  const [over, setOver] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
+  /** Where a card has just been dropped, so the board moves before the server replies. */
+  const [moved, setMoved] = useState<Record<string, ContactStage>>({});
 
   useEffect(() => {
     if (!toast) return;
-    const t = setTimeout(() => setToast(null), 8000);
+    const t = setTimeout(() => setToast(null), 6000);
     return () => clearTimeout(t);
   }, [toast]);
 
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return cards;
-    return cards.filter((c) =>
-      [c.personName, c.email, c.phone, c.subtitle, c.ownerName, c.dealerName]
-        .some((v) => v?.toLowerCase().includes(q))
-    );
-  }, [cards, search]);
+    return cards
+      .map((c) => (moved[c.clientId] ? { ...c, stage: moved[c.clientId] } : c))
+      .filter((c) => {
+        if (mine && !c.ownerName) return false;
+        if (!q) return true;
+        return [c.personName, c.email, c.phone, c.subtitle, c.ownerName, c.dealerName].some((v) =>
+          v?.toLowerCase().includes(q)
+        );
+      });
+  }, [cards, search, mine, moved]);
 
-  async function move(card: ContactStageCard, body: Record<string, unknown>): Promise<boolean> {
-    if (!card.dealId) return false;
+  async function move(card: ContactStageCard, stage: ContactStage) {
+    // Optimistic: the card lands where it was dropped, and goes back if the
+    // server disagrees. Dragging something that snaps back a second later with
+    // no explanation is how a board loses somebody's trust.
+    setMoved((m) => ({ ...m, [card.clientId]: stage }));
     setBusy(true);
     try {
-      const res = await fetch(`/api/deals/${card.dealId}/move`, {
+      const res = await fetch(`/api/contacts/${card.clientId}/stage`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(body),
+        body: JSON.stringify({ stage }),
       });
       const json = await res.json().catch(() => null);
       if (!res.ok) {
-        setToast({
-          kind: 'error',
-          title: json?.error ?? `That move was refused (${res.status}).`,
-          items: json?.missing ?? [],
+        setMoved((m) => {
+          const next = { ...m };
+          delete next[card.clientId];
+          return next;
         });
-        return false;
-      }
-      setToast({ kind: 'ok', title: `${card.personName} moved.` });
-      router.refresh();
-      return true;
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  /** Open the first deal for somebody who is only on file. */
-  async function startDeal(card: ContactStageCard) {
-    setBusy(true);
-    try {
-      const res = await fetch('/api/deals', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ clientId: card.clientId }),
-      });
-      const json = await res.json().catch(() => null);
-      if (!res.ok) {
-        setToast({ kind: 'error', title: json?.error ?? `Could not start a deal (${res.status}).` });
+        setToast({ kind: 'error', text: json?.error ?? `That move was refused (${res.status}).` });
         return;
       }
-      setToast({ kind: 'ok', title: `${card.personName} is on the board at New.` });
+      setToast({
+        kind: 'ok',
+        text: `${card.personName} → ${STAGE_COLUMN_LABELS[stage]}`,
+      });
       router.refresh();
     } finally {
       setBusy(false);
     }
   }
 
-  function refuse(column: string, title: string) {
-    setRejectedColumn(column);
-    setTimeout(() => setRejectedColumn(null), 1200);
-    setToast({ kind: 'error', title });
-  }
-
-  async function onDrop(column: string) {
+  function onDrop(stage: ContactStage) {
     const card = dragging;
     setDragging(null);
-    if (!card || busy || card.column === column) return;
-
-    if (column === NO_DEAL) {
-      refuse(column, 'A deal that has started cannot be un-started. Mark it lost instead.');
-      return;
-    }
-    if (!card.dealId) {
-      refuse(column, `${card.personName} has no deal yet — use Start a deal first.`);
-      return;
-    }
-    if (card.column === 'won') {
-      refuse(column, 'A won deal is a project now. Cancel the project instead.');
-      return;
-    }
-    if (column === 'lost') {
-      setLostReason('');
-      setLost(card);
-      return;
-    }
-
-    const target = column as DealColumn;
-    const backwards =
-      card.column !== NO_DEAL && dealStageIndex(target) < dealStageIndex(card.column as DealColumn);
-    if (backwards) {
-      if (!isAdmin) {
-        refuse(column, 'This board is forward-only. An admin can move somebody back with a reason.');
-        return;
-      }
-      setBack({ card, to: target });
-      return;
-    }
-    const ok = await move(card, { move: 'to', target, via: 'drag' });
-    if (!ok) {
-      setRejectedColumn(column);
-      setTimeout(() => setRejectedColumn(null), 1200);
-    }
+    setOver(null);
+    if (!card || busy || card.stage === stage) return;
+    void move(card, stage);
   }
 
   return (
@@ -166,23 +98,32 @@ export function ContactStageBoard({
       <div className="filters">
         <input
           type="search"
-          placeholder="Search name, email, phone or address…"
+          placeholder="Search name, email, phone or town…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
+        <label className="check-inline">
+          <input type="checkbox" checked={mine} onChange={(e) => setMine(e.target.checked)} />
+          Only assigned
+        </label>
+        <span className="spacer" />
+        <span className="dim">{`${visible.length} of ${cards.length}`}</span>
       </div>
 
-      <div className="board" role="list">
+      <div className="board contact-board" role="list">
         {STAGE_COLUMNS.map((col) => {
-          const columnCards = visible.filter((c) => c.column === col);
-          const side = col === 'won' || col === 'lost' || col === NO_DEAL;
+          const columnCards = visible.filter((c) => c.stage === col);
           return (
             <section
               key={col}
-              className={`board-col${side ? ' side' : ''}${col === 'won' ? ' terminal' : ''}${
-                rejectedColumn === col ? ' rejected' : ''
-              }`}
-              onDragOver={(e) => e.preventDefault()}
+              className={`board-col${col === 'lost' ? ' side' : ''}${
+                col === 'contract_signed' ? ' terminal' : ''
+              }${over === col ? ' over' : ''}`}
+              onDragOver={(e) => {
+                e.preventDefault();
+                if (over !== col) setOver(col);
+              }}
+              onDragLeave={() => setOver((o) => (o === col ? null : o))}
               onDrop={() => onDrop(col)}
             >
               <header>
@@ -193,68 +134,37 @@ export function ContactStageBoard({
               <div className="col-cards">
                 {columnCards.map((card) => (
                   <article
-                    key={card.dealId ?? card.clientId ?? card.personName}
-                    className={`card${card.column === 'lost' ? ' cancelled' : ''}`}
-                    draggable={!busy && card.column !== NO_DEAL && card.column !== 'won'}
+                    key={card.clientId}
+                    className={`card${card.stage === 'lost' ? ' cancelled' : ''}`}
+                    draggable={!busy}
                     onDragStart={() => setDragging(card)}
-                    onDragEnd={() => setDragging(null)}
+                    onDragEnd={() => {
+                      setDragging(null);
+                      setOver(null);
+                    }}
                   >
-                    {card.clientId ? (
-                      <Link
-                        href={`/admin/people/${card.clientId}`}
-                        className="card-title"
-                        draggable={false}
-                      >
-                        {card.personName}
-                      </Link>
-                    ) : (
-                      <span className="card-title">{card.personName}</span>
-                    )}
+                    <Link
+                      href={`/admin/people/${card.clientId}`}
+                      className="card-title"
+                      draggable={false}
+                    >
+                      {card.personName}
+                    </Link>
                     {card.subtitle && <div className="card-sub">{card.subtitle}</div>}
-                    {(card.email || card.phone) && (
+                    {(card.phone || card.email) && (
                       <div className="card-sub dim">
                         {[card.phone, card.email].filter(Boolean).join(' · ')}
                       </div>
                     )}
                     <div className="card-meta">
-                      {card.daysInStage !== null && <span>{card.daysInStage}d in stage</span>}
-                      {card.lastContact && <span>last spoke {card.lastContact}</span>}
-                      {card.column === 'won' && <span className="done-badge">✓ Won</span>}
-                      {card.column === 'lost' && (
-                        <span className="dim">{card.lostReason ?? 'lost'}</span>
-                      )}
-                      {card.missing.length > 0 && (
-                        <span className="missing-badge" title={card.missing.join('\n')}>
-                          {card.missing.length}
-                        </span>
-                      )}
-                      {card.dealId && !card.nextAction && card.column !== 'won' && card.column !== 'lost' && (
-                        <span className="flag-badge" title="No next action on the deal behind this contact">
-                          ⚑ no action
-                        </span>
-                      )}
-                      {card.nextActionDue && (
-                        <span className="flag-badge" title={card.nextAction ?? 'due'}>
-                          ⏰ due
-                        </span>
-                      )}
+                      <span>{card.daysInStage}d here</span>
+                      {card.lastContact && <span>spoke {card.lastContact}</span>}
                     </div>
                     <div className="card-sub dim">{card.ownerName ?? 'unassigned'}</div>
-                    {card.column === NO_DEAL ? (
-                      <button
-                        className="btn secondary small"
-                        type="button"
-                        disabled={busy || !card.clientId}
-                        onClick={() => void startDeal(card)}
-                      >
-                        Start a deal
-                      </button>
-                    ) : (
-                      card.dealId && (
-                        <Link className="card-link" href={`/deals/${card.dealId}`} draggable={false}>
-                          Open deal
-                        </Link>
-                      )
+                    {card.dealId && (
+                      <Link className="card-link" href={`/deals/${card.dealId}`} draggable={false}>
+                        Open deal
+                      </Link>
                     )}
                   </article>
                 ))}
@@ -264,93 +174,9 @@ export function ContactStageBoard({
         })}
       </div>
 
-      {lost && (
-        <div className="dialog-backdrop">
-          <div className="dialog" role="dialog" aria-modal>
-            <h2>Mark this one lost?</h2>
-            <p>{`${lost.personName} — a reason is required, and a lost deal can be reopened later.`}</p>
-            <label className="field">
-              <span>Reason *</span>
-              <select value={lostReason} onChange={(e) => setLostReason(e.target.value)}>
-                <option value="">Pick a reason…</option>
-                {lossReasons.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <textarea ref={reasonRef} rows={3} placeholder="Anything worth remembering…" />
-            <div className="dialog-actions">
-              <button className="btn secondary" type="button" onClick={() => setLost(null)}>
-                Cancel
-              </button>
-              <button
-                className="btn"
-                type="button"
-                disabled={busy || !lostReason}
-                onClick={async () => {
-                  const card = lost;
-                  setLost(null);
-                  await move(card, {
-                    move: 'lost',
-                    lostReasonId: lostReason,
-                    notes: reasonRef.current?.value ?? null,
-                    via: 'drag',
-                  });
-                }}
-              >
-                Mark lost
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {back && (
-        <div className="dialog-backdrop">
-          <div className="dialog" role="dialog" aria-modal>
-            <h2>Move backwards?</h2>
-            <p>
-              {`Move ${back.card.personName} back to ${STAGE_COLUMN_LABELS[back.to]}. A reason is required and this is written to the activity log.`}
-            </p>
-            <textarea ref={reasonRef} rows={3} placeholder="Reason for moving back…" />
-            <div className="dialog-actions">
-              <button className="btn secondary" type="button" onClick={() => setBack(null)}>
-                Cancel
-              </button>
-              <button
-                className="btn"
-                type="button"
-                disabled={busy}
-                onClick={async () => {
-                  const it = back;
-                  setBack(null);
-                  await move(it.card, {
-                    move: 'to',
-                    target: it.to,
-                    notes: reasonRef.current?.value ?? '',
-                    via: 'drag',
-                  });
-                }}
-              >
-                Move back
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {toast && (
         <div className={`toast ${toast.kind}`} role="status">
-          <strong>{toast.title}</strong>
-          {toast.items && toast.items.length > 0 && (
-            <ul>
-              {toast.items.map((item) => (
-                <li key={item}>{item}</li>
-              ))}
-            </ul>
-          )}
+          <strong>{toast.text}</strong>
         </div>
       )}
     </>

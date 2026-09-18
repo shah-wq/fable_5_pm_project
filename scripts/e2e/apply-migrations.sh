@@ -68,7 +68,7 @@ CODE=$(curl -s -o "$W/page.html" -w '%{http_code}' -b "$JAR" "$BASE/admin/databa
 # Read as text: React's server output puts <!-- --> between adjacent
 # expressions, so "4 migrations" arrives as "4<!-- --> migration<!-- -->s".
 text() { sed -e 's/<!--[^>]*-->//g' -e 's/<[^>]*>//g' "$1" | tr -s ' \n' ' '; }
-text "$W/page.html" | grep -q "4 migrations are missing" || fail "the screen does not say four are missing"
+text "$W/page.html" | grep -q "5 migrations are missing" || fail "the screen does not say four are missing"
 text "$W/page.html" | grep -q "003400" || fail "the screen does not name 003400"
 text "$W/page.html" | grep -q "Apply them now" || fail "no Apply button"
 R=$(curl -s -b "$JAR" "$BASE/api/admin/migrations")
@@ -76,11 +76,12 @@ python3 - "$R" <<'PY'
 import json, sys
 j = json.loads(sys.argv[1])
 assert j['behind'] == ['20260803003400_crm_foundation.sql', '20260803003500_deals.sql',
-                       '20260803003600_contact_intake.sql', '20260803003700_contact_create.sql'], j['behind']
-assert '20260803003700_contact_create.sql' in j['bundled'], 'the deployment does not carry its own files'
+                       '20260803003600_contact_intake.sql', '20260803003700_contact_create.sql',
+                       '20260803003800_contact_stages.sql'], j['behind']
+assert '20260803003800_contact_stages.sql' in j['bundled'], 'the deployment does not carry its own files'
 print('STATE-OK')
 PY
-pass "Admin → Database names the four missing files, and the deployment carries them"
+pass "Admin → Database names the missing files, and the deployment carries them"
 
 # --- 2. only an admin may press it --------------------------------------
 curl -s -o /dev/null -c "$W/ops.txt" -H 'content-type: application/json' \
@@ -100,7 +101,8 @@ import json, sys
 j = json.load(open(sys.argv[1]))
 files = [a['file'] for a in j['applied']]
 assert files == ['20260803003400_crm_foundation.sql', '20260803003500_deals.sql',
-                 '20260803003600_contact_intake.sql', '20260803003700_contact_create.sql'], files
+                 '20260803003600_contact_intake.sql', '20260803003700_contact_create.sql',
+                 '20260803003800_contact_stages.sql'], files
 bad = [a for a in j['applied'] if not a['ok']]
 assert not bad, 'refused: ' + '; '.join(f"{a['file']}: {a['error']}" for a in bad)
 assert j['behind'] == [], f"still behind: {j['behind']}"
@@ -115,9 +117,9 @@ ROW=$(q "select coalesce(to_regclass('public.deals')::text,'MISSING') || '|' ||
 # The lead crossed over to a deal with its person intact.
 [ "$(q "select customer_last from public.deals limit 1")" = Lead ] || fail "the lead did not become a deal"
 # And the bookkeeping npm run db:migrate reads agrees.
-[ "$(q "select count(*) from public.schema_migrations where name like '2026080300340%' or name like '2026080300350%' or name like '2026080300360%' or name like '2026080300370%'")" = 4 ] \
+[ "$(q "select count(*) from public.schema_migrations where name >= '20260803003400'")" = 5 ] \
   || fail "schema_migrations was not kept in step"
-pass "one press applies all four, in order, and the database is what a clean apply produces"
+pass "one press applies them all, in order, and the database is what a clean apply produces"
 
 # --- 4. everything that was waiting now works ---------------------------
 H=$(curl -s "$BASE/api/health")
@@ -125,8 +127,11 @@ grep -q '"behind":\[\]' <<<"$H" || fail "health still reports files behind: $H"
 CODE=$(curl -s -o "$W/stages.html" -w '%{http_code}' -b "$JAR" "$BASE/admin/people/stages")
 [ "$CODE" = 200 ] || fail "Contact stages answered $CODE"
 if grep -q "has not caught up" "$W/stages.html"; then fail "Contact stages still says the database is behind"; fi
-grep -q "Not being worked" "$W/stages.html" || fail "the board did not render"
-grep -q "Lee Lead" "$W/stages.html" || fail "the migrated lead is not on the board"
+grep -q "Contact created" "$W/stages.html" || fail "the board did not render"
+# The board shows contacts. Lee Lead came in as an unlinked dealer submission
+# and became a deal with no person behind it, so the contact on file is who
+# appears — which is the distinction the board is built on.
+grep -q "Amy Ash" "$W/stages.html" || fail "the contact on file is not on the board"
 CODE=$(curl -s -o "$W/new.html" -w '%{http_code}' -b "$JAR" "$BASE/admin/people/new")
 [ "$CODE" = 200 ] || fail "Create Contact answered $CODE"
 if grep -q "has not caught up" "$W/new.html"; then fail "Create Contact still says the database is behind"; fi
