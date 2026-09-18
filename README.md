@@ -83,7 +83,9 @@ npm run dev                             # sign in at /login
 Production: `npm run build && npm start` behind any Node-capable host, with
 the same env vars (`DATABASE_URL`, `SMTP_*`, `NEXT_PUBLIC_SITE_URL` = the
 deployed origin). `GET /api/health` reports missing configuration and
-whether the schema is applied.
+whether the schema is applied. See `docs/deployment.md` for deploying on
+Vercel — including the Neon integration's "integration resources failed to
+provision", which is a provisioning failure no commit can fix.
 
 ## Verify everything
 
