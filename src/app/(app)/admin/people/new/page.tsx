@@ -31,7 +31,7 @@ export default async function CreateContactPage() {
           {`This database has not caught up yet, so a contact typed in here cannot be saved. Run ${CREATE_CONTACT_MIGRATION_FILE} in the SQL editor first — and the files before it, if this is the first of them — and the form below will then work as it stands.`}
         </p>
       )}
-      <CreateContactForm refs={data.refs} ready={data.ready} />
+      <CreateContactForm refs={data.refs} ready={data.ready} currentUserId={session.userId} />
     </main>
   );
 }

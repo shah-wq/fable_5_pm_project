@@ -34,13 +34,37 @@ interface Duplicate {
 export function CreateContactForm({
   refs,
   ready = true,
+  currentUserId,
 }: {
   refs: IntakeRefs;
   /** False when the database is missing the file that creates contacts. */
   ready?: boolean;
+  /** Whoever is filling the form in, pre-selected as the contact's owner. */
+  currentUserId?: string | null;
 }) {
   const router = useRouter();
-  const [values, setValues] = useState<IntakeValues>({ contact_stage: 'created' });
+
+  /**
+   * What a blank form starts with: this stage, and this owner.
+   *
+   * The owner is the person typing, because in practice it always is — the rep
+   * who takes the call is the rep who works it. It is pre-selected rather than
+   * assigned invisibly, so somebody entering a contact on a colleague's behalf
+   * can see the wrong name and change it before saving, which is the difference
+   * between a default and a decision made for you.
+   *
+   * Only when they are on the owners list: a finance user filling in a form is
+   * not somebody a contact can be assigned to, and offering their own name in a
+   * dropdown that will not accept it is worse than leaving it empty.
+   */
+  const blank = (): IntakeValues => ({
+    contact_stage: 'created',
+    ...(currentUserId && refs.owners.some((o) => o.id === currentUserId)
+      ? { owner_id: currentUserId }
+      : {}),
+  });
+
+  const [values, setValues] = useState<IntakeValues>(blank);
   const [missing, setMissing] = useState<Set<string>>(new Set());
   const [duplicates, setDuplicates] = useState<Duplicate[] | null>(null);
   const [busy, setBusy] = useState(false);
@@ -104,7 +128,7 @@ export function CreateContactForm({
         return;
       }
       if (again) {
-        setValues({ contact_stage: 'created' });
+        setValues(blank());
         setDuplicates(null);
         setError(null);
         window.scrollTo({ top: 0 });

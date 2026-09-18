@@ -77,6 +77,22 @@ export async function POST(request: Request) {
   const person = pick('client', incoming);
   const deal = pick('deal', incoming);
 
+  // Whoever creates a contact owns it, unless they said otherwise. The form
+  // pre-selects them so the default is visible before it is saved; this is for
+  // every other way a contact arrives — an import, a web form, a script — where
+  // the alternative is an unowned record nobody is looking at.
+  //
+  // Only when the field was not sent at all. Somebody who clears the box on the
+  // form has made a decision, and a default that overrides it is not a default.
+  if (!('owner_id' in incoming)) person.owner_id = session.userId;
+
+  // The form asks for a surname and marks the first name optional, which is how
+  // every CRM asks and how half the business cards in a drawer read. The column
+  // is NOT NULL, so the absent half arrives as an empty string rather than as a
+  // failed insert — and every display in the product joins the two names with a
+  // filter, so an empty one shows as nothing rather than as a gap.
+  if (typeof person.first_name !== 'string') person.first_name = '';
+
   // Lead status is the contact's own field now, so what is left on the deal side
   // is only ever something somebody typed: a dealer code, a sales note. Any of
   // them means there is an opportunity worth recording; none of them means this

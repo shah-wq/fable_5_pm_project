@@ -362,6 +362,49 @@ ROW=$(q "select salutation || '|' || email || '|' || consultant || '|' || altern
 [ "$(q "select count(*) from public.client_channels where client_id='$C1'")" = 3 ] \
   || fail "the new contact's email and phones were not recorded as channels"
 pass "a contact with nothing to sell is created as a person, with no phantom deal"
+# Whoever creates a contact owns it.
+[ "$(q "select owner_id from public.clients where id='$C1'")" = "$AID" ] \
+  || fail "the creator was not made the contact owner"
+
+# --- 13b. the owner, detected rather than typed -------------------------
+# The form opens with the signed-in user already selected, so the default is
+# visible and can be changed before saving rather than applied behind the form.
+python3 - "$W/new.html" "$AID" <<'OWNER'
+import re, sys
+html, me = open(sys.argv[1], encoding='utf-8').read(), sys.argv[2]
+block = re.search(r'Contact owner.*?</select>', html, re.S)
+assert block, 'no contact owner field on the create page'
+assert re.search(rf'<option[^>]+value="{me}"[^>]*selected', block.group(0)) \
+    or re.search(rf'selected[^>]*value="{me}"', block.group(0)), \
+    'the signed-in user is not pre-selected as the owner'
+print('OWNER-PRESELECTED-OK')
+OWNER
+# Somebody else can still be chosen, and is kept.
+OTHER=$(q "insert into auth.users (email, encrypted_password, email_confirmed_at, raw_app_meta_data)
+  values ('rep@in.test', extensions.crypt('Password1234!', extensions.gen_salt('bf',12)), now(),
+          '{\"user_role\":\"sales\"}'::jsonb) returning id")
+q "update public.profiles set role = 'sales', is_active = true, full_name = 'Rae Rep' where id = '$OTHER'" >/dev/null
+# Only a surname, which the form allows and the column does not: the first name
+# is optional on every CRM form there has ever been.
+CODE=$(curl -s -o "$W/c3.json" -w '%{http_code}' -X POST -b "$JAR" -H 'content-type: application/json' \
+  -d "{\"values\":{\"last_name\":\"Assigned\",\"phone\":\"512-555-0777\",\"owner_id\":\"$OTHER\"}}" \
+  "$BASE/api/contacts")
+[ "$CODE" = 201 ] || fail "creating with a chosen owner answered $CODE: $(cat "$W/c3.json")"
+C3=$(python3 -c "import json;print(json.load(open('$W/c3.json'))['clientId'])")
+[ "$(q "select owner_id from public.clients where id='$C3'")" = "$OTHER" ] \
+  || fail "the chosen owner was overwritten by the creator"
+# The name reads as the surname alone, not as a gap.
+[ "$(q "select coalesce(first_name,'<null>') || '|' || last_name from public.clients where id='$C3'")" = "|Assigned" ] \
+  || fail "a contact with no first name was not stored cleanly"
+# And clearing the box is a decision, not an omission: it stays unowned.
+CODE=$(curl -s -o "$W/c4.json" -w '%{http_code}' -X POST -b "$JAR" -H 'content-type: application/json' \
+  -d '{"values":{"last_name":"Unowned","phone":"512-555-0778","owner_id":null}}' \
+  "$BASE/api/contacts")
+[ "$CODE" = 201 ] || fail "creating with the owner cleared answered $CODE"
+C4=$(python3 -c "import json;print(json.load(open('$W/c4.json'))['clientId'])")
+[ -z "$(q "select owner_id from public.clients where id='$C4'")" ] \
+  || fail "clearing the owner was overridden by the default"
+pass "the owner is detected, can be changed, and stays cleared when it is cleared"
 
 # --- 14. the contact form's own deal fields make the first deal --------
 CODE=$(curl -s -o "$W/c2.json" -w '%{http_code}' -X POST -b "$JAR" -H 'content-type: application/json' \
