@@ -1213,20 +1213,51 @@ a {
   margin: 14px 0 22px;
 }
 
-.admin-tabs a {
-  padding: 7px 13px;
+.admin-tabs a,
+/* The record strips render their tabs as buttons rather than links, because
+   they switch a panel instead of going anywhere. They are the same control to
+   whoever is looking at them, so they are the same thing to look at: without
+   this they fell through to .linklike and read as a row of underlined words. */
+.admin-tabs button {
+  padding: 7px 14px;
   border: 1px solid var(--line);
   border-radius: 999px;
   background: var(--card);
   color: var(--ink-soft);
+  font: inherit;
   font-size: 13px;
   font-weight: 600;
+  line-height: 1.4;
   text-decoration: none;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease;
 }
 
-.admin-tabs a.active {
+.admin-tabs a:hover,
+.admin-tabs button:hover {
+  border-color: var(--ink-soft);
+  color: var(--ink);
+}
+
+.admin-tabs a:focus-visible,
+.admin-tabs button:focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: 2px;
+}
+
+.admin-tabs a.active,
+.admin-tabs button.active {
   background: var(--navy);
   border-color: var(--navy);
+  color: #fff;
+}
+
+/* The selected tab stays selected under the pointer. */
+.admin-tabs a.active:hover,
+.admin-tabs button.active:hover {
+  background: var(--navy-soft);
+  border-color: var(--navy-soft);
   color: #fff;
 }
 
@@ -5326,4 +5357,13 @@ a.btn {
 /* Signed is the end of this board, and lost is off to the side of it. */
 .contact-board .board-col.terminal {
   background: #e6efe8;
+}
+
+/* The record's tab strip sits inside a card rather than under a page heading,
+   so it needs a rule beneath it to separate the tabs from the panel they
+   switch — and a little less air above, since the name is right there. */
+.record-body .admin-tabs {
+  margin: 4px 0 18px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--line);
 }
