@@ -50,7 +50,21 @@ holding it:
 3. **Vercel → Project → Settings → Environment Variables**, add for Production,
    Preview and Development:
    - `DATABASE_URL` = the pooled string from step 1, marked **Sensitive**
-   - `DATABASE_SSL` = `require`
+
+   `DATABASE_SSL` is not needed alongside it, and does nothing. Where a
+   connection string carries an `sslmode`, node-postgres takes the string's word
+   and discards the `ssl` option passed beside it — `sslmode=disable` with
+   `ssl: { rejectUnauthorized: false }` resolves to `ssl: false`, the string
+   winning. Every Neon string carries `sslmode=require`, so the `DATABASE_SSL`
+   branch in `src/lib/db.ts` never decides anything in this deployment. It is
+   there for a bare connection string with no `sslmode` at all, which is not what
+   Neon hands out.
+
+   `sslmode=require` is the setting you want regardless: pg 8.x reads it as
+   `verify-full`, so the certificate is checked, and Neon's certificates are
+   publicly signed. (pg 9 / pg-connection-string 3.0 will reinterpret `require`
+   with libpq's weaker semantics, at which point the string wants
+   `sslmode=verify-full` written out. Not yet, and not urgently.)
 4. **Deployments → the most recent one → Redeploy**, with "Use existing build
    cache" *off*.
 
