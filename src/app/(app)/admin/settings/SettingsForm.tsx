@@ -14,6 +14,7 @@ export function SettingsForm({
   signers,
   thresholds,
   typical,
+  esign,
 }: {
   settings: Record<string, unknown>;
   signers: Option[];
@@ -24,6 +25,15 @@ export function SettingsForm({
    * in. Empty until migration 003100 is run.
    */
   typical: Record<string, { min: number | null; max: number | null }>;
+  /** 004400 — PandaDoc. The keys are environment secrets; only whether they are set is shown. */
+  esign: {
+    hasColumns: boolean;
+    apiKey: boolean;
+    webhookKey: boolean;
+    webhookUrl: string;
+    contractTokens: string[];
+    changeOrderTokens: string[];
+  };
 }) {
   const router = useRouter();
   const [notice, setNotice] = useState<string | null>(null);
@@ -72,6 +82,9 @@ export function SettingsForm({
               },
             ])
           ),
+          pandadocContractTemplate: f.get('pandadocContractTemplate') ?? undefined,
+          pandadocChangeOrderTemplate: f.get('pandadocChangeOrderTemplate') ?? undefined,
+          pandadocSignerRole: f.get('pandadocSignerRole') ?? undefined,
         }),
       });
       const json = await res.json().catch(() => null);
@@ -290,6 +303,67 @@ export function SettingsForm({
             </span>
           </label>
         </>
+      )}
+
+      <h2>E-signature (PandaDoc)</h2>
+      <p className="dim">
+        Contracts and change orders can be sent to the homeowner to sign. When they sign, the
+        contract creates the project and the change order updates the contract value — the same
+        as signing by hand — and the signed PDF is filed on the record.
+      </p>
+      <ul className="esign-checks">
+        <li className={esign.apiKey ? 'ok-line' : 'dim'}>
+          {esign.apiKey ? '✓' : '✗'} API key {esign.apiKey ? 'is set' : 'is not set — add PANDADOC_API_KEY to the environment'}
+        </li>
+        <li className={esign.webhookKey ? 'ok-line' : 'dim'}>
+          {esign.webhookKey ? '✓' : '✗'} Webhook key{' '}
+          {esign.webhookKey
+            ? 'is set'
+            : 'is not set — without it, signed documents are picked up by Check status on the record'}
+        </li>
+      </ul>
+      <p className="small dim">
+        PandaDoc webhook URL, event “Document state changed”: <code>{esign.webhookUrl}</code>
+      </p>
+      {esign.hasColumns ? (
+        <>
+          <div className="form-grid">
+            <label className="field">
+              <span>Contract template ID</span>
+              <input
+                name="pandadocContractTemplate"
+                placeholder="From the template's URL in PandaDoc"
+                defaultValue={String(settings.pandadoc_contract_template ?? '')}
+              />
+            </label>
+            <label className="field">
+              <span>Change order template ID</span>
+              <input
+                name="pandadocChangeOrderTemplate"
+                placeholder="From the template's URL in PandaDoc"
+                defaultValue={String(settings.pandadoc_change_order_template ?? '')}
+              />
+            </label>
+            <label className="field">
+              <span>Signer role in the templates</span>
+              <input
+                name="pandadocSignerRole"
+                defaultValue={String(settings.pandadoc_signer_role ?? 'Client')}
+              />
+            </label>
+          </div>
+          <details className="small">
+            <summary>Fields the templates can use</summary>
+            <p>
+              Contract: {esign.contractTokens.map((t) => `[${t}]`).join(' ')}
+            </p>
+            <p>
+              Change order: {esign.changeOrderTokens.map((t) => `[${t}]`).join(' ')}
+            </p>
+          </details>
+        </>
+      ) : (
+        <p className="notice">E-signature needs migration 004400 — Admin → Database → Apply.</p>
       )}
 
       <button className="btn" type="submit" disabled={busy}>

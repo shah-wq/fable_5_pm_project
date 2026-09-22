@@ -74,6 +74,16 @@ export async function loadContactStageBoard(client: PoolClient): Promise<Contact
   );
   const held = new Map(holds.map((h) => [h.client_id, { id: h.id, code: h.code }]));
 
+  // A contract out for signature (004400). Optional like the holds: without
+  // the table, nobody is awaiting a signature.
+  const awaiting = await optionalRows<{ client_id: string }>(
+    client,
+    'contracts out for e-signature',
+    `select distinct client_id from public.esign_envelopes
+      where purpose = 'contract' and status in ('preparing', 'sent', 'viewed')`
+  );
+  const out = new Set(awaiting.map((a) => a.client_id));
+
   return rows.map((r) => ({
     clientId: r.id,
     stage: isContactStage(r.contact_stage) ? r.contact_stage : 'created',
@@ -88,6 +98,7 @@ export async function loadContactStageBoard(client: PoolClient): Promise<Contact
     dealId: r.deal_id,
     projectId: held.get(r.id)?.id ?? null,
     projectCode: held.get(r.id)?.code ?? null,
+    awaitingSignature: out.has(r.id),
   }));
 }
 

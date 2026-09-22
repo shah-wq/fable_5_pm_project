@@ -125,3 +125,33 @@ To get previews back, delete the `git` block, or set the branch to `true`.
 - `migrations.behind` — the migration files this database has not applied yet.
   `[]` means it is current. Anything else is applied from **Admin → Database →
   Apply**, in the app, with no SQL console involved.
+
+## Connecting PandaDoc (e-signature)
+
+Contracts and change orders can be sent for signature through PandaDoc. It is
+off until these are done; signing by hand keeps working either way.
+
+1. **Apply the SQL.** Admin → Database → Apply (migrations 004400 and 004500).
+2. **API key.** PandaDoc → Settings → Integrations → API → generate a key. In
+   Vercel → Settings → Environment Variables add `PANDADOC_API_KEY`, marked
+   **Sensitive**, for Production. Redeploy.
+3. **Templates.** In PandaDoc make two templates, a solar installation
+   agreement and a change order, each with one signer role (default name
+   `Client`). Put the fields you want filled in as tokens — the list is under
+   Admin → Settings → E-signature → "Fields the templates can use", e.g.
+   `[Client.FirstName]`, `[System.SizeKw]`, `[ChangeOrder.Amount]`. Paste each
+   template's ID (the last part of its URL in PandaDoc) into Admin → Settings →
+   E-signature and save.
+4. **Webhook (recommended).** PandaDoc → Settings → Integrations → Webhooks →
+   add one with the URL shown in Admin → Settings (it ends in
+   `/api/integrations/pandadoc/webhook?signature={signature}`) and the event
+   **Document state changed**. Copy its shared key into Vercel as
+   `PANDADOC_WEBHOOK_KEY` (Sensitive) and redeploy. Without the webhook,
+   **Check status** on the contact or change order picks up a signed document.
+
+When a contract is signed the project is created exactly as if the rep had
+pressed **Sign and create project**, as that rep, and the signed PDF is filed on
+the project. When a change order is signed its amount is added to the
+project's contract value and its PDF is filed. If something stops the outcome
+from applying (for example the contact was signed by hand meanwhile), the
+record shows the reason with a **Finish** button.

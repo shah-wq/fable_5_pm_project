@@ -82,7 +82,12 @@ const PROBE_SQL = `select
            -- By its body: the broken and the fixed upload function share a name.
            (select count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
              where n.nspname = 'public' and p.proname = 'record_staff_upload'
-               and p.prosrc like '%::public.document_kind%') as m_004300`;
+               and p.prosrc like '%::public.document_kind%') as m_004300,
+           -- The last thing 004400 makes, and by its shape.
+           (select count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+             where n.nspname = 'public' and p.proname = 'esign_settings'
+               and 'co_prefix' = any(p.proargnames))           as m_004400,
+           to_regprocedure('public.dealer_directory()')::text as m_004500`;
 
 export interface MigrationState {
   applied: Record<string, boolean>;
@@ -133,6 +138,8 @@ export async function migrationState(client: PoolClient): Promise<MigrationState
     '20260803004100_signing_creates_project.sql': Number(p.m_004100) === 1,
     '20260803004200_sales_see_deal_projects.sql': Number(p.m_004200) === 1,
     '20260803004300_stage_upload_fix.sql': Number(p.m_004300) === 1,
+    '20260803004400_esignature.sql': Number(p.m_004400) === 1,
+    '20260803004500_sales_see_dealer_names.sql': Boolean(p.m_004500),
   };
   const behind = Object.entries(applied)
     .filter(([, present]) => !present)

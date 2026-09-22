@@ -78,11 +78,13 @@ import json, sys
 behind = json.loads(sys.argv[1])['migrations']['behind']
 assert behind == ['20260803004100_signing_creates_project.sql',
                   '20260803004200_sales_see_deal_projects.sql',
-                  '20260803004300_stage_upload_fix.sql'], f'health says behind: {behind}'
+                  '20260803004300_stage_upload_fix.sql',
+                  '20260803004400_esignature.sql',
+                  '20260803004500_sales_see_dealer_names.sql'], f'health says behind: {behind}'
 print('BEHIND-OK', behind)
 PY
 curl -s -b "$JAR" "$BASE/admin/database" | sed -e 's/<!--[^>]*-->//g' -e 's/<[^>]*>//g' | tr -s ' \n' ' ' \
-  | grep -q "3 migrations are missing" || fail "Admin → Database does not say which migrations are missing"
+  | grep -q "5 migrations are missing" || fail "Admin → Database does not say which migrations are missing"
 pass "a database with the first sign_contact is reported behind on the file that fixes it, by name"
 
 # --- 2. signing says why it cannot ---------------------------------------
@@ -101,7 +103,9 @@ import json, sys
 j = json.load(open(sys.argv[1]))
 assert [a['file'] for a in j['applied']] == ['20260803004100_signing_creates_project.sql',
                                            '20260803004200_sales_see_deal_projects.sql',
-                                           '20260803004300_stage_upload_fix.sql'], j
+                                           '20260803004300_stage_upload_fix.sql',
+                                           '20260803004400_esignature.sql',
+                                           '20260803004500_sales_see_dealer_names.sql'], j
 assert all(a['ok'] for a in j['applied']), j
 assert j['behind'] == [], j
 print('APPLIED-OK')

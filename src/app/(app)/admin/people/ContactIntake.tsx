@@ -2,7 +2,8 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { EnvelopeList, type EnvelopeView } from '@/app/(app)/_components/Esign';
 import { IntakeForm } from '@/app/(app)/_components/IntakeForm';
 import { SignContractDialog } from '@/app/(app)/_components/SignContractDialog';
 import { useIntake } from '@/app/(app)/_components/useIntake';
@@ -33,6 +34,17 @@ export function ContactIntake({ clientId }: { clientId: string }) {
   const router = useRouter();
   const intake = useIntake(clientId);
   const [signing, setSigning] = useState(false);
+  // Contracts sent for e-signature. Loaded on their own: on a database without
+  // 004400 the list is simply empty and the record works as before.
+  const [envelopes, setEnvelopes] = useState<EnvelopeView[]>([]);
+  const loadEnvelopes = useCallback(async () => {
+    const res = await fetch(`/api/contacts/${clientId}/esign`).catch(() => null);
+    const json = res?.ok ? await res.json().catch(() => null) : null;
+    setEnvelopes(Array.isArray(json?.envelopes) ? json.envelopes : []);
+  }, [clientId]);
+  useEffect(() => {
+    void loadEnvelopes();
+  }, [loadEnvelopes]);
 
   // The same groups, with Lead status turned into a statement while a project
   // holds them. Read-only fields are not sent as edits, so nothing to refuse.
@@ -80,6 +92,20 @@ export function ContactIntake({ clientId }: { clientId: string }) {
           <Link href={`/projects/${intake.project.id}`}>{intake.project.code}</Link>
           {'. To move them to another stage, an admin deletes the project first.'}
         </p>
+      )}
+
+      {envelopes.length > 0 && (
+        <section className="esign-panel">
+          <h3>Contract e-signature</h3>
+          <EnvelopeList
+            envelopes={envelopes}
+            onChanged={() => void loadEnvelopes()}
+            onSigned={() => {
+              void intake.load(intake.dealId);
+              router.refresh();
+            }}
+          />
+        </section>
       )}
 
       {intake.deals.length === 0 ? (
@@ -149,8 +175,14 @@ export function ContactIntake({ clientId }: { clientId: string }) {
             // the stage never moved.
             void intake.load(intake.dealId);
           }}
+          onSent={() => {
+            setSigning(false);
+            void intake.load(intake.dealId);
+            void loadEnvelopes();
+          }}
           onSigned={() => {
             setSigning(false);
+            void loadEnvelopes();
             void intake.load(intake.dealId);
             // The page reads again so the System tab appears on the record.
             router.refresh();

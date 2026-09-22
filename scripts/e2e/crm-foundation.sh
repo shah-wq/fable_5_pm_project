@@ -67,6 +67,8 @@ run "$ROOT/db/migrations/20260803004000_project_holds_contact.sql"
 run "$ROOT/db/migrations/20260803004100_signing_creates_project.sql"
 run "$ROOT/db/migrations/20260803004200_sales_see_deal_projects.sql"
 run "$ROOT/db/migrations/20260803004300_stage_upload_fix.sql"
+run "$ROOT/db/migrations/20260803004400_esignature.sql"
+run "$ROOT/db/migrations/20260803004500_sales_see_dealer_names.sql"
 pass "the CRM scripts apply to a database that already has live data"
 
 # --- 3. step 2: backfill channels — copy, do not move ------------------
@@ -145,6 +147,8 @@ run "$ROOT/db/migrations/20260803004000_project_holds_contact.sql"
 run "$ROOT/db/migrations/20260803004100_signing_creates_project.sql"
 run "$ROOT/db/migrations/20260803004200_sales_see_deal_projects.sql"
 run "$ROOT/db/migrations/20260803004300_stage_upload_fix.sql"
+run "$ROOT/db/migrations/20260803004400_esignature.sql"
+run "$ROOT/db/migrations/20260803004500_sales_see_dealer_names.sql"
 N=$(q "select count(*) from public.client_channels where client_id = '$C1' and kind = 'email'")
 [ "$N" = 1 ] || fail "re-running the migration duplicated a channel ($N)"
 N=$(q "select count(*) from public.client_addresses where client_id = '$C1'")

@@ -194,6 +194,9 @@ export function ContactStageBoard({ cards }: { cards: ContactStageCard[] }) {
                       {card.lastContact && <span>spoke {card.lastContact}</span>}
                     </div>
                     <div className="card-sub dim">{card.ownerName ?? 'unassigned'}</div>
+                    {card.awaitingSignature && !card.projectId && (
+                      <span className="chip esign-chip">Awaiting e-signature</span>
+                    )}
                     {card.projectId ? (
                       <Link className="card-link" href={`/projects/${card.projectId}`} draggable={false}>
                         {`Project ${card.projectCode}`}
@@ -218,6 +221,15 @@ export function ContactStageBoard({ cards }: { cards: ContactStageCard[] }) {
           clientId={signing.clientId}
           personName={signing.personName}
           onCancel={() => setSigning(null)}
+          onSent={(envelope) => {
+            const card = signing;
+            setSigning(null);
+            setToast({
+              kind: 'ok',
+              text: `Contract sent to ${envelope.signerEmail} — ${card.personName} moves to ${STAGE_COLUMN_LABELS.contract_signed} when they sign`,
+            });
+            router.refresh();
+          }}
           onSigned={(result) => {
             const card = signing;
             setSigning(null);

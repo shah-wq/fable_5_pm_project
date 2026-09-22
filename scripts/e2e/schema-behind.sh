@@ -26,7 +26,7 @@ pass() { echo "PASS: $*"; }
 # The screens a member of staff can reach, with the role that reaches them.
 PAGES=(
   /dashboard /projects /pipeline /leads /tasks /messages /feedback /reports
-  /deals /deals/new /admin /admin/people /admin/people/new /admin/people/stages /admin/dealers /admin/users
+  /deals /deals/new /admin /admin/people /admin/people/new /admin/people/stages /admin/dealers /admin/users /admin/settings
 )
 
 cut_at() {
@@ -73,7 +73,9 @@ for CUT in 20260803002300_customer_portal.sql \
            20260803003900_contract_signed_system.sql \
            20260803004000_project_holds_contact.sql \
            20260803004100_signing_creates_project.sql \
-           20260803004200_sales_see_deal_projects.sql; do
+           20260803004200_sales_see_deal_projects.sql \
+           20260803004300_stage_upload_fix.sql \
+           20260803004400_esignature.sql; do
   cut_at "$CUT"
   node scripts/create-admin.mjs admin@in.test "Password1234!" "Ada Admin" >/dev/null
   PORT=$APPPORT nohup npx next start -p $APPPORT >"$W/next.log" 2>&1 &

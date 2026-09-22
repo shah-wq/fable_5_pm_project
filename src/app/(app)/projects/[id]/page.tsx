@@ -6,6 +6,7 @@ import { loadDetailRefs } from '@/lib/projects/details';
 import { STAGE_LABELS, isStageKey } from '@/lib/stages/definitions';
 import { loadBundles } from '@/lib/stages/service';
 import { evaluateStage } from '@/lib/stages/requirements';
+import { ChangeOrdersPanel } from './ChangeOrdersPanel';
 import { CommissionPanel, type CommissionValue } from './CommissionPanel';
 import { optionalRows } from '@/lib/db-optional';
 import { loadSummaries } from '@/lib/chat/service';
@@ -94,6 +95,13 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
        where project_id = $1 order by created_at desc limit 100`,
       [id]
     );
+    // The change-order number prefix (Admin → Settings). app_settings is read
+    // by admin and ops, who are the only people shown the panel.
+    const coPrefix = await optionalRows<{ co_prefix: string }>(
+      c,
+      'the change-order prefix',
+      `select co_prefix from public.app_settings where id`
+    );
     const chat = await loadSummaries(c, [id]);
     const portalUser = await c.query<{ n: number }>(
       `select count(*)::int as n from public.clients cl
@@ -110,6 +118,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
       asks,
       documents,
       chat: chat.get(id) ?? null,
+      coPrefix: coPrefix[0]?.co_prefix ?? 'CO-',
       hasPortalAccess: (portalUser.rows[0]?.n ?? 0) > 0,
     };
   });
@@ -268,6 +277,9 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
                 : null
             }
           />
+        )}
+        {['admin', 'ops'].includes(session.role) && (
+          <ChangeOrdersPanel projectId={id} prefix={data.coPrefix} />
         )}
         <section className="panel">
           <h2>

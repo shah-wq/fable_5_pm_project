@@ -1,5 +1,5 @@
 import type { PoolClient } from 'pg';
-import { optionalRows } from '@/lib/db-optional';
+import { optionalQuery, optionalRows } from '@/lib/db-optional';
 import type { IntakeRefKey } from '@/lib/crm/intake';
 
 /**
@@ -33,6 +33,20 @@ export type IntakeRefLists = Record<IntakeRefKey, Array<{ id: string; name: stri
 export async function loadIntakeRefs(client: PoolClient): Promise<IntakeRefLists> {
   const refs = {} as IntakeRefLists;
   for (const [key, sql] of Object.entries(REF_SQL) as Array<[IntakeRefKey, string]>) {
+    if (key === 'dealers') {
+      // Through the directory (004500), which a sales rep can read; the table
+      // itself only admin, ops and finance can. Before 004500 the table is
+      // asked directly, so an admin's list is never emptier than it was.
+      const dir = await optionalQuery<{ id: string; name: string }>(
+        client,
+        'the dealer directory (public.dealer_directory)',
+        'select id, name from public.dealer_directory() where is_active'
+      );
+      if (dir.available) {
+        refs[key] = dir.rows;
+        continue;
+      }
+    }
     refs[key] = await optionalRows<{ id: string; name: string }>(client, `the ${key} list`, sql);
   }
   return refs;

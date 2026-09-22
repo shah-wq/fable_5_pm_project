@@ -1,6 +1,9 @@
 import { guardPath } from '@/lib/auth/session';
 import { withUser } from '@/lib/db';
 import { optionalRows } from '@/lib/db-optional';
+import { pandadocConfigured } from '@/lib/esign/pandadoc';
+import { CHANGE_ORDER_TOKENS, CONTRACT_TOKENS } from '@/lib/esign/service';
+import { siteUrl } from '@/lib/site';
 import { AdminTabs } from '../_components/AdminTabs';
 import { SettingsForm } from './SettingsForm';
 
@@ -66,6 +69,14 @@ export default async function AdminSettingsPage() {
         signers={data.signers}
         thresholds={thresholds}
         typical={typical}
+        esign={{
+          hasColumns: 'pandadoc_contract_template' in (data.settings ?? {}),
+          apiKey: pandadocConfigured(),
+          webhookKey: Boolean(process.env.PANDADOC_WEBHOOK_KEY),
+          webhookUrl: `${siteUrl()}/api/integrations/pandadoc/webhook?signature={signature}`,
+          contractTokens: CONTRACT_TOKENS,
+          changeOrderTokens: CHANGE_ORDER_TOKENS,
+        }}
       />
     </main>
   );

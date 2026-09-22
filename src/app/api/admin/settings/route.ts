@@ -38,6 +38,10 @@ export async function PUT(request: Request) {
     stageThresholds?: Record<string, number>;
     /** 003100 — 'Typical 15–30 days' on the customer's current-stage card. */
     typicalDurations?: Record<string, { min?: number; max?: number }>;
+    /** 004400 — the PandaDoc templates contracts and change orders are made from. */
+    pandadocContractTemplate?: string;
+    pandadocChangeOrderTemplate?: string;
+    pandadocSignerRole?: string;
   } | null;
 
   // Only http(s) links reach the app: a javascript: URL in a legal link would
@@ -160,6 +164,29 @@ export async function PUT(request: Request) {
       if (!result.available) typicalMissing = true;
     }
     if (typicalMissing) skipped.push('the typical stage durations (run migration 003100)');
+
+    // 004400 — e-signature templates. A template id is PandaDoc's, pasted from
+    // the template's URL; anything that is not an id-shaped string is dropped
+    // rather than stored, so a pasted URL fragment cannot reach the API call.
+    const templateId = (v: string | undefined) => {
+      const t = (v ?? '').trim();
+      return /^[A-Za-z0-9_-]{8,64}$/.test(t) ? t : null;
+    };
+    const esign = await optionalQuery(
+      c,
+      'the e-signature settings (app_settings.pandadoc_contract_template)',
+      `update public.app_settings set
+         pandadoc_contract_template = $1,
+         pandadoc_change_order_template = $2,
+         pandadoc_signer_role = $3
+       where id`,
+      [
+        templateId(p?.pandadocContractTemplate),
+        templateId(p?.pandadocChangeOrderTemplate),
+        (p?.pandadocSignerRole ?? '').trim().slice(0, 60) || 'Client',
+      ]
+    );
+    if (!esign.available) skipped.push('the e-signature settings (run migration 004400)');
   });
 
   return NextResponse.json({ ok: true, ...(skipped.length ? { skipped } : {}) });

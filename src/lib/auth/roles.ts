@@ -50,6 +50,11 @@ export const ROUTE_ACCESS: Record<string, readonly UserRole[]> = {
   '/admin/customers': ['admin', 'ops', 'sales'],
   '/api/customers': ['admin', 'ops', 'sales'],
   '/api/contacts': ['admin', 'ops', 'sales'],
+  // An envelope out for signature: a contract (sales) or a change order (the
+  // project team). The database decides which of the two a caller may touch.
+  // /api/integrations/pandadoc/webhook is deliberately absent — PandaDoc has
+  // no session, and the route checks PandaDoc's signature instead.
+  '/api/esign': ['admin', 'ops', 'sales'],
   // Consent records are admin's, with the marketing and consent capability
   // flags deciding who may change them (Part 8).
   '/admin/subscribers': ['admin'],

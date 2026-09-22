@@ -77,4 +77,6 @@ export interface ContactStageCard {
    */
   projectId: string | null;
   projectCode: string | null;
+  /** A contract has been sent for e-signature and not yet signed. */
+  awaitingSignature?: boolean;
 }
