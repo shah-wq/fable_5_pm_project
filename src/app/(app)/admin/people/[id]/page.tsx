@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import { guardPath } from '@/lib/auth/session';
 import { withUser } from '@/lib/db';
+import { optionalRows } from '@/lib/db-optional';
 import { loadCustomers } from '@/lib/customers/service';
 import { isSchemaDrift } from '@/lib/db-drift';
 import { behindSentence, migrationState } from '@/lib/db-migrations';
@@ -27,6 +28,20 @@ export default async function ContactPage({ params }: { params: Promise<{ id: st
       // itself about what a person looks like.
       customer: (await loadCustomers(c)).find((row) => row.id === id) ?? null,
       dealers: (await c.query('select id, name from public.dealers where is_active order by name')).rows,
+      // The deal whose system was recorded at signing, if there is one. Until
+      // there is, the record says nothing about systems at all — there is
+      // nothing true to say. Degrades to none on a database without 003900.
+      signed:
+        (
+          await optionalRows<{ id: string; stage: string; system_recorded_at: string }>(
+            c,
+            'the signed system',
+            `select id, stage, system_recorded_at::text from public.deals
+              where client_id = $1 and system_recorded_at is not null
+              order by system_recorded_at desc limit 1`,
+            [id]
+          )
+        )[0] ?? null,
     }));
   } catch (error) {
     if (!isSchemaDrift(error)) throw error;
@@ -48,6 +63,7 @@ export default async function ContactPage({ params }: { params: Promise<{ id: st
         customer={data.customer}
         dealers={data.dealers}
         isAdmin={session.role === 'admin'}
+        signed={data.signed}
       />
     </main>
   );

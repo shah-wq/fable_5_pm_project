@@ -4,10 +4,9 @@ import { getSession } from '@/lib/auth/session';
 import { withUser } from '@/lib/db';
 import { dbErrorResponse } from '@/lib/db-error';
 import { optionalRows } from '@/lib/db-optional';
-import { intakeCreateColumns, type IntakeField } from '@/lib/crm/intake';
+import { coerceIntakeValue } from '@/lib/crm/coerce';
+import { intakeCreateColumns } from '@/lib/crm/intake';
 import { findPeopleByContact } from '@/lib/people/service';
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * Create Contact.
@@ -22,31 +21,6 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
  * second email address is still the same person.
  */
 
-/** Coerce one submitted value to the shape its column expects, or drop it. */
-function coerce(field: IntakeField, raw: unknown): unknown {
-  if (raw === '' || raw === null || raw === undefined) return null;
-  switch (field.type) {
-    case 'number':
-    case 'currency': {
-      const n = Number(raw);
-      return Number.isFinite(n) ? n : null;
-    }
-    case 'toggle':
-      return raw === true;
-    case 'yesno':
-      if (raw === true || raw === 'yes') return true;
-      if (raw === false || raw === 'no') return false;
-      return null;
-    case 'ref':
-      return UUID_RE.test(String(raw)) ? String(raw) : null;
-    case 'select':
-    case 'readonly':
-      return field.options?.some((o) => o.value === String(raw)) ? String(raw) : null;
-    default:
-      return String(raw).slice(0, 4000);
-  }
-}
-
 /** The submitted values for one table, as a JSON object of real columns only. */
 function pick(
   owner: 'client' | 'deal',
@@ -55,7 +29,7 @@ function pick(
   const out: Record<string, unknown> = {};
   for (const field of intakeCreateColumns(owner)) {
     if (!(field.name in incoming)) continue;
-    const value = coerce(field, incoming[field.name]);
+    const value = coerceIntakeValue(field, incoming[field.name]);
     if (value !== null) out[field.name] = value;
   }
   return out;

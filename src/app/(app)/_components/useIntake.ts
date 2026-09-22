@@ -23,6 +23,8 @@ export interface DealOption {
 export function useIntake(clientId: string | null, fixedDealId?: string | null) {
   const [loading, setLoading] = useState(true);
   const [values, setValues] = useState<IntakeValues>({});
+  /** What the database last said — the baseline a change is a change from. */
+  const [original, setOriginal] = useState<IntakeValues>({});
   const [refs, setRefs] = useState<IntakeRefs | null>(null);
   const [documents, setDocuments] = useState<IntakeDoc[]>([]);
   const [deals, setDeals] = useState<DealOption[]>([]);
@@ -50,6 +52,7 @@ export function useIntake(clientId: string | null, fixedDealId?: string | null) 
           return;
         }
         setValues(json.values ?? {});
+        setOriginal(json.values ?? {});
         setRefs(json.refs ?? null);
         setDocuments(json.documents ?? []);
         setDeals(json.deals ?? []);
@@ -72,24 +75,32 @@ export function useIntake(clientId: string | null, fixedDealId?: string | null) 
     setNotice(null);
   }
 
-  async function save(onSaved?: () => void) {
-    if (!clientId) return;
+  /**
+   * Save the form. `hold` sends some fields as they were rather than as edited —
+   * how the contact record saves everything else while a move to Contract
+   * signed waits for its own form. Resolves true when the save went through.
+   */
+  async function save(onSaved?: () => void, hold?: IntakeValues): Promise<boolean> {
+    if (!clientId) return false;
     setBusy(true);
     setError(null);
     try {
+      const sent = { ...values, ...(hold ?? {}) };
       const res = await fetch(`/api/customers/${clientId}/intake`, {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ dealId, values }),
+        body: JSON.stringify({ dealId, values: sent }),
       });
       const json = await res.json().catch(() => null);
       if (!res.ok) {
         setError(json?.error ?? `Save failed (${res.status}).`);
-        return;
+        return false;
       }
+      setOriginal(sent);
       setDirty(false);
       setNotice('Saved.');
       onSaved?.();
+      return true;
     } finally {
       setBusy(false);
     }
@@ -117,7 +128,7 @@ export function useIntake(clientId: string | null, fixedDealId?: string | null) 
   }
 
   return {
-    loading, values, refs, documents, deals, dealId, dirty, busy, error, notice,
+    loading, values, original, refs, documents, deals, dealId, dirty, busy, error, notice,
     setDealId, load, change, save, upload, removeDoc,
   };
 }

@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import type { CustomerRow } from '@/lib/customers/service';
-import { PersonDrawer } from '../PersonDrawer';
+import { PersonDrawer, type SignedSystem } from '../PersonDrawer';
 
 /**
  * One contact, at its own address.
@@ -16,10 +16,12 @@ export function ContactRecord({
   customer,
   dealers,
   isAdmin,
+  signed,
 }: {
   customer: CustomerRow;
   dealers: Array<{ id: string; name: string }>;
   isAdmin: boolean;
+  signed: SignedSystem | null;
 }) {
   const router = useRouter();
   return (
@@ -28,6 +30,7 @@ export function ContactRecord({
       dealers={dealers}
       isAdmin={isAdmin}
       variant="page"
+      signed={signed}
       onClose={() => router.push('/admin/people')}
       // Deleting or anonymising leaves nothing here to look at; everything else
       // just needs the server components on this page to read again.

@@ -1,7 +1,9 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 import { IntakeForm } from '@/app/(app)/_components/IntakeForm';
+import { SignContractDialog } from '@/app/(app)/_components/SignContractDialog';
 import { useIntake } from '@/app/(app)/_components/useIntake';
 import { CONTACT_GROUPS } from '@/lib/crm/intake';
 
@@ -16,10 +18,28 @@ import { CONTACT_GROUPS } from '@/lib/crm/intake';
  * A couple of the fields below (lead status, dealer code, the notes) are stored
  * on the deal even though they are asked for here. The picker at the top says
  * which deal, and only appears when there is more than one to be confused about.
+ *
+ * Choosing Contract signed in Lead status is the same move as dropping the card
+ * in that column on the board, and goes the same way: Save keeps everything
+ * else, then opens the signing form for the system. Cancel it and they stay at
+ * the stage they were at.
  */
 export function ContactIntake({ clientId }: { clientId: string }) {
   const router = useRouter();
   const intake = useIntake(clientId);
+  const [signing, setSigning] = useState(false);
+
+  async function saveOrSign() {
+    const before = intake.original.contact_stage;
+    const signingNow = intake.values.contact_stage === 'contract_signed' && before !== 'contract_signed';
+    if (!signingNow) {
+      await intake.save(() => router.refresh());
+      return;
+    }
+    // Everything else first, with the stage held where it was; the form moves it.
+    const ok = await intake.save(undefined, { contact_stage: before });
+    if (ok) setSigning(true);
+  }
 
   if (intake.loading) return <p className="dim">Loading…</p>;
 
@@ -79,11 +99,34 @@ export function ContactIntake({ clientId }: { clientId: string }) {
           className="btn"
           type="button"
           disabled={intake.busy || !intake.dirty}
-          onClick={() => void intake.save(() => router.refresh())}
+          onClick={() => void saveOrSign()}
         >
           {intake.busy ? 'Saving…' : 'Save'}
         </button>
       </div>
+
+      {signing && (
+        <SignContractDialog
+          clientId={clientId}
+          personName={
+            `${String(intake.values.first_name ?? '')} ${String(intake.values.last_name ?? '')}`.trim() ||
+            'this contact'
+          }
+          dealId={intake.dealId}
+          onCancel={() => {
+            setSigning(false);
+            // Back to what the database says: the other edits were saved, and
+            // the stage never moved.
+            void intake.load(intake.dealId);
+          }}
+          onSigned={() => {
+            setSigning(false);
+            void intake.load(intake.dealId);
+            // The page reads again so the System tab appears on the record.
+            router.refresh();
+          }}
+        />
+      )}
     </>
   );
 }

@@ -161,11 +161,21 @@ move() {
   ] || fail "the backwards move did not stick"
 # A lost contact comes back to life.
 [ "$(move "$LOU" appointment_scheduled)" = 200 ] || fail "reviving a lost contact was refused"
-# Straight to the end, skipping everything between.
-[ "$(move "$FRED" contract_signed)" = 200 ] || fail "a skip to Contract signed was refused"
+# Straight to the end, skipping everything between — which is allowed, but
+# Contract signed is a step rather than a drop: the plain move is sent back to
+# the signing form, and the contact stays put until the system is recorded.
+[ "$(move "$FRED" contract_signed)" = 409 ] || fail "a bare move into Contract signed was not sent to signing: $(cat "$W/move.json")"
+grep -q '"needsSigning":true' "$W/move.json" || fail "the refusal does not say to sign"
+[ "$(q "select contact_stage from public.clients where id='$FRED'")" = appointment_scheduled \
+  ] || fail "a refused move into Contract signed moved Fred anyway"
+sign() {
+  curl -s -o "$W/sign.json" -w '%{http_code}' -X POST -b "$JAR" \
+    -H 'content-type: application/json' -d "$2" "$BASE/api/contacts/$1/sign"
+}
+[ "$(sign "$FRED" '{"values":{"system_size_kw":6.6}}')" = 200 ] || fail "signing Fred was refused: $(cat "$W/sign.json")"
 [ "$(q "select contact_stage from public.clients where id='$FRED'")" = contract_signed \
   ] || fail "the skip did not stick"
-pass "any stage to any stage: forwards, sideways, backwards and skipping"
+pass "any stage to any stage: forwards, sideways, backwards and skipping — signing through its form"
 
 # --- 5. what it refuses, and what it records ----------------------------
 [ "$(move "$BEA" "not_a_stage")" = 400 ] || fail "an invented stage was accepted"
@@ -214,6 +224,59 @@ CODE=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'content-type: applicat
 CODE=$(curl -s -o /dev/null -w '%{http_code}' -b "$W/dealer.txt" "$BASE/admin/people/stages")
 [ "$CODE" != 200 ] || fail "a dealer opened the contact board"
 pass "the board and the move are staff-only"
+
+# --- 8. signing records the system, and only then does the record show it --
+# Quinn is quoted-then-approved with an open proposal deal and no system on it.
+tabs() { curl -s -b "$JAR" "$BASE/admin/people/$1" | grep -c '>System</button>' || true; }
+[ "$(tabs "$QUINN")" = 0 ] || fail "an unsigned contact already shows a System tab"
+QDEAL=$(q "select id from public.deals where client_id='$QUINN'")
+
+# Nothing without a size, and nothing moves.
+[ "$(sign "$QUINN" '{"values":{"contract_value":28000}}')" = 400 ] || fail "signing with no system size was accepted"
+grep -q '"missing":\["system_size_kw"\]' "$W/sign.json" || fail "the refusal does not point at the size: $(cat "$W/sign.json")"
+[ "$(q "select contact_stage from public.clients where id='$QUINN'")" = financing_approved ] \
+  || fail "a refused signing moved Quinn"
+[ "$(q "select system_recorded_at is null from public.deals where id='$QDEAL'")" = t ] \
+  || fail "a refused signing marked the deal"
+
+# With a size: on to the deal they already have, 12.4 panels rounded to 12, and
+# the deal's own stage and owner left alone however the request dresses it up.
+[ "$(sign "$QUINN" '{"values":{"system_size_kw":7.2,"module_quantity":12.4,"contract_value":28000,"financing_route":"loan","stage":"won","owner_id":null}}')" = 200 ] \
+  || fail "signing Quinn was refused: $(cat "$W/sign.json")"
+grep -q '"dealCreated":false' "$W/sign.json" || fail "Quinn's open deal was not the one signed: $(cat "$W/sign.json")"
+ROW=$(q "select c.contact_stage || '|' || d.stage || '|' || d.system_size_kw || '|' || d.module_quantity || '|' ||
+                d.contract_value || '|' || d.financing_route || '|' || (d.system_recorded_at is not null)
+           from public.clients c join public.deals d on d.client_id = c.id where c.id = '$QUINN'")
+[ "$ROW" = "contract_signed|proposal|7.200|12|28000.00|loan|true" ] || fail "the signing wrote the wrong thing ($ROW)"
+
+# Fred had no deal at all: signing made one, at Contract out, with his size.
+ROW=$(q "select count(*) || '|' || min(stage) || '|' || min(system_size_kw) from public.deals where client_id='$FRED'")
+[ "$ROW" = "1|contract_out|6.600" ] || fail "signing a contact with no deal did not make one ($ROW)"
+
+# The record: no System tab before, one now — for both.
+[ "$(tabs "$QUINN")" = 1 ] || fail "Quinn's record does not show the System tab after signing"
+[ "$(tabs "$FRED")" = 1 ] || fail "Fred's record does not show the System tab after signing"
+[ "$(tabs "$BEA")" = 0 ] || fail "Bea, who has not signed, shows a System tab"
+
+# The Lead status box is the same door: a change to Contract signed is sent to
+# the form, a save that leaves an already-signed contact signed is not.
+CODE=$(curl -s -o "$W/patch.json" -w '%{http_code}' -X PATCH -b "$JAR" -H 'content-type: application/json' \
+  -d '{"values":{"contact_stage":"contract_signed"}}' "$BASE/api/customers/$BEA/intake")
+[ "$CODE" = 409 ] || fail "Lead status → Contract signed skipped the signing form ($CODE)"
+[ "$(q "select contact_stage from public.clients where id='$BEA'")" = appointment_rescheduled ] \
+  || fail "the refused Lead status change moved Bea"
+CODE=$(curl -s -o /dev/null -w '%{http_code}' -X PATCH -b "$JAR" -H 'content-type: application/json' \
+  -d '{"values":{"contact_stage":"contract_signed","description":"Signed at the kitchen table"}}' \
+  "$BASE/api/customers/$QUINN/intake")
+[ "$CODE" = 200 ] || fail "saving an already-signed contact was refused ($CODE)"
+
+# Written down, and staff-only.
+[ "$(q "select count(*) from public.audit_log where action='contact.contract_signed' and client_id='$QUINN'")" = 1 ] \
+  || fail "the signing is not in the activity log"
+CODE=$(curl -s -o /dev/null -w '%{http_code}' -X POST -b "$W/dealer.txt" -H 'content-type: application/json' \
+  -d '{"values":{"system_size_kw":5}}' "$BASE/api/contacts/$BEA/sign")
+[ "$CODE" != 200 ] || fail "a dealer signed a contact"
+pass "signing records the system on the deal first, and only then does the contact show it"
 
 mkdir -p "$W/shots"
 bash "$ROOT/scripts/e2e/shoot.sh" "$BASE" "$JAR" /admin/people/stages "$W/shots/contact-stages.png" 1800 900 || true

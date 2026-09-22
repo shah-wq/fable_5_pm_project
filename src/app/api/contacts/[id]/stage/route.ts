@@ -25,6 +25,19 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
   if (!isContactStage(body?.stage)) {
     return NextResponse.json({ error: 'that is not a contact stage' }, { status: 400 });
   }
+  // Contract signed is a step, not a drop: the system is recorded on the way in,
+  // through /sign, which moves the contact itself once it has. A move straight
+  // there from here would put a signed contact on the board with no system —
+  // the one thing that column is for.
+  if (body.stage === 'contract_signed') {
+    return NextResponse.json(
+      {
+        error: 'Contract signed records the system first — fill in the signing form.',
+        needsSigning: true,
+      },
+      { status: 409 }
+    );
+  }
   const note = typeof body?.note === 'string' ? body.note.slice(0, 500) : null;
 
   try {

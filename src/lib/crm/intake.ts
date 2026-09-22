@@ -349,3 +349,30 @@ export function intakeCreateColumns(owner: IntakeOwner): IntakeField[] {
 export const INTAKE_REQUIRED: IntakeField[] = CONTACT_GROUPS.flatMap((g) =>
   g.fields.filter((f) => f.required)
 );
+
+/**
+ * What Contract signed asks for: the deal's system, usage and money — every deal
+ * field except the uploads, which need a deal to file against and are added on
+ * the record afterwards.
+ *
+ * Derived from DEAL_DETAIL_GROUPS rather than listed again, so a field added to
+ * the deal is asked for at signing without anybody remembering to. The one
+ * change is that the system size is required here: a signed contract with no
+ * system on it is the thing this step exists to prevent. The deal record does
+ * not insist on it, because a deal still being worked does not have one yet.
+ */
+export const SIGNING_REQUIRED = ['system_size_kw'] as const;
+
+export const SIGNING_GROUPS: IntakeGroup[] = DEAL_DETAIL_GROUPS.map((g) => ({
+  ...g,
+  fields: g.fields
+    .filter((f) => f.type !== 'upload')
+    .map((f) =>
+      (SIGNING_REQUIRED as readonly string[]).includes(f.name) ? { ...f, required: true } : f
+    ),
+})).filter((g) => g.fields.length > 0);
+
+/** The columns a signing may write — the allowlist the sign route coerces through. */
+export function signingColumns(): IntakeField[] {
+  return SIGNING_GROUPS.flatMap((g) => g.fields.filter((f) => f.type !== 'readonly'));
+}

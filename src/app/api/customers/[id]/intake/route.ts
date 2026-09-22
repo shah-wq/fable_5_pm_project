@@ -4,6 +4,7 @@ import { getSession } from '@/lib/auth/session';
 import { withUser } from '@/lib/db';
 import { dbErrorResponse } from '@/lib/db-error';
 import { optionalRows } from '@/lib/db-optional';
+import { coerceIntakeValue } from '@/lib/crm/coerce';
 import { intakeColumns, type IntakeField } from '@/lib/crm/intake';
 import { loadIntakeRefs } from '@/lib/crm/refs';
 
@@ -104,32 +105,6 @@ export async function GET(request: Request, ctx: { params: Promise<{ id: string 
   }
 }
 
-/** Coerce one value to the shape its column expects, or refuse it. */
-function coerce(field: IntakeField, raw: unknown): unknown {
-  if (raw === '' || raw === null || raw === undefined) return null;
-  switch (field.type) {
-    case 'number':
-    case 'currency': {
-      const n = Number(raw);
-      return Number.isFinite(n) ? n : null;
-    }
-    case 'toggle':
-      return raw === true;
-    // Yes, No, or nothing — and nothing is a real answer here ("we have not
-    // asked yet"), which is why it is not folded into false.
-    case 'yesno':
-      if (raw === true || raw === 'yes') return true;
-      if (raw === false || raw === 'no') return false;
-      return null;
-    case 'ref':
-      return UUID_RE.test(String(raw)) ? String(raw) : null;
-    case 'select':
-      return field.options?.some((o) => o.value === String(raw)) ? String(raw) : null;
-    default:
-      return String(raw).slice(0, 4000);
-  }
-}
-
 export async function PATCH(request: Request, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
   const session = await getSession();
@@ -152,7 +127,7 @@ export async function PATCH(request: Request, ctx: { params: Promise<{ id: strin
     const params: unknown[] = [];
     for (const field of fields) {
       if (!(field.name in incoming)) continue;
-      params.push(coerce(field, incoming[field.name]));
+      params.push(coerceIntakeValue(field, incoming[field.name]));
       sets.push(`${field.name} = $${offset + params.length}`);
     }
     return { sets, params };
@@ -160,6 +135,27 @@ export async function PATCH(request: Request, ctx: { params: Promise<{ id: strin
 
   try {
     const result = await withUser(session, async (client) => {
+      // Choosing Contract signed in the Lead status box is the same move as
+      // dropping the card in that column, and goes the same way: through the
+      // signing form, which records the system. Saving it straight onto the
+      // person would make a signed contact with no system behind them. The
+      // record's own screen opens the form instead of sending this; this is for
+      // anything else that tries.
+      if (incoming.contact_stage === 'contract_signed') {
+        const now = await optionalRows<{ contact_stage: string }>(
+          client,
+          'the contact’s stage',
+          `select contact_stage from public.clients where id = $1`,
+          [id]
+        );
+        if (now[0]?.contact_stage !== 'contract_signed') {
+          return {
+            error: 'Contract signed records the system first — fill in the signing form.',
+            needsSigning: true as const,
+          };
+        }
+      }
+
       const person = build(intakeColumns('client'), 1);
       if (person.sets.length > 0) {
         await optionalRows(
@@ -186,6 +182,9 @@ export async function PATCH(request: Request, ctx: { params: Promise<{ id: strin
       return { ok: true as const };
     });
 
+    if ('needsSigning' in result) {
+      return NextResponse.json({ error: result.error, needsSigning: true }, { status: 409 });
+    }
     if ('error' in result) return NextResponse.json({ error: result.error }, { status: 400 });
 
     await tryLogAuditEvent(session, {

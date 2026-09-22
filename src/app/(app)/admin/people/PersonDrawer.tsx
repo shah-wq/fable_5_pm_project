@@ -13,11 +13,19 @@ import type {
 } from '@/lib/people/service';
 import { STAGE_LABELS, type StageKey } from '@/lib/stages/definitions';
 import { ContactIntake } from './ContactIntake';
+import { DealSolarDetails } from '@/app/(app)/deals/[id]/DealSolarDetails';
 
 // Part 4: "Existing: Details, Projects, Portal access, Activity. Added: Deals
 // (every deal this person appears on with their role, including lost ones) and
 // Subscriptions (list membership and consent)."
-type Tab = 'details' | 'intake' | 'projects' | 'deals' | 'subscriptions' | 'portal' | 'activity';
+type Tab = 'details' | 'intake' | 'system' | 'projects' | 'deals' | 'subscriptions' | 'portal' | 'activity';
+
+/** The deal whose system was recorded when the contact signed. */
+export interface SignedSystem {
+  id: string;
+  stage: string;
+  system_recorded_at: string;
+}
 
 const DEAL_STAGE_LABELS: Record<string, string> = {
   new: 'New',
@@ -60,6 +68,7 @@ export function PersonDrawer({
   dealers,
   isAdmin,
   variant = 'drawer',
+  signed = null,
   onClose,
   onSaved,
 }: {
@@ -67,6 +76,12 @@ export function PersonDrawer({
   dealers: Array<{ id: string; name: string }>;
   isAdmin: boolean;
   variant?: 'drawer' | 'page';
+  /**
+   * The system recorded at signing. The System tab exists only when this does:
+   * before a contact signs there is no system to describe, and an empty tab
+   * would say otherwise.
+   */
+  signed?: SignedSystem | null;
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -196,7 +211,7 @@ export function PersonDrawer({
 
         {customer && (
           <div className="admin-tabs">
-            {(['details', 'intake', 'projects', 'deals', 'subscriptions', 'portal', 'activity'] as Tab[]).map((t) => (
+            {(['details', 'intake', ...(signed ? ['system'] : []), 'projects', 'deals', 'subscriptions', 'portal', 'activity'] as Tab[]).map((t) => (
               <button
                 key={t}
                 className={`linklike${tab === t ? ' active' : ''}`}
@@ -205,6 +220,7 @@ export function PersonDrawer({
               >
                 {t === 'details' ? 'Details'
                   : t === 'intake' ? 'Contact details'
+                  : t === 'system' ? 'System'
                   : t === 'projects' ? `Projects (${customer.projectCount})`
                   : t === 'deals' ? 'Deals'
                   : t === 'subscriptions' ? 'Subscriptions'
@@ -483,6 +499,21 @@ export function PersonDrawer({
         )}
 
         {customer && tab === 'intake' && <ContactIntake clientId={customer.id} />}
+
+        {customer && tab === 'system' && signed && (
+          <section>
+            <p className="dim">
+              {`Recorded when the contract was signed, ${signed.system_recorded_at.slice(0, 10)}. `}
+              <Link href={`/deals/${signed.id}`}>Open the deal</Link>
+            </p>
+            <DealSolarDetails
+              clientId={customer.id}
+              dealId={signed.id}
+              // Once it is a project the system is the project's, and edited there.
+              readOnly={signed.stage === 'won' || signed.stage === 'lost'}
+            />
+          </section>
+        )}
 
         {customer && tab === 'deals' && (
           <>

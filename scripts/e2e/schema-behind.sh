@@ -68,7 +68,8 @@ for CUT in 20260803002300_customer_portal.sql \
            20260803003400_crm_foundation.sql \
            20260803003500_deals.sql \
            20260803003600_contact_intake.sql \
-           20260803003700_contact_create.sql; do
+           20260803003700_contact_create.sql \
+           20260803003800_contact_stages.sql; do
   cut_at "$CUT"
   node scripts/create-admin.mjs admin@in.test "Password1234!" "Ada Admin" >/dev/null
   PORT=$APPPORT nohup npx next start -p $APPPORT >"$W/next.log" 2>&1 &
@@ -80,8 +81,15 @@ for CUT in 20260803002300_customer_portal.sql \
   curl -s -o /dev/null -c "$W/jar" -H 'content-type: application/json' \
     -d '{"email":"admin@in.test","password":"Password1234!","door":"staff"}' "$BASE/api/auth/login"
 
+  # One contact, so the record page is checked too: it reads the signed system,
+  # which does not exist on a database stopped before 003900.
+  # With a dealer: before the CRM foundation a contact cannot exist without one.
+  CID=$(psql -h 127.0.0.1 -p $PGPORT -U postgres -d $DB -qtA -c \
+    "with d as (insert into public.dealers (name) values ('Rey Dealer') returning id)
+     insert into public.clients (dealer_id, first_name, last_name, email)
+     select id, 'Rey', 'Record', 'rey@in.test' from d returning id")
   BAD=()
-  for page in "${PAGES[@]}"; do
+  for page in "${PAGES[@]}" "/admin/people/$CID"; do
     CODE=$(curl -s -o /dev/null -w '%{http_code}' -b "$W/jar" "$BASE$page")
     # 200 renders, 3xx is a redirect the route matrix made on purpose, 404 is a
     # screen that does not exist at this cut-off. A 5xx is the failure this
@@ -129,7 +137,7 @@ HEALTHCHECK
 
   # Create Contact must say so before fifty fields are typed, not after.
   BODY=$(curl -s -b "$W/jar" "$BASE/admin/people/new")
-  if [ "$CUT" = 20260803003700_contact_create.sql ]; then
+  if [ "$CUT" \> 20260803003600_contact_intake.sql ]; then
     if grep -qi "has not caught up" <<<"$BODY"; then
       fail "Create Contact claims the database is behind when it is not"
     fi

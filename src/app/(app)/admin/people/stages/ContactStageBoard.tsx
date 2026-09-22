@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
+import { SignContractDialog } from '@/app/(app)/_components/SignContractDialog';
 import {
   STAGE_COLUMNS,
   STAGE_COLUMN_LABELS,
@@ -22,6 +23,11 @@ import {
  *
  * The move is written to the activity log, so "who moved this, and when" — the
  * question every board eventually raises — has an answer.
+ *
+ * The one exception is Contract signed. Dropping a card there opens the signing
+ * form instead of moving it, because that column means a system was sold, and
+ * the system is recorded on the way in. Cancel the form and the card stays
+ * where it was.
  */
 export function ContactStageBoard({ cards }: { cards: ContactStageCard[] }) {
   const router = useRouter();
@@ -33,6 +39,8 @@ export function ContactStageBoard({ cards }: { cards: ContactStageCard[] }) {
   const [toast, setToast] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
   /** Where a card has just been dropped, so the board moves before the server replies. */
   const [moved, setMoved] = useState<Record<string, ContactStage>>({});
+  /** The contact whose signing form is open, if any. */
+  const [signing, setSigning] = useState<ContactStageCard | null>(null);
 
   useEffect(() => {
     if (!toast) return;
@@ -67,6 +75,10 @@ export function ContactStageBoard({ cards }: { cards: ContactStageCard[] }) {
       });
       const json = await res.json().catch(() => null);
       if (!res.ok) {
+        // The server says this move is a signing. The drop handler already
+        // routes Contract signed to the form, so this only happens if something
+        // else sent it — and the form is still the right answer.
+        if (res.status === 409 && json?.needsSigning) setSigning(card);
         setMoved((m) => {
           const next = { ...m };
           delete next[card.clientId];
@@ -90,6 +102,10 @@ export function ContactStageBoard({ cards }: { cards: ContactStageCard[] }) {
     setDragging(null);
     setOver(null);
     if (!card || busy || card.stage === stage) return;
+    if (stage === 'contract_signed') {
+      setSigning(card);
+      return;
+    }
     void move(card, stage);
   }
 
@@ -173,6 +189,26 @@ export function ContactStageBoard({ cards }: { cards: ContactStageCard[] }) {
           );
         })}
       </div>
+
+      {signing && (
+        <SignContractDialog
+          clientId={signing.clientId}
+          personName={signing.personName}
+          onCancel={() => setSigning(null)}
+          onSigned={(result) => {
+            const card = signing;
+            setSigning(null);
+            setMoved((m) => ({ ...m, [card.clientId]: 'contract_signed' }));
+            setToast({
+              kind: 'ok',
+              text: `${card.personName} → ${STAGE_COLUMN_LABELS.contract_signed} · system recorded${
+                result.dealCreated ? ' on a new deal' : ''
+              }`,
+            });
+            router.refresh();
+          }}
+        />
+      )}
 
       {toast && (
         <div className={`toast ${toast.kind}`} role="status">
