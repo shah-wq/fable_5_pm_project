@@ -243,10 +243,25 @@ print('DEALS-ACCESS-OK', sorted(roles))
 PY
 pass "the board is staff-only, and the route matrix says exactly who"
 
-# A picture of the board and the new sidebar group, because layout is the one
-# thing curl cannot check.
-if [ -x /opt/pw-browsers/chromium-1194/chrome-linux/chrome ]; then
-  bash /tmp/shoot-nav.sh 2>/dev/null || true
-fi
+# --- the board runs the full width, with every stage on it ---------------
+curl -s -o "$W/board.html" -b "$ADMIN" "$BASE/deals"
+python3 - "$W/board.html" <<'WIDE'
+import re, sys
+html = open(sys.argv[1], encoding='utf-8').read()
+assert re.search(r'<main class="surface full-bleed"', html), 'the deal board is still held to the page width'
+assert 'board deal-board' in html, 'the deal board does not use its full-width columns'
+cols = re.findall(r'<section class="board-col[^"]*"[^>]*><header><span>([^<]+)</span>', html)
+want = ['New', 'Contacted', 'Qualified', 'Proposal', 'Negotiation', 'Contract out', 'Won', 'Lost']
+assert cols == want, f'the board has {cols}'
+print('WIDE-OK', len(cols))
+WIDE
+curl -s -o "$W/table.html" -b "$ADMIN" "$BASE/deals?view=table"
+grep -q '<main class="surface wide"' "$W/table.html" || fail "the table view lost its page width"
+pass "the deal board runs the full width with all eight columns; the table keeps the page"
+
+# A picture of the board at an ordinary laptop width, because whether eight
+# columns fit is the one thing curl cannot check.
+mkdir -p "$W/shots"
+bash "$ROOT/scripts/e2e/shoot.sh" "$BASE" "$ADMIN" /deals "$W/shots/deals-1440.png" 1440 900 || true
 
 echo "DEALS CHECKS PASSED"

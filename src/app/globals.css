@@ -5335,23 +5335,12 @@ a.btn {
   padding: 0 24px;
 }
 
-/* Narrower than the deal board's 205px, because there are eight of them, and
-   still scrolling sideways when the window cannot take it. */
-.contact-board {
-  grid-auto-columns: minmax(170px, 1fr);
-  gap: 10px;
-  padding-bottom: 8px;
-}
 
 /* The column being dragged over says so, rather than leaving somebody to guess
    where the card will land. */
 .board-col.over {
   border-color: var(--amber);
   background: #e9e6df;
-}
-
-.contact-board .card-meta {
-  font-size: 11.5px;
 }
 
 /* Signed is the end of this board, and lost is off to the side of it. */
@@ -5411,4 +5400,47 @@ a.btn {
 .contact-board .card.held {
   border-left: 3px solid var(--green, #1d6b3c);
   cursor: default;
+}
+
+/* The deal board and the contact board: eight columns each, all of them on an
+   ordinary 1440-wide laptop screen, widening to fill anything bigger, and
+   scrolling sideways only below that. At that width a card is about 130px, so
+   its contents wrap rather than run out of it — the stage badges drop to a
+   line of their own, and a long address or email breaks inside the card. */
+.deal-board,
+.contact-board {
+  grid-auto-columns: minmax(126px, 1fr);
+  gap: 8px;
+  padding-bottom: 8px;
+}
+
+.deal-board .board-col,
+.contact-board .board-col {
+  padding: 8px;
+  min-width: 0;
+}
+
+.deal-board .card,
+.contact-board .card {
+  padding: 9px 10px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.deal-board .card-meta,
+.contact-board .card-meta {
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  font-size: 11.5px;
+}
+
+.deal-board .flag-badge,
+.deal-board .missing-badge {
+  white-space: nowrap;
+}
+
+.deal-board .board-col > header,
+.contact-board .board-col > header {
+  font-size: 12px;
+  letter-spacing: 0.03em;
 }

@@ -122,7 +122,7 @@ export function DealBoard({
 
   return (
     <>
-      <div className="board" role="list">
+      <div className="board deal-board" role="list">
         {DEAL_COLUMNS.map((col) => {
           const columnCards = cards.filter((c) => c.column === col);
           const side = col === 'won' || col === 'lost';

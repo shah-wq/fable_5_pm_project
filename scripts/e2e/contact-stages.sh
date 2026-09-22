@@ -359,5 +359,7 @@ pass "a project holds its contact in Contract signed on every path, until an adm
 
 mkdir -p "$W/shots"
 bash "$ROOT/scripts/e2e/shoot.sh" "$BASE" "$JAR" /admin/people/stages "$W/shots/contact-stages.png" 1800 900 || true
+# And at an ordinary laptop width, where all eight columns still have to fit.
+bash "$ROOT/scripts/e2e/shoot.sh" "$BASE" "$JAR" /admin/people/stages "$W/shots/contact-stages-1440.png" 1440 900 || true
 
 echo "CONTACT STAGES CHECKS PASSED"

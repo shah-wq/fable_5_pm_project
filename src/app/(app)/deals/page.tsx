@@ -59,7 +59,11 @@ export default async function DealsPage({
   const needAction = open.filter((c) => !c.nextAction || c.nextActionDue).length;
 
   return (
-    <main className="surface wide">
+    // The board takes the whole window, as Contact stages does: eight columns
+    // at the reading width of a card do not fit in the page's usual measure,
+    // and a pipeline you scroll sideways to see the end of is not a pipeline
+    // you can read at a glance. The table keeps the narrower page.
+    <main className={asTable ? 'surface wide' : 'surface full-bleed'}>
       <div className="board-header">
         <div>
           <h1>Deals</h1>
