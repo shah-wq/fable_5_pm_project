@@ -172,7 +172,8 @@ sign() {
   curl -s -o "$W/sign.json" -w '%{http_code}' -X POST -b "$JAR" \
     -H 'content-type: application/json' -d "$2" "$BASE/api/contacts/$1/sign"
 }
-[ "$(sign "$FRED" '{"values":{"system_size_kw":6.6}}')" = 200 ] || fail "signing Fred was refused: $(cat "$W/sign.json")"
+[ "$(sign "$FRED" "{\"values\":{\"system_size_kw\":6.6,\"dealer_id\":\"$D\",\"address\":\"1 Fresh Lane, Austin, TX\"}}")" = 200 ] \
+  || fail "signing Fred was refused: $(cat "$W/sign.json")"
 [ "$(q "select contact_stage from public.clients where id='$FRED'")" = contract_signed \
   ] || fail "the skip did not stick"
 pass "any stage to any stage: forwards, sideways, backwards and skipping — signing through its form"
@@ -230,6 +231,17 @@ pass "the board and the move are staff-only"
 tabs() { curl -s -b "$JAR" "$BASE/admin/people/$1" | grep -c '>System</button>' || true; }
 [ "$(tabs "$QUINN")" = 0 ] || fail "an unsigned contact already shows a System tab"
 QDEAL=$(q "select id from public.deals where client_id='$QUINN'")
+# The signed agreement, filed against the deal before signing as the record's
+# uploads do. It has to survive the project being deleted later.
+q "insert into public.documents (deal_id, bucket, object_path, category, title)
+   values ('$QDEAL','documents','deal/agreement.pdf','signed_installation_agreement','agreement.pdf')" >/dev/null
+
+# The project cannot be made without a dealer or a site: Bea has neither.
+[ "$(sign "$BEA" '{"values":{"system_size_kw":5}}')" = 400 ] || fail "signing with no dealer was accepted"
+grep -q '"missing":\["dealer_id"\]' "$W/sign.json" || fail "the refusal does not point at the dealer: $(cat "$W/sign.json")"
+[ "$(sign "$BEA" "{\"values\":{\"system_size_kw\":5,\"dealer_id\":\"$D\"}}")" = 400 ] || fail "signing with no site address was accepted"
+grep -q '"missing":\["address"\]' "$W/sign.json" || fail "the refusal does not point at the address: $(cat "$W/sign.json")"
+[ "$(q "select count(*) from public.deals where client_id='$BEA'")" = 0 ] || fail "a refused signing left a deal behind"
 
 # Nothing without a size, and nothing moves.
 [ "$(sign "$QUINN" '{"values":{"contract_value":28000}}')" = 400 ] || fail "signing with no system size was accepted"
@@ -239,19 +251,32 @@ grep -q '"missing":\["system_size_kw"\]' "$W/sign.json" || fail "the refusal doe
 [ "$(q "select system_recorded_at is null from public.deals where id='$QDEAL'")" = t ] \
   || fail "a refused signing marked the deal"
 
-# With a size: on to the deal they already have, 12.4 panels rounded to 12, and
-# the deal's own stage and owner left alone however the request dresses it up.
-[ "$(sign "$QUINN" '{"values":{"system_size_kw":7.2,"module_quantity":12.4,"contract_value":28000,"financing_route":"loan","stage":"won","owner_id":null}}')" = 200 ] \
+# With a size: on to the deal they already have — its dealer and address
+# carried from the contact and the deal — 12.4 panels rounded to 12, and the
+# owner left alone however the request dresses it up. And the project, made in
+# the same step: the deal Won, the system and price copied across.
+[ "$(sign "$QUINN" '{"values":{"system_size_kw":7.2,"module_quantity":12.4,"contract_value":28000,"financing_route":"loan","owner_id":null}}')" = 200 ] \
   || fail "signing Quinn was refused: $(cat "$W/sign.json")"
 grep -q '"dealCreated":false' "$W/sign.json" || fail "Quinn's open deal was not the one signed: $(cat "$W/sign.json")"
+grep -q '"projectCode":"PRJ-' "$W/sign.json" || fail "signing did not say which project it made: $(cat "$W/sign.json")"
 ROW=$(q "select c.contact_stage || '|' || d.stage || '|' || d.system_size_kw || '|' || d.module_quantity || '|' ||
                 d.contract_value || '|' || d.financing_route || '|' || (d.system_recorded_at is not null)
            from public.clients c join public.deals d on d.client_id = c.id where c.id = '$QUINN'")
-[ "$ROW" = "contract_signed|proposal|7.200|12|28000.00|loan|true" ] || fail "the signing wrote the wrong thing ($ROW)"
+[ "$ROW" = "contract_signed|won|7.200|12|28000.00|loan|true" ] || fail "the signing wrote the wrong thing ($ROW)"
+QPRJ=$(q "select project_id from public.deals where id='$QDEAL'")
+QCODE=$(q "select code from public.projects where id='$QPRJ'")
+ROW=$(q "select stage || '|' || system_size_kw || '|' || module_quantity || '|' || contract_value || '|' || address || '|' || (dealer_id='$D')
+           from public.projects where id='$QPRJ'")
+[ "$ROW" = "survey|7.200|12|28000.00|2 Second Street|true" ] || fail "the project is not the signed contract ($ROW)"
+[ "$(q "select project_id='$QPRJ' from public.documents where object_path='deal/agreement.pdf'")" = t ] \
+  || fail "the signed agreement did not gain the project"
 
-# Fred had no deal at all: signing made one, at Contract out, with his size.
-ROW=$(q "select count(*) || '|' || min(stage) || '|' || min(system_size_kw) from public.deals where client_id='$FRED'")
-[ "$ROW" = "1|contract_out|6.600" ] || fail "signing a contact with no deal did not make one ($ROW)"
+# Fred had no deal at all: signing made one with his size, and it is Won, with
+# its project, and the dealer written onto Fred himself.
+ROW=$(q "select count(*) || '|' || min(d.stage) || '|' || min(d.system_size_kw) || '|' || count(d.project_id)
+           from public.deals d where d.client_id='$FRED'")
+[ "$ROW" = "1|won|6.600|1" ] || fail "signing a contact with no deal did not make one and its project ($ROW)"
+[ "$(q "select dealer_id='$D' from public.clients where id='$FRED'")" = t ] || fail "Fred did not gain the dealer"
 
 # The record: no System tab before, one now — for both.
 [ "$(tabs "$QUINN")" = 1 ] || fail "Quinn's record does not show the System tab after signing"
@@ -276,7 +301,61 @@ CODE=$(curl -s -o /dev/null -w '%{http_code}' -X PATCH -b "$JAR" -H 'content-typ
 CODE=$(curl -s -o /dev/null -w '%{http_code}' -X POST -b "$W/dealer.txt" -H 'content-type: application/json' \
   -d '{"values":{"system_size_kw":5}}' "$BASE/api/contacts/$BEA/sign")
 [ "$CODE" != 200 ] || fail "a dealer signed a contact"
-pass "signing records the system on the deal first, and only then does the contact show it"
+pass "signing records the system and creates the project, and only then does the contact show it"
+
+# --- 9. the project holds them in Contract signed until it is deleted ----
+[ "$(move "$QUINN" quoted)" = 409 ] || fail "Quinn moved out of Contract signed with a project: $(cat "$W/move.json")"
+grep -q '"projectHeld":true' "$W/move.json" || fail "the refusal does not say a project holds them"
+grep -q "$QCODE" "$W/move.json" || fail "the refusal does not name the project"
+[ "$(move "$QUINN" lost)" = 409 ] || fail "Quinn moved to Lost with a live project"
+CODE=$(curl -s -o "$W/patch.json" -w '%{http_code}' -X PATCH -b "$JAR" -H 'content-type: application/json' \
+  -d '{"values":{"contact_stage":"quoted"}}' "$BASE/api/customers/$QUINN/intake")
+[ "$CODE" = 409 ] || fail "Lead status moved a held contact ($CODE)"
+if q "update public.clients set contact_stage='created' where id='$QUINN'" >/dev/null 2>&1; then
+  fail "SQL moved a held contact — the hold is not on the table"
+fi
+[ "$(q "select contact_stage from public.clients where id='$QUINN'")" = contract_signed ] || fail "a refused move moved Quinn"
+# The screens say so before anybody tries.
+curl -s -b "$JAR" "$BASE/api/customers/$QUINN/intake" | grep -q "\"code\":\"$QCODE\"" \
+  || fail "the record does not know the project holds Quinn"
+curl -s -o "$W/board2.html" -b "$JAR" "$BASE/admin/people/stages"
+python3 - "$W/board2.html" "$QCODE" <<'HELD'
+import re, sys
+html, code = open(sys.argv[1], encoding='utf-8').read(), sys.argv[2]
+card = [c for c in re.split(r'<article ', html)[1:] if 'Quinn Quoted' in c.split('</article>')[0]][0]
+head = card[:card.index('>')]
+assert 'held' in head, f'the card is not marked held: {head}'
+assert 'draggable="false"' in head, f'the held card can still be picked up: {head}'
+assert f'Project {code}' in card.split('</article>')[0], 'the card does not link its project'
+bea = [c for c in re.split(r'<article ', html)[1:] if 'Bea Bare' in c.split('</article>')[0]][0]
+assert 'draggable="true"' in bea[:bea.index('>')], 'an unheld card cannot be picked up'
+print('HELD-OK')
+HELD
+
+# Deleting: admin only, the code typed back, and it keeps what the sale owns.
+OPSU=$(q "insert into auth.users (email, encrypted_password, email_confirmed_at, raw_app_meta_data)
+  values ('ops@st.test', extensions.crypt('Password1234!', extensions.gen_salt('bf',12)), now(),
+          '{\"user_role\":\"ops\"}'::jsonb) returning id")
+q "update public.profiles set role = 'ops', is_active = true where id = '$OPSU'" >/dev/null
+curl -s -o /dev/null -c "$W/ops.txt" -H 'content-type: application/json' \
+  -d '{"email":"ops@st.test","password":"Password1234!","door":"staff"}' "$BASE/api/auth/login"
+del() { curl -s -o "$W/del.json" -w '%{http_code}' -X DELETE -b "$1" -H 'content-type: application/json' \
+  -d "{\"confirm\":\"$2\"}" "$BASE/api/projects/$QPRJ"; }
+[ "$(del "$W/ops.txt" "$QCODE")" = 403 ] || fail "ops deleted a project: $(cat "$W/del.json")"
+[ "$(del "$JAR" "PRJ-WRONG")" = 400 ] || fail "a project was deleted with the wrong code: $(cat "$W/del.json")"
+[ "$(q "select count(*) from public.projects where id='$QPRJ'")" = 1 ] || fail "a refused delete deleted anyway"
+[ "$(del "$JAR" "$QCODE")" = 200 ] || fail "the admin could not delete the project: $(cat "$W/del.json")"
+grep -q "\"clientId\":\"$QUINN\"" "$W/del.json" || fail "the delete does not say whose record to go back to"
+[ "$(q "select count(*) from public.projects where id='$QPRJ'")" = 0 ] || fail "the project is still there"
+ROW=$(q "select stage || '|' || (won_at is null) || '|' || (project_id is null) || '|' || system_size_kw from public.deals where id='$QDEAL'")
+[ "$ROW" = "contract_out|true|true|7.200" ] || fail "the deal was not reopened with its system ($ROW)"
+[ "$(q "select count(*) || '|' || (max(project_id::text) is null) from public.documents where object_path='deal/agreement.pdf'")" = "1|true" ] \
+  || fail "deleting the project took the deal's signed agreement with it"
+[ "$(q "select count(*) from public.audit_log where action='project.deleted' and client_id='$QUINN'")" = 1 ] \
+  || fail "the delete is not in the activity log"
+# Released: the move goes through now.
+[ "$(move "$QUINN" quoted)" = 200 ] || fail "Quinn is still held after the project was deleted: $(cat "$W/move.json")"
+pass "a project holds its contact in Contract signed on every path, until an admin deletes it"
 
 mkdir -p "$W/shots"
 bash "$ROOT/scripts/e2e/shoot.sh" "$BASE" "$JAR" /admin/people/stages "$W/shots/contact-stages.png" 1800 900 || true

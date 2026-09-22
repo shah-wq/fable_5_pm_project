@@ -33,12 +33,21 @@ export default async function ContactPage({ params }: { params: Promise<{ id: st
       // nothing true to say. Degrades to none on a database without 003900.
       signed:
         (
-          await optionalRows<{ id: string; stage: string; system_recorded_at: string }>(
+          await optionalRows<{
+            id: string;
+            stage: string;
+            system_recorded_at: string;
+            project_id: string | null;
+            project_code: string | null;
+          }>(
             c,
             'the signed system',
-            `select id, stage, system_recorded_at::text from public.deals
-              where client_id = $1 and system_recorded_at is not null
-              order by system_recorded_at desc limit 1`,
+            `select d.id, d.stage, d.system_recorded_at::text,
+                    p.id as project_id, p.code as project_code
+               from public.deals d
+               left join public.projects p on p.id = d.project_id
+              where d.client_id = $1 and d.system_recorded_at is not null
+              order by d.system_recorded_at desc limit 1`,
             [id]
           )
         )[0] ?? null,

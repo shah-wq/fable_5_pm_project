@@ -25,6 +25,9 @@ export interface SignedSystem {
   id: string;
   stage: string;
   system_recorded_at: string;
+  /** The project signing created, while it exists. */
+  project_id?: string | null;
+  project_code?: string | null;
 }
 
 const DEAL_STAGE_LABELS: Record<string, string> = {
@@ -504,6 +507,13 @@ export function PersonDrawer({
           <section>
             <p className="dim">
               {`Recorded when the contract was signed, ${signed.system_recorded_at.slice(0, 10)}. `}
+              {signed.project_id ? (
+                <>
+                  {'Installed as project '}
+                  <Link href={`/projects/${signed.project_id}`}>{signed.project_code}</Link>
+                  {', where the system is edited from now on. '}
+                </>
+              ) : null}
               <Link href={`/deals/${signed.id}`}>Open the deal</Link>
             </p>
             <DealSolarDetails

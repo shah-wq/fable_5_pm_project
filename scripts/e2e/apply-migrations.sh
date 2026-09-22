@@ -68,7 +68,7 @@ CODE=$(curl -s -o "$W/page.html" -w '%{http_code}' -b "$JAR" "$BASE/admin/databa
 # Read as text: React's server output puts <!-- --> between adjacent
 # expressions, so "4 migrations" arrives as "4<!-- --> migration<!-- -->s".
 text() { sed -e 's/<!--[^>]*-->//g' -e 's/<[^>]*>//g' "$1" | tr -s ' \n' ' '; }
-text "$W/page.html" | grep -q "6 migrations are missing" || fail "the screen does not say six are missing"
+text "$W/page.html" | grep -q "7 migrations are missing" || fail "the screen does not say seven are missing"
 text "$W/page.html" | grep -q "003400" || fail "the screen does not name 003400"
 text "$W/page.html" | grep -q "Apply them now" || fail "no Apply button"
 R=$(curl -s -b "$JAR" "$BASE/api/admin/migrations")
@@ -78,8 +78,9 @@ j = json.loads(sys.argv[1])
 assert j['behind'] == ['20260803003400_crm_foundation.sql', '20260803003500_deals.sql',
                        '20260803003600_contact_intake.sql', '20260803003700_contact_create.sql',
                        '20260803003800_contact_stages.sql',
-                       '20260803003900_contract_signed_system.sql'], j['behind']
-assert '20260803003900_contract_signed_system.sql' in j['bundled'], 'the deployment does not carry its own files'
+                       '20260803003900_contract_signed_system.sql',
+                       '20260803004000_project_holds_contact.sql'], j['behind']
+assert '20260803004000_project_holds_contact.sql' in j['bundled'], 'the deployment does not carry its own files'
 print('STATE-OK')
 PY
 pass "Admin → Database names the missing files, and the deployment carries them"
@@ -104,7 +105,8 @@ files = [a['file'] for a in j['applied']]
 assert files == ['20260803003400_crm_foundation.sql', '20260803003500_deals.sql',
                  '20260803003600_contact_intake.sql', '20260803003700_contact_create.sql',
                  '20260803003800_contact_stages.sql',
-                 '20260803003900_contract_signed_system.sql'], files
+                 '20260803003900_contract_signed_system.sql',
+                 '20260803004000_project_holds_contact.sql'], files
 bad = [a for a in j['applied'] if not a['ok']]
 assert not bad, 'refused: ' + '; '.join(f"{a['file']}: {a['error']}" for a in bad)
 assert j['behind'] == [], f"still behind: {j['behind']}"
@@ -119,7 +121,7 @@ ROW=$(q "select coalesce(to_regclass('public.deals')::text,'MISSING') || '|' ||
 # The lead crossed over to a deal with its person intact.
 [ "$(q "select customer_last from public.deals limit 1")" = Lead ] || fail "the lead did not become a deal"
 # And the bookkeeping npm run db:migrate reads agrees.
-[ "$(q "select count(*) from public.schema_migrations where name >= '20260803003400'")" = 6 ] \
+[ "$(q "select count(*) from public.schema_migrations where name >= '20260803003400'")" = 7 ] \
   || fail "schema_migrations was not kept in step"
 pass "one press applies them all, in order, and the database is what a clean apply produces"
 

@@ -70,4 +70,11 @@ export interface ContactStageCard {
   lastContact: string | null;
   /** The deal behind them, when there is one, for the link on the card. */
   dealId: string | null;
+  /**
+   * The project their signing created, while it exists. It holds the card in
+   * Contract signed: the board will not let it be dragged out until the
+   * project is deleted.
+   */
+  projectId: string | null;
+  projectCode: string | null;
 }

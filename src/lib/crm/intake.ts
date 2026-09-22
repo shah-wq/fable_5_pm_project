@@ -351,19 +351,38 @@ export const INTAKE_REQUIRED: IntakeField[] = CONTACT_GROUPS.flatMap((g) =>
 );
 
 /**
- * What Contract signed asks for: the deal's system, usage and money — every deal
- * field except the uploads, which need a deal to file against and are added on
- * the record afterwards.
+ * What Contract signed asks for: the project's dealer and site, then the deal's
+ * system, usage and money — every deal field except the uploads, which need a
+ * deal to file against and are added on the record afterwards.
  *
- * Derived from DEAL_DETAIL_GROUPS rather than listed again, so a field added to
- * the deal is asked for at signing without anybody remembering to. The one
- * change is that the system size is required here: a signed contract with no
- * system on it is the thing this step exists to prevent. The deal record does
- * not insist on it, because a deal still being worked does not have one yet.
+ * Signing creates the project, and a project cannot exist without a dealer or
+ * an address to install at — so those two lead the form, and are required
+ * along with the system size. The deal record does not insist on any of them,
+ * because a deal still being worked does not have them yet.
+ *
+ * The deal fields are derived from DEAL_DETAIL_GROUPS rather than listed again,
+ * so a field added to the deal is asked for at signing without anybody
+ * remembering to.
  */
-export const SIGNING_REQUIRED = ['system_size_kw'] as const;
+export const SIGNING_REQUIRED = ['dealer_id', 'address', 'system_size_kw'] as const;
 
-export const SIGNING_GROUPS: IntakeGroup[] = DEAL_DETAIL_GROUPS.map((g) => ({
+const SIGNING_PROJECT_GROUP: IntakeGroup = {
+  key: 'project',
+  title: 'Project',
+  blurb: 'Signing creates the project. These two it cannot be made without.',
+  fields: [
+    { name: 'dealer_id', label: 'Dealer', type: 'ref', refKey: 'dealers', on: 'deal' },
+    {
+      name: 'address',
+      label: 'Site address',
+      type: 'text',
+      on: 'deal',
+      note: 'Where the system is installed — the project’s address from now on.',
+    },
+  ],
+};
+
+export const SIGNING_GROUPS: IntakeGroup[] = [SIGNING_PROJECT_GROUP, ...DEAL_DETAIL_GROUPS].map((g) => ({
   ...g,
   fields: g.fields
     .filter((f) => f.type !== 'upload')

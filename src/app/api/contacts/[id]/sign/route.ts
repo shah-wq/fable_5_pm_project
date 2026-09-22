@@ -7,12 +7,13 @@ import { coerceIntakeValue, isUuid } from '@/lib/crm/coerce';
 import { signingColumns } from '@/lib/crm/intake';
 
 /**
- * Contract signed: record the system, then move the contact.
+ * Contract signed: record the system, move the contact, create the project.
  *
  * The only way into the Contract signed column. The stage board and the
  * contact record both open the same form when somebody chooses it, and both
  * send it here; public.sign_contact() writes the system onto the deal — making
- * the deal if there is none — and moves the contact, in one statement.
+ * the deal if there is none — moves the contact, and converts the deal into a
+ * project, in one statement. If the project cannot be made, nothing happens.
  *
  * Every field on the form is sent, including the emptied ones: an emptied box
  * is how somebody says "no battery after all", and dropping it would leave the
@@ -55,10 +56,15 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
 
   try {
     const rows = await withUser(session, (client) =>
-      optionalRows<{ signed_deal_id: string; deal_created: boolean }>(
+      optionalRows<{
+        signed_deal_id: string;
+        deal_created: boolean;
+        signed_project_id: string | null;
+        signed_project_code: string | null;
+      }>(
         client,
         'signing the contact (public.sign_contact)',
-        `select signed_deal_id, deal_created
+        `select signed_deal_id, deal_created, signed_project_id, signed_project_code
            from public.sign_contact($1::uuid, $2::jsonb, $3::uuid, $4)`,
         [id, JSON.stringify(patch), dealId, note]
       )
@@ -72,18 +78,29 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
         { status: 400 }
       );
     }
-    return NextResponse.json({ dealId: rows[0].signed_deal_id, dealCreated: rows[0].deal_created });
+    return NextResponse.json({
+      dealId: rows[0].signed_deal_id,
+      dealCreated: rows[0].deal_created,
+      projectId: rows[0].signed_project_id ?? null,
+      projectCode: rows[0].signed_project_code ?? null,
+    });
   } catch (e) {
     // The function's own refusals are sentences meant for the person at the
     // form, and a 500 around them would read as a broken app.
     const err = e as { code?: string; message?: string };
-    if (err.code === '22023' || err.code === 'P0002') {
+    // 23514 is the project conversion's own refusal — a rule it checks that
+    // the form did not, worded for a person all the same.
+    if (err.code === '22023' || err.code === 'P0002' || err.code === '23514') {
       const text = err.message ?? 'That could not be signed.';
+      const missing = /system size/.test(text)
+        ? ['system_size_kw']
+        : /dealer/.test(text)
+          ? ['dealer_id']
+          : /site address/.test(text)
+            ? ['address']
+            : null;
       return NextResponse.json(
-        {
-          error: text.charAt(0).toUpperCase() + text.slice(1) + '.',
-          ...(/system size/.test(text) ? { missing: ['system_size_kw'] } : {}),
-        },
+        { error: text.charAt(0).toUpperCase() + text.slice(1) + '.', ...(missing ? { missing } : {}) },
         { status: err.code === 'P0002' ? 404 : 400 }
       );
     }

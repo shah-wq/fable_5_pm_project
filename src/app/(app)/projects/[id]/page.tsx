@@ -160,7 +160,12 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
       </div>
 
       {['admin', 'ops'].includes(session.role) && (
-        <ProjectActions projectId={id} status={String(p.status)} isAdmin={session.role === 'admin'} />
+        <ProjectActions
+          projectId={id}
+          code={String(p.code)}
+          status={String(p.status)}
+          isAdmin={session.role === 'admin'}
+        />
       )}
 
       <Stepper projectId={id} current={stage} completed={p.status === 'complete'} />

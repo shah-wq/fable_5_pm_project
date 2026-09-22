@@ -1,7 +1,7 @@
 -- ============================================================================
 -- GENERATED FILE — do not edit. Rebuild with: node scripts/build-sql-bootstrap.mjs
 --
---   SolarFlow PM · newest module · step 7 of 7 · 20260803003900_contract_signed_system.sql
+--   SolarFlow PM · newest module · step 7 of 8 · 20260803003900_contract_signed_system.sql
 --
 -- For a database that is already up to date apart from this module. Paste the
 -- whole file into a SQL console (e.g. the Neon SQL Editor) and run it once.
@@ -17,6 +17,7 @@
 --   5. 20260803003700-contact-create.sql
 --   6. 20260803003800-contact-stages.sql
 --   7. 20260803003900-contract-signed-system.sql
+--   8. 20260803004000-project-holds-contact.sql
 -- Each break is where one script adds something the next one uses, which
 -- PostgreSQL will not allow inside a single pasted transaction.
 --
@@ -33,10 +34,11 @@
 -- important thing about them: what was sold, at what size, for how much.
 --
 -- So signing is a step rather than a drag. Moving somebody into Contract signed
--- asks for the system there and then, records it on the deal, and only then
--- moves them — and from that moment the contact record shows the system. Before
--- it, the contact record shows nothing about systems at all, because there is
--- nothing true to show.
+-- asks for the system there and then, records it on the deal, moves them, and
+-- creates the project — so a signed contract becomes work for the install team
+-- without anybody converting anything by hand. From that moment the contact
+-- record shows the system. Before it, the contact record shows nothing about
+-- systems at all, because there is nothing true to show.
 --
 -- The facts live on the deal, as they always have: a person with two
 -- properties signs two contracts. What this file adds is the marker that says
@@ -48,6 +50,10 @@ do $$
 begin
   if to_regclass('public.deals') is null then
     raise exception 'Run 20260803003400_crm_foundation.sql first — it creates deals.'
+      using hint = 'Admin → Database → Apply runs every missing file in order.';
+  end if;
+  if to_regprocedure('public.convert_deal_to_project(uuid,public.project_stage)') is null then
+    raise exception 'Run 20260803003500_deals.sql first — it converts deals to projects.'
       using hint = 'Admin → Database → Apply runs every missing file in order.';
   end if;
   if not exists (select 1 from information_schema.columns
@@ -85,32 +91,35 @@ update public.deals d
 -- -----------------------------------------------------------------------------
 -- Signing
 -- -----------------------------------------------------------------------------
+-- Dropped first: an earlier draft of this file defined a narrower result (no
+-- project), and a function's result columns cannot change in place. Nothing
+-- after this file redefines it, so re-running this file never puts an older
+-- version back.
+drop function if exists public.sign_contact(uuid, jsonb, uuid, text);
+
 /**
- * Record the system on the contact's deal and move them to Contract signed, as
- * one statement: a failure halfway leaves them where they were with nothing
- * half-written, rather than signed with no system or with a system and not
- * signed.
+ * Record the system, move the contact to Contract signed, and create the
+ * project — as one statement. Any refusal, including the project's own, leaves
+ * everything as it was: nobody ends up signed without a project, or with a
+ * project and not signed.
  *
- * Which deal: the one named, if it is theirs and still open; otherwise their
- * newest open one; otherwise a new one. A contact typed in from a business card
- * and signed on the kitchen table has no deal yet, and needs one — that is where
- * the system goes. It starts at Contract out, the deal pipeline's last step
- * before the conversion to a project that makes it Won.
+ * The form asks for the two things a project cannot exist without and a
+ * contact can: a dealer, and a site address. Both are written to the deal; the
+ * dealer goes on the contact too when they had none, since the attribution is
+ * theirs from now on.
  *
- * Only the system, usage and money columns are written. Anything else in the
- * payload is ignored rather than refused, so a screen that sends a whole record
- * cannot move a deal's stage or its owner through the back door.
- *
- * The one thing insisted on is a system size: a signed contract with no system
- * on it is the situation this function exists to prevent.
+ * The rest is as 003900: the named open deal, else their newest open one, else
+ * a new one; only the system, usage, money, dealer and address columns are
+ * written, whatever the payload carries; whole-number columns are rounded.
  */
-create or replace function public.sign_contact(
+create function public.sign_contact(
   p_client  uuid,
   p_deal    jsonb,
   p_deal_id uuid default null,
   p_note    text default null
 )
-returns table (signed_deal_id uuid, deal_created boolean)
+returns table (signed_deal_id uuid, deal_created boolean,
+               signed_project_id uuid, signed_project_code text)
 language plpgsql
 security definer
 set search_path = ''
@@ -122,13 +131,14 @@ declare
     'includes_battery', 'mount_type', 'roof_type_id', 'hoa', 'comparable_brand_ok',
     'utility_id', 'avg_monthly_bill', 'annual_usage_kwh', 'production_estimate_kwh',
     'gross_price', 'contract_value', 'down_payment', 'amount_financed',
-    'financing_route', 'financing_company_id'];
-  -- Whole numbers in the table. A form field that accepts 12.5 panels would
-  -- otherwise fail the whole signing on a cast, so they are rounded here, once,
-  -- for every caller.
+    'financing_route', 'financing_company_id',
+    'dealer_id', 'address'];
   v_integers constant text[] := array[
     'module_quantity', 'module_wattage', 'battery_qty',
     'annual_usage_kwh', 'production_estimate_kwh'];
+  -- What a deal made for a contact with no address to give is written with. A
+  -- project cannot be surveyed at it, so it counts as no address at all.
+  v_placeholder constant text := 'Address to be confirmed';
   v_client  public.clients%rowtype;
   v_row     public.deals%rowtype;
   v_new     public.deals%rowtype;
@@ -136,6 +146,8 @@ declare
   v_deal    uuid;
   v_created boolean := false;
   v_before  text;
+  v_project uuid;
+  v_code    text;
 begin
   if not app.is_sales_staff() then
     raise exception 'only the sales team may sign a contact' using errcode = '42501';
@@ -151,12 +163,13 @@ begin
            e.key,
            case when e.key = any(v_integers) and jsonb_typeof(e.value) = 'number'
                 then to_jsonb(round((e.value #>> '{}')::numeric))
+                when e.key = 'address' and jsonb_typeof(e.value) = 'string'
+                then to_jsonb(nullif(btrim(e.value #>> '{}'), ''))
                 else e.value end), '{}'::jsonb)
     into v_patch
     from jsonb_each(coalesce(p_deal, '{}'::jsonb)) e
    where e.key = any(v_allowed);
 
-  -- The deal the system goes on.
   if p_deal_id is not null then
     select d.id into v_deal from public.deals d
      where d.id = p_deal_id and d.client_id = p_client
@@ -180,21 +193,29 @@ begin
       coalesce(nullif(btrim(concat_ws(', ', v_client.mailing_street,
                                             v_client.mailing_city,
                                             v_client.mailing_state)), ''),
-               'Address to be confirmed'),
+               v_placeholder),
       v_client.dealer_id, v_client.source_id, v_client.owner_id, 'contract_out')
     returning id into v_deal;
     v_created := true;
   end if;
 
-  -- What is on file, overlaid with what was sent. A key that is absent keeps its
-  -- value; a key sent as null clears it — which is how a form says "no battery".
   select * into v_row from public.deals d where d.id = v_deal for update;
   v_new := jsonb_populate_record(v_row, v_patch);
 
+  -- What the project will need, checked before anything is written so the
+  -- refusal names the field rather than surfacing from inside the conversion.
   if v_new.system_size_kw is null or v_new.system_size_kw <= 0 then
     raise exception 'a signed contract needs a system size'
       using errcode = '22023',
             hint = 'Enter the system size in kW — it is the one field signing insists on.';
+  end if;
+  if v_new.dealer_id is null then
+    raise exception 'the project needs a dealer'
+      using errcode = '22023', hint = 'Choose the dealer this sale belongs to.';
+  end if;
+  if coalesce(btrim(v_new.address), '') in ('', v_placeholder) then
+    raise exception 'the project needs a site address'
+      using errcode = '22023', hint = 'Enter the address the system is being installed at.';
   end if;
 
   update public.deals d set
@@ -222,8 +243,14 @@ begin
     amount_financed         = v_new.amount_financed,
     financing_route         = v_new.financing_route,
     financing_company_id    = v_new.financing_company_id,
+    dealer_id               = v_new.dealer_id,
+    address                 = btrim(v_new.address),
     system_recorded_at      = now()
   where d.id = v_deal;
+
+  if v_client.dealer_id is null then
+    update public.clients c set dealer_id = v_new.dealer_id where c.id = p_client;
+  end if;
 
   if v_before is distinct from 'contract_signed' then
     update public.clients c set contact_stage = 'contract_signed' where c.id = p_client;
@@ -233,65 +260,35 @@ begin
       'stage_move', v_deal, p_client);
   end if;
 
+  -- The project, through the same conversion the deal board uses, so a
+  -- project made by signing is the same shape as one made there: the system
+  -- pre-filled, the documents gaining the project relation, the deal Won.
+  -- It starts at Survey, as it does from the board.
+  v_project := public.convert_deal_to_project(v_deal, 'survey'::public.project_stage);
+
+  -- The conversion copies the system size and the brands but not the module
+  -- count, which the signing form asks for and the project's specification
+  -- shows. Only where the project has none: a project the conversion returned
+  -- rather than made keeps whatever it already says.
+  update public.projects p
+     set module_quantity = coalesce(p.module_quantity, nullif(v_new.module_quantity, 0))
+   where p.id = v_project;
+
+  select p.code into v_code from public.projects p where p.id = v_project;
+
   perform public.log_audit_event(
-    'contact.contract_signed', 'deals', v_deal::text, null,
+    'contact.contract_signed', 'deals', v_deal::text, v_project,
     jsonb_build_object('deal_created', v_created,
+                       'project_id', v_project,
+                       'project_code', v_code,
                        'system_size_kw', v_new.system_size_kw,
                        'contract_value', v_new.contract_value),
     'form', v_deal, p_client);
 
-  return query select v_deal, v_created;
+  return query select v_deal, v_created, v_project, v_code;
 end;
 $$;
 
 revoke execute on function public.sign_contact(uuid, jsonb, uuid, text) from public, anon;
 grant execute on function public.sign_contact(uuid, jsonb, uuid, text) to authenticated;
 
-
--- >>> migration bookkeeping (lets `npm run db:migrate` skip these later)
-create table if not exists public.schema_migrations (
-  name       text primary key,
-  applied_at timestamptz not null default now()
-);
-insert into public.schema_migrations (name) values
-  ('20260803000000_platform.sql'),
-  ('20260803000100_init_schema_and_enums.sql'),
-  ('20260803000200_tables.sql'),
-  ('20260803000300_access_helpers.sql'),
-  ('20260803000400_hooks_and_views.sql'),
-  ('20260803000500_audit.sql'),
-  ('20260803000600_rls_policies.sql'),
-  ('20260803000700_storage.sql'),
-  ('20260803000800_add_ops_role.sql'),
-  ('20260803000900_auth_module.sql'),
-  ('20260803001000_auth_engine.sql'),
-  ('20260803001100_file_storage.sql'),
-  ('20260803001200_manual_version.sql'),
-  ('20260803001300_admin_panel.sql'),
-  ('20260803001400_stage_fields.sql'),
-  ('20260803001500_complete_hold_cancel.sql'),
-  ('20260803001600_complete_stage_backfill.sql'),
-  ('20260803001700_project_details.sql'),
-  ('20260803001800_equipment_quantities.sql'),
-  ('20260803001900_dealer_portal.sql'),
-  ('20260803002000_dealer_companies.sql'),
-  ('20260803002100_restore_project_defaults.sql'),
-  ('20260803002200_report_builder.sql'),
-  ('20260803002300_customer_portal.sql'),
-  ('20260803002400_customer_management.sql'),
-  ('20260803002500_mobile_app.sql'),
-  ('20260803002600_customer_passwords.sql'),
-  ('20260803002700_invite_customers_with_tokens.sql'),
-  ('20260803002800_dashboard.sql'),
-  ('20260803002900_project_chat.sql'),
-  ('20260803003000_sign_in.sql'),
-  ('20260803003100_typical_durations.sql'),
-  ('20260803003200_stage_feedback.sql'),
-  ('20260803003300_add_sales_role.sql'),
-  ('20260803003400_crm_foundation.sql'),
-  ('20260803003500_deals.sql'),
-  ('20260803003600_contact_intake.sql'),
-  ('20260803003700_contact_create.sql'),
-  ('20260803003800_contact_stages.sql'),
-  ('20260803003900_contract_signed_system.sql')
-on conflict (name) do nothing;

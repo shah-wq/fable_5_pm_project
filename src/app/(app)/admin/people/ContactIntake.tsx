@@ -1,7 +1,8 @@
 'use client';
 
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { IntakeForm } from '@/app/(app)/_components/IntakeForm';
 import { SignContractDialog } from '@/app/(app)/_components/SignContractDialog';
 import { useIntake } from '@/app/(app)/_components/useIntake';
@@ -23,11 +24,32 @@ import { CONTACT_GROUPS } from '@/lib/crm/intake';
  * in that column on the board, and goes the same way: Save keeps everything
  * else, then opens the signing form for the system. Cancel it and they stay at
  * the stage they were at.
+ *
+ * Once signing has made a project, Lead status is shown rather than offered:
+ * the project holds them in Contract signed until it is deleted, and a box that
+ * lets somebody choose Quoted only to refuse it on Save is a box that lies.
  */
 export function ContactIntake({ clientId }: { clientId: string }) {
   const router = useRouter();
   const intake = useIntake(clientId);
   const [signing, setSigning] = useState(false);
+
+  // The same groups, with Lead status turned into a statement while a project
+  // holds them. Read-only fields are not sent as edits, so nothing to refuse.
+  const groups = useMemo(
+    () =>
+      intake.project
+        ? CONTACT_GROUPS.map((g) => ({
+            ...g,
+            fields: g.fields.map((f) =>
+              f.name === 'contact_stage'
+                ? { ...f, type: 'readonly' as const, note: 'Held here by the project.' }
+                : f
+            ),
+          }))
+        : CONTACT_GROUPS,
+    [intake.project]
+  );
 
   async function saveOrSign() {
     const before = intake.original.contact_stage;
@@ -51,6 +73,14 @@ export function ContactIntake({ clientId }: { clientId: string }) {
         </p>
       )}
       {intake.notice && !intake.dirty && <p className="notice ok">{intake.notice}</p>}
+
+      {intake.project && (
+        <p className="notice hold">
+          {'Contract signed, and held there by project '}
+          <Link href={`/projects/${intake.project.id}`}>{intake.project.code}</Link>
+          {'. To move them to another stage, an admin deletes the project first.'}
+        </p>
+      )}
 
       {intake.deals.length === 0 ? (
         <p className="notice">
@@ -82,7 +112,7 @@ export function ContactIntake({ clientId }: { clientId: string }) {
 
       {intake.refs && (
         <IntakeForm
-          groups={CONTACT_GROUPS}
+          groups={groups}
           values={intake.values}
           refs={intake.refs}
           documents={intake.documents}

@@ -5404,3 +5404,11 @@ a.btn {
   background: var(--card);
   border-top: 1px solid var(--line);
 }
+
+/* A card held in Contract signed by its project: it cannot be picked up, and
+   says so before anybody tries — a left rule in the column's own green, and
+   the ordinary pointer rather than a grab hand. */
+.contact-board .card.held {
+  border-left: 3px solid var(--green, #1d6b3c);
+  cursor: default;
+}

@@ -7,6 +7,16 @@ import { SIGNING_GROUPS, SIGNING_REQUIRED, signingColumns, type IntakeField } fr
 export interface SignedResult {
   dealId: string;
   dealCreated: boolean;
+  projectId: string | null;
+  projectCode: string | null;
+}
+
+/** What 003900 wrote on a deal made for a contact with no address. */
+const ADDRESS_PLACEHOLDER = 'Address to be confirmed';
+
+function hasText(v: unknown): boolean {
+  const t = String(v ?? '').trim();
+  return t !== '' && t !== ADDRESS_PLACEHOLDER;
 }
 
 /**
@@ -14,8 +24,13 @@ export interface SignedResult {
  *
  * Opens whenever somebody moves a contact into Contract signed — from the stage
  * board or from the Lead status box on their record — and asks for the system
- * that was sold. Nothing moves until it is saved: cancel, and the contact stays
- * exactly where they were.
+ * that was sold. Saving it signs them and creates the project, together.
+ * Nothing moves until then: cancel, and the contact stays exactly where they
+ * were.
+ *
+ * The project's dealer and site address are asked first, because the project
+ * cannot be made without them. Both start from what the contact already says:
+ * their dealer, and the deal's address or else their mailing address.
  *
  * It opens filled in with whatever their open deal already says, so a contact
  * who was quoted a 7.2 kW system arrives at signing with 7.2 in the box. The
@@ -63,15 +78,25 @@ export function SignContractDialog({
           | undefined;
         const open = chosen && !['won', 'lost'].includes(chosen.stage);
         setOpenDealId(open ? chosen.id : null);
+        const v = (json.values ?? {}) as IntakeValues;
+        const start: IntakeValues = {};
         if (open) {
-          const start: IntakeValues = {};
           for (const f of signingColumns()) {
-            if (json.values?.[f.name] !== undefined && json.values?.[f.name] !== null) {
-              start[f.name] = json.values[f.name];
-            }
+            if (v[f.name] !== undefined && v[f.name] !== null) start[f.name] = v[f.name];
           }
-          setValues(start);
         }
+        // The dealer is the contact's own, so it carries whatever the deal.
+        if (!start.dealer_id && v.dealer_id) start.dealer_id = v.dealer_id;
+        // The site: an open deal's real address, else where their post goes.
+        if (!hasText(start.address)) {
+          const mailing = [v.mailing_street, v.mailing_city, v.mailing_state, v.mailing_postal_code]
+            .map((part) => String(part ?? '').trim())
+            .filter(Boolean)
+            .join(', ');
+          if (mailing) start.address = mailing;
+          else delete start.address;
+        }
+        setValues(start);
       } finally {
         if (live) setLoading(false);
       }
@@ -101,15 +126,25 @@ export function SignContractDialog({
   }
 
   async function sign() {
-    const gaps = new Set(
+    const gaps = new Set<string>(
       SIGNING_REQUIRED.filter((name) => {
-        const n = Number(values[name]);
-        return !(values[name] !== '' && values[name] != null && Number.isFinite(n) && n > 0);
+        if (name === 'system_size_kw') {
+          const n = Number(values[name]);
+          return !(values[name] !== '' && values[name] != null && Number.isFinite(n) && n > 0);
+        }
+        return !hasText(values[name]);
       })
     );
     if (gaps.size > 0) {
       setMissing(gaps);
-      setError('A signed contract needs a system size — enter it in kW.');
+      const said = [
+        gaps.has('dealer_id') && 'the dealer',
+        gaps.has('address') && 'the site address',
+        gaps.has('system_size_kw') && 'the system size in kW',
+      ].filter(Boolean) as string[];
+      setError(
+        `Signing creates the project, which needs ${said.join(' and ').replace(/ and (?=.* and )/, ', ')}.`
+      );
       return;
     }
 
@@ -131,7 +166,12 @@ export function SignContractDialog({
         setError(json?.error ?? `Could not sign (${res.status}).`);
         return;
       }
-      onSigned({ dealId: json.dealId, dealCreated: Boolean(json.dealCreated) });
+      onSigned({
+        dealId: json.dealId,
+        dealCreated: Boolean(json.dealCreated),
+        projectId: json.projectId ?? null,
+        projectCode: json.projectCode ?? null,
+      });
     } finally {
       setBusy(false);
     }
@@ -153,9 +193,9 @@ export function SignContractDialog({
       >
         <h2 id="sign-title">{`Contract signed — ${personName}`}</h2>
         <p className="dim">
-          Record the system that was sold. It goes on their deal and appears on the contact record
-          from now on. Nothing moves until this is saved. Documents are added on the record
-          afterwards.
+          Record the system that was sold. Signing creates the project from it, and the contact
+          stays in Contract signed while the project exists. Nothing moves until this is saved.
+          Documents are added on the record afterwards.
         </p>
 
         {error && (
@@ -186,7 +226,7 @@ export function SignContractDialog({
             Cancel
           </button>
           <button className="btn" type="button" disabled={busy || loading || !refs} onClick={() => void sign()}>
-            {busy ? 'Signing…' : 'Sign contract'}
+            {busy ? 'Signing…' : 'Sign and create project'}
           </button>
         </div>
       </div>

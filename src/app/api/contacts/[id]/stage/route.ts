@@ -57,6 +57,16 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
     }
     return NextResponse.json({ from: rows[0].before, to: body.stage });
   } catch (e) {
+    // The project holds them in Contract signed (55000, from the hold trigger).
+    // That is an answer to give the person at the board, not a server fault.
+    const held = e as { code?: string; message?: string };
+    if (held.code === '55000') {
+      const text = held.message ?? 'This contact has a project.';
+      return NextResponse.json(
+        { error: text.charAt(0).toUpperCase() + text.slice(1) + '.', projectHeld: true },
+        { status: 409 }
+      );
+    }
     return dbErrorResponse(e, 'Moving the contact');
   }
 }

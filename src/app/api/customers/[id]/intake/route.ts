@@ -72,7 +72,9 @@ export async function GET(request: Request, ctx: { params: Promise<{ id: string 
         ? await optionalRows<Record<string, unknown>>(
             client,
             'the deal behind the contact',
-            `select id, stage, ${dealCols.join(', ')} from public.deals where id = $1`,
+            // address too: not an intake field, but the signing form's site
+            // address starts from it.
+            `select id, stage, address, ${dealCols.join(', ')} from public.deals where id = $1`,
             [dealId]
           )
         : [];
@@ -89,12 +91,22 @@ export async function GET(request: Request, ctx: { params: Promise<{ id: string 
 
       const refs = await loadIntakeRefs(client);
 
+      // The project holding them in Contract signed, if there is one. The
+      // record says so and stops offering the stage as something to change.
+      const held = await optionalRows<{ project_id: string; project_code: string }>(
+        client,
+        'the project holding the contact (public.contact_project)',
+        `select project_id, project_code from public.contact_project($1)`,
+        [id]
+      );
+
       return {
         values: { ...person[0], ...(deal[0] ?? {}) },
         dealId,
         deals,
         documents,
         refs,
+        project: held[0] ? { id: held[0].project_id, code: held[0].project_code } : null,
       };
     });
 
@@ -197,6 +209,16 @@ export async function PATCH(request: Request, ctx: { params: Promise<{ id: strin
     });
     return NextResponse.json({ ok: true });
   } catch (e) {
+    // The project holds them in Contract signed (55000, from the hold trigger).
+    // That is an answer to give the person at the board, not a server fault.
+    const held = e as { code?: string; message?: string };
+    if (held.code === '55000') {
+      const text = held.message ?? 'This contact has a project.';
+      return NextResponse.json(
+        { error: text.charAt(0).toUpperCase() + text.slice(1) + '.', projectHeld: true },
+        { status: 409 }
+      );
+    }
     return dbErrorResponse(e, 'Saving the contact');
   }
 }

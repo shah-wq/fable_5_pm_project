@@ -8,18 +8,25 @@ import { HOLD_REASONS, CANCELLATION_REASONS } from '@/lib/stages/fields';
  * The header controls the spec puts on every stage form: Put on hold / Cancel
  * project when active; Resume / Reinstate when parked. All bypass field
  * validation and open a reason dialog; reinstate is admin-only.
+ *
+ * Delete project is admin-only too, and is a different thing from Cancel:
+ * cancelling stops a job and keeps it on record; deleting unwinds the sale. It
+ * is how a contact held in Contract signed by their project is released.
  */
 export function ProjectActions({
   projectId,
+  code,
   status,
   isAdmin,
 }: {
   projectId: string;
+  code: string;
   status: string;
   isAdmin: boolean;
 }) {
   const router = useRouter();
   const [dialog, setDialog] = useState<'hold' | 'cancel' | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -84,7 +91,21 @@ export function ProjectActions({
           ) : (
             <span className="dim">Cancelled — an admin can reinstate.</span>
           ))}
+        {isAdmin && (
+          <button className="btn-link danger-text" type="button" onClick={() => setDeleting(true)}>
+            Delete project
+          </button>
+        )}
       </div>
+
+      {deleting && (
+        <DeleteDialog
+          projectId={projectId}
+          code={code}
+          onClose={() => setDeleting(false)}
+          onDeleted={(clientId) => router.push(clientId ? `/admin/people/${clientId}` : '/projects')}
+        />
+      )}
 
       {dialog && (
         <SideDialog
@@ -188,6 +209,86 @@ function SideDialog({
             }
           >
             {hold ? 'Put on hold' : 'Cancel project'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The confirmation for deleting a project: say exactly what goes and what
+ * stays, and make the code be typed — a click is too cheap for something with
+ * no undo.
+ */
+function DeleteDialog({
+  projectId,
+  code,
+  onClose,
+  onDeleted,
+}: {
+  projectId: string;
+  code: string;
+  onClose: () => void;
+  onDeleted: (clientId: string | null) => void;
+}) {
+  const [typed, setTyped] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function remove() {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/projects/${projectId}`, {
+        method: 'DELETE',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ confirm: typed.trim() }),
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok) {
+        setError(json?.error ?? `Could not delete (${res.status}).`);
+        return;
+      }
+      onDeleted(json?.clientId ?? null);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="dialog-backdrop">
+      <div className="dialog" role="dialog" aria-modal aria-labelledby="delete-project-title">
+        <h2 id="delete-project-title">{`Delete project ${code}`}</h2>
+        <p>
+          This unwinds the sale. The project goes, with its stages, tasks, messages and forms, and
+          it cannot be undone.
+        </p>
+        <p className="dim">
+          Kept: the deal, reopened at Contract out with its system; the documents filed against the
+          deal, such as the signed agreement; and the activity log. The contact stays in Contract
+          signed and can then be moved. To stop a job but keep it on record, cancel it instead.
+        </p>
+        {error && (
+          <p className="notice error" role="alert">
+            {error}
+          </p>
+        )}
+        <label className="field">
+          <span>{`Type ${code} to confirm`}</span>
+          <input value={typed} onChange={(e) => setTyped(e.target.value)} autoComplete="off" />
+        </label>
+        <div className="dialog-actions">
+          <button className="btn secondary" type="button" disabled={busy} onClick={onClose}>
+            Keep project
+          </button>
+          <button
+            className="btn danger"
+            type="button"
+            disabled={busy || typed.trim() !== code}
+            onClick={() => void remove()}
+          >
+            {busy ? 'Deleting…' : 'Delete project'}
           </button>
         </div>
       </div>

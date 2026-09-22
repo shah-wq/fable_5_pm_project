@@ -26,8 +26,13 @@ import {
  *
  * The one exception is Contract signed. Dropping a card there opens the signing
  * form instead of moving it, because that column means a system was sold, and
- * the system is recorded on the way in. Cancel the form and the card stays
- * where it was.
+ * the system is recorded — and the project created — on the way in. Cancel the
+ * form and the card stays where it was.
+ *
+ * And once there is a project, the card stays in Contract signed. It cannot be
+ * picked up at all until the project is deleted: a contact with a live
+ * installation back in Quoted would have the board and the job disagreeing
+ * about whether they are a customer.
  */
 export function ContactStageBoard({ cards }: { cards: ContactStageCard[] }) {
   const router = useRouter();
@@ -102,6 +107,13 @@ export function ContactStageBoard({ cards }: { cards: ContactStageCard[] }) {
     setDragging(null);
     setOver(null);
     if (!card || busy || card.stage === stage) return;
+    if (card.projectId) {
+      setToast({
+        kind: 'error',
+        text: `${card.personName} has a project (${card.projectCode}) — delete the project before moving them.`,
+      });
+      return;
+    }
     if (stage === 'contract_signed') {
       setSigning(card);
       return;
@@ -151,8 +163,13 @@ export function ContactStageBoard({ cards }: { cards: ContactStageCard[] }) {
                 {columnCards.map((card) => (
                   <article
                     key={card.clientId}
-                    className={`card${card.stage === 'lost' ? ' cancelled' : ''}`}
-                    draggable={!busy}
+                    className={`card${card.stage === 'lost' ? ' cancelled' : ''}${card.projectId ? ' held' : ''}`}
+                    draggable={!busy && !card.projectId}
+                    title={
+                      card.projectId
+                        ? `Held by project ${card.projectCode} — delete the project to move them`
+                        : undefined
+                    }
                     onDragStart={() => setDragging(card)}
                     onDragEnd={() => {
                       setDragging(null);
@@ -177,10 +194,16 @@ export function ContactStageBoard({ cards }: { cards: ContactStageCard[] }) {
                       {card.lastContact && <span>spoke {card.lastContact}</span>}
                     </div>
                     <div className="card-sub dim">{card.ownerName ?? 'unassigned'}</div>
-                    {card.dealId && (
-                      <Link className="card-link" href={`/deals/${card.dealId}`} draggable={false}>
-                        Open deal
+                    {card.projectId ? (
+                      <Link className="card-link" href={`/projects/${card.projectId}`} draggable={false}>
+                        {`Project ${card.projectCode}`}
                       </Link>
+                    ) : (
+                      card.dealId && (
+                        <Link className="card-link" href={`/deals/${card.dealId}`} draggable={false}>
+                          Open deal
+                        </Link>
+                      )
                     )}
                   </article>
                 ))}
@@ -201,9 +224,9 @@ export function ContactStageBoard({ cards }: { cards: ContactStageCard[] }) {
             setMoved((m) => ({ ...m, [card.clientId]: 'contract_signed' }));
             setToast({
               kind: 'ok',
-              text: `${card.personName} → ${STAGE_COLUMN_LABELS.contract_signed} · system recorded${
-                result.dealCreated ? ' on a new deal' : ''
-              }`,
+              text: result.projectCode
+                ? `${card.personName} → ${STAGE_COLUMN_LABELS.contract_signed} · project ${result.projectCode} created`
+                : `${card.personName} → ${STAGE_COLUMN_LABELS.contract_signed} · system recorded`,
             });
             router.refresh();
           }}

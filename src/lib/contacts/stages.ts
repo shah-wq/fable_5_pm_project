@@ -59,6 +59,21 @@ export async function loadContactStageBoard(client: PoolClient): Promise<Contact
       limit 1000`
   );
 
+  // Who is held in Contract signed by a project, asked separately so that a
+  // database without the signing columns still gets its board — just with
+  // nobody held. The same rule as public.contact_project(): the project made
+  // by their newest signing, while it exists.
+  const holds = await optionalRows<{ client_id: string; id: string; code: string }>(
+    client,
+    'the projects holding contacts in place',
+    `select distinct on (d.client_id) d.client_id, p.id, p.code
+       from public.deals d
+       join public.projects p on p.id = d.project_id
+      where d.system_recorded_at is not null
+      order by d.client_id, d.system_recorded_at desc`
+  );
+  const held = new Map(holds.map((h) => [h.client_id, { id: h.id, code: h.code }]));
+
   return rows.map((r) => ({
     clientId: r.id,
     stage: isContactStage(r.contact_stage) ? r.contact_stage : 'created',
@@ -71,6 +86,8 @@ export async function loadContactStageBoard(client: PoolClient): Promise<Contact
     daysInStage: Number(r.days_in_stage ?? 0),
     lastContact: r.last_contacted_at ? r.last_contacted_at.slice(0, 10) : null,
     dealId: r.deal_id,
+    projectId: held.get(r.id)?.id ?? null,
+    projectCode: held.get(r.id)?.code ?? null,
   }));
 }
 

@@ -29,6 +29,8 @@ export function useIntake(clientId: string | null, fixedDealId?: string | null) 
   const [documents, setDocuments] = useState<IntakeDoc[]>([]);
   const [deals, setDeals] = useState<DealOption[]>([]);
   const [dealId, setDealId] = useState<string | null>(fixedDealId ?? null);
+  /** The project holding this contact in Contract signed, if any. */
+  const [project, setProject] = useState<{ id: string; code: string } | null>(null);
   const [dirty, setDirty] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -57,6 +59,7 @@ export function useIntake(clientId: string | null, fixedDealId?: string | null) 
         setDocuments(json.documents ?? []);
         setDeals(json.deals ?? []);
         setDealId(json.dealId ?? null);
+        setProject(json.project ?? null);
         setDirty(false);
       } finally {
         setLoading(false);
@@ -128,7 +131,7 @@ export function useIntake(clientId: string | null, fixedDealId?: string | null) 
   }
 
   return {
-    loading, values, original, refs, documents, deals, dealId, dirty, busy, error, notice,
+    loading, values, original, refs, documents, deals, dealId, project, dirty, busy, error, notice,
     setDealId, load, change, save, upload, removeDoc,
   };
 }
