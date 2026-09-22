@@ -7,6 +7,9 @@
  * reportable without touching the report module.
  */
 
+import { STAGE_ATTACHMENTS } from '../stages/fields.ts';
+import type { StageKey } from '../stages/definitions.ts';
+
 export type FieldType = 'text' | 'status' | 'date' | 'number' | 'currency' | 'boolean' | 'count';
 
 export type CategoryKey =
@@ -176,6 +179,32 @@ const bool = (
   extra: Partial<ReportField> = {}
 ): ReportField => ({ key, label, category, type: 'boolean', sql, groupable: true, filterable: true, ...extra });
 
+/**
+ * "Attachments complete" for one stage, read the way the stage gate reads it:
+ * every required attachment has a file on the project (an HOA approval only
+ * when the HOA is not N/A), or the stage was closed under the old Drive
+ * Updated tick. A stage with no required attachment is complete once any of
+ * its attachments is there. The category names are code, never user input.
+ */
+function attachmentsSql(stage: StageKey, alias: string, legacy = 'drive_updated'): string {
+  const doc = (cats: string[]) =>
+    `exists (select 1 from public.documents d where d.project_id = p.id and d.category in (${cats
+      .map((c) => `'${c}'`)
+      .join(', ')}))`;
+  const all = STAGE_ATTACHMENTS[stage];
+  const required = all.filter((f) => f.required === true);
+  const body = required.length
+    ? required
+        .map((f) =>
+          f.requiredUnless
+            ? `(${doc([f.name])} or ${alias}.${f.requiredUnless.field} = '${f.requiredUnless.value}')`
+            : doc([f.name])
+        )
+        .join(' and ')
+    : doc(all.map((f) => f.name));
+  return `(coalesce(${alias}.${legacy}, false) or (${body}))`;
+}
+
 /** Days between two dates, null-safe — computed in the query, per spec §9. */
 const daysBetween = (from: string, to: string) => `(${to})::date - (${from})::date`;
 
@@ -246,7 +275,8 @@ export const REPORT_FIELDS: ReportField[] = [
   date('s1.survey_completed', 'Site Survey Completed Date', 'survey', 's1.survey_completed_date', { needs: ['s1'] }),
   num('s1.survey_days', 'Site Survey Days', 'survey', daysBetween('p.created_at', 's1.survey_completed_date'), { needs: ['s1'] }),
   text('s1.adders', 'Adders Details', 'survey', 's1.adders_details', { needs: ['s1'], groupable: false, internal: true }),
-  bool('s1.drive', 'Drive Updated (S1)', 'survey', 's1.drive_updated', { needs: ['s1'] }),
+  // Key kept from when this was "Drive Updated", so saved reports keep working.
+  bool('s1.drive', 'Attachments complete (S1)', 'survey', attachmentsSql('survey', 's1'), { needs: ['s1'] }),
 
   // --- Stage 2 · Design -----------------------------------------------------
   text('s2.designer', 'Designer', 'design', 'dz.display_name', { needs: ['s2', 'designer'] }),
@@ -259,7 +289,8 @@ export const REPORT_FIELDS: ReportField[] = [
   status('s2.stamps_status', 'Stamps Status', 'design', 's2.stamps_status', { needs: ['s2'] }),
   date('s2.stamps_requested', 'Stamps Requested Date', 'design', 's2.stamps_requested_date', { needs: ['s2'] }),
   date('s2.stamps_received', 'Stamps Received Date', 'design', 's2.stamps_received_date', { needs: ['s2'] }),
-  bool('s2.drive', 'Drive Updated (S2)', 'design', 's2.drive_updated', { needs: ['s2'] }),
+  // Key kept from when this was "Drive Updated", so saved reports keep working.
+  bool('s2.drive', 'Attachments complete (S2)', 'design', attachmentsSql('design', 's2'), { needs: ['s2'] }),
 
   // --- Stage 3 · Permit -----------------------------------------------------
   text('s3.required_permits', 'Required Permits', 'permit', "array_to_string(s3.required_permits, ', ')", { needs: ['s3'], groupable: false }),
@@ -287,7 +318,8 @@ export const REPORT_FIELDS: ReportField[] = [
   status('s3.ntp_status', 'HDM NTP Status', 'permit', 's3.hdm_ntp_status', { needs: ['s3'] }),
   date('s3.ntp_submitted', 'HDM NTP Submitted Date', 'permit', 's3.hdm_ntp_submitted_date', { needs: ['s3'] }),
   date('s3.ntp_approved', 'HDM NTP Approved Date', 'permit', 's3.hdm_ntp_approved_date', { needs: ['s3'] }),
-  bool('s3.drive', 'Drive Updated (S3)', 'permit', 's3.drive_updated', { needs: ['s3'] }),
+  // Key kept from when this was "Drive Updated", so saved reports keep working.
+  bool('s3.drive', 'Attachments complete (S3)', 'permit', attachmentsSql('permits', 's3'), { needs: ['s3'] }),
 
   // --- Stage 4 · Procurement ------------------------------------------------
   text('s4.manager', 'Procurement Manager', 'procurement', 'coalesce(pmgr.full_name, pmgr.email)', { needs: ['s4', 'procurementMgr'] }),
@@ -296,7 +328,8 @@ export const REPORT_FIELDS: ReportField[] = [
   date('s4.delivered', 'Material Delivered Date', 'procurement', 's4.material_delivered_date', { needs: ['s4'] }),
   num('s4.material_days', 'Material Days', 'procurement', daysBetween('s4.material_requested_date', 's4.material_delivered_date'), { needs: ['s4'] }),
   text('s4.pm_notes', 'PM Notes (Procurement)', 'procurement', 's4.pm_notes', { needs: ['s4'], groupable: false, internal: true }),
-  bool('s4.drive', 'Drive Updated (S4)', 'procurement', 's4.drive_updated', { needs: ['s4'] }),
+  // Key kept from when this was "Drive Updated", so saved reports keep working.
+  bool('s4.drive', 'Attachments complete (S4)', 'procurement', attachmentsSql('procurement', 's4'), { needs: ['s4'] }),
 
   // --- Stage 5 · Installation -----------------------------------------------
   text('s5.manager', 'Install Manager', 'install', 'coalesce(imgr.full_name, imgr.email)', { needs: ['s5', 'installMgr'] }),
@@ -315,7 +348,8 @@ export const REPORT_FIELDS: ReportField[] = [
   status('fin.m1_status', 'Finance M1 Status', 'install', 'fin.m1_status', { needs: ['finance'] }),
   date('fin.m1_submitted', 'Finance M1 Submitted Date', 'install', 'fin.m1_submitted_date', { needs: ['finance'] }),
   date('fin.m1_approved', 'Finance M1 Approved Date', 'install', 'fin.m1_approved_date', { needs: ['finance'] }),
-  bool('s5.drive', 'Drive Updated (S5)', 'install', 's5.drive_updated', { needs: ['s5'] }),
+  // Key kept from when this was "Drive Updated", so saved reports keep working.
+  bool('s5.drive', 'Attachments complete (S5)', 'install', attachmentsSql('install', 's5'), { needs: ['s5'] }),
 
   // --- Stage 6 · Inspection & PTO -------------------------------------------
   status('s6.inspection_status', 'Inspection Status', 'inspection', 's6.inspection_status', { needs: ['s6'] }),
@@ -333,14 +367,15 @@ export const REPORT_FIELDS: ReportField[] = [
   status('fin.m2_status', 'Finance M2 Status', 'inspection', 'fin.m2_status', { needs: ['finance'] }),
   date('fin.m2_submitted', 'Finance M2 Submitted Date', 'inspection', 'fin.m2_submitted_date', { needs: ['finance'] }),
   date('fin.m2_approved', 'Finance M2 Approved Date', 'inspection', 'fin.m2_approved_date', { needs: ['finance'] }),
-  bool('s6.drive', 'Drive Updated (S6)', 'inspection', 's6.drive_updated', { needs: ['s6'] }),
+  // Key kept from when this was "Drive Updated", so saved reports keep working.
+  bool('s6.drive', 'Attachments complete (S6)', 'inspection', attachmentsSql('inspection_pto', 's6'), { needs: ['s6'] }),
 
   // --- Stage 7 · Complete / Hold / Cancelled --------------------------------
   status('s7.completion_status', 'Project Completion Status', 'complete', 's7.completion_status', { needs: ['s7'] }),
   date('s7.completion_date', 'Project Completion Date', 'complete', 's7.completion_date', { needs: ['s7'] }),
   num('s7.total_days', 'Total Project Days', 'complete', daysBetween('p.created_at', 's7.completion_date'), { needs: ['s7'] }),
   text('s7.notes', 'Completion PM Notes', 'complete', 's7.completion_notes', { needs: ['s7'], groupable: false, internal: true }),
-  bool('s7.final_drive', 'Final Drive Updated', 'complete', 's7.final_drive_updated', { needs: ['s7'] }),
+  bool('s7.final_drive', 'Final documents attached', 'complete', attachmentsSql('complete', 's7', 'final_drive_updated'), { needs: ['s7'] }),
   status('hold.reason', 'Hold Reason', 'complete', 'ph.reason', { needs: ['hold'] }),
   text('hold.notes', 'Hold Notes', 'complete', 'ph.notes', { needs: ['hold'], groupable: false, internal: true }),
   date('hold.start', 'Hold Start Date', 'complete', 'ph.hold_start_date', { needs: ['hold'] }),

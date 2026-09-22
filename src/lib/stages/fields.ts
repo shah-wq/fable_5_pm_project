@@ -11,7 +11,9 @@ import type { StageKey } from './definitions';
  *    editable afterwards) — `stamp` maps status value → date field;
  *  - 'Days' fields are computed from dates, never stored;
  *  - N/A is a first-class status and satisfies the advance checks;
- *  - Drive Updated closes every stage.
+ *  - each stage closes on its attachments — the documents that prove it
+ *    happened — uploaded here, rather than on a "Drive Updated" tick that
+ *    only claimed they had been filed somewhere else.
  */
 
 export type StageFieldType =
@@ -36,9 +38,15 @@ export interface StageField {
   required?: boolean | 'cond';
   /** status value → date field to auto-stamp with today when selected. */
   stamp?: Record<string, string>;
-  accept?: 'photos' | 'pdf';
+  /** Uploads only: photos, PDFs, or either (a permit can be a scan or a PDF). */
+  accept?: 'photos' | 'pdf' | 'any';
   multiple?: boolean;
   note?: string;
+  /**
+   * Uploads only: not required when this stage field holds this value — an
+   * HOA approval is not needed on a property whose HOA status is N/A.
+   */
+  requiredUnless?: { field: string; value: string };
 }
 
 export interface StageCard {
@@ -122,18 +130,62 @@ function paymentCard(key: string, title: string, prefix: string, allowNa: boolea
   };
 }
 
-const driveCard = (note: string): StageCard => ({
-  key: 'closeout',
-  title: 'Close-out',
-  fields: [
-    {
-      name: 'drive_updated',
-      label: 'Drive Updated',
-      type: 'toggle',
-      required: true,
-      note,
-    },
+/**
+ * The attachments that close each stage, in place of the old "Drive Updated"
+ * tick. A tick said the documents had been filed in a shared drive; an
+ * attachment is the document itself, on the project, where the PM, the
+ * reports and later automation can all see it. Each upload lands in the
+ * project's documents under the field's name as its category, hidden from the
+ * homeowner unless someone shares it.
+ *
+ * `required` ones gate the advance out of the stage; the rest are there so the
+ * paperwork has one home.
+ */
+const attach = (
+  name: string,
+  label: string,
+  accept: StageField['accept'],
+  required: boolean,
+  extra: Partial<StageField> = {}
+): StageField => ({ name, label, type: 'upload', accept, multiple: true, required, ...extra });
+
+export const STAGE_ATTACHMENTS: Record<StageKey, StageField[]> = {
+  survey: [
+    attach('survey_photos', 'Site survey photos', 'photos', true, {
+      note: 'Roof planes, attic, main panel (cover off), meter, service entrance',
+    }),
+    attach('survey_report', 'Survey report', 'any', false),
   ],
+  design: [
+    attach('plan_set', 'Plan set', 'pdf', true),
+    attach('stamped_plans', 'Stamped plans', 'pdf', false),
+  ],
+  permits: [
+    attach('permit_approval', 'Building permit approval', 'any', true),
+    attach('ica_approval', 'Interconnection (ICA) approval', 'any', true),
+    attach('hoa_approval', 'HOA approval', 'any', true, {
+      requiredUnless: { field: 'hoa_status', value: 'na' },
+      note: 'Not needed when HOA is N/A',
+    }),
+    attach('ntp_approval', 'HDM NTP approval', 'any', false),
+  ],
+  procurement: [
+    attach('delivery_confirmation', 'Delivery confirmation / packing slip', 'any', true),
+    attach('purchase_order', 'Purchase order / invoice', 'any', false),
+  ],
+  install: [attach('install_signoff', 'Installation sign-off / checklist', 'any', false)],
+  inspection_pto: [
+    attach('inspection_report', 'Inspection report / pass card', 'any', true),
+    attach('pto_letter', 'PTO letter', 'any', true),
+    attach('monitoring_activation', 'Monitoring activation', 'photos', false),
+  ],
+  complete: [attach('final_documents', 'Completion certificate / final documents', 'any', false)],
+};
+
+const attachmentsCard = (stage: StageKey): StageCard => ({
+  key: 'attachments',
+  title: 'Attachments',
+  fields: STAGE_ATTACHMENTS[stage],
 });
 
 const financeM1Card: StageCard = {
@@ -229,7 +281,7 @@ export const STAGE_FORMS: Record<StageKey, StageCard[]> = {
         },
       ],
     },
-    driveCard('Survey documents filed to the Drive folder'),
+    attachmentsCard('survey'),
   ],
 
   design: [
@@ -289,7 +341,7 @@ export const STAGE_FORMS: Record<StageKey, StageCard[]> = {
         },
       ],
     },
-    driveCard('Plan sets and stamps filed to the Drive folder'),
+    attachmentsCard('design'),
   ],
 
   permits: [
@@ -400,7 +452,7 @@ export const STAGE_FORMS: Record<StageKey, StageCard[]> = {
         },
       ],
     },
-    driveCard('Permits, ICA and HOA approvals filed to the Drive folder'),
+    attachmentsCard('permits'),
   ],
 
   procurement: [
@@ -435,7 +487,7 @@ export const STAGE_FORMS: Record<StageKey, StageCard[]> = {
         },
       ],
     },
-    driveCard('POs, invoices and delivery documents filed to the Drive folder'),
+    attachmentsCard('procurement'),
   ],
 
   install: [
@@ -480,7 +532,7 @@ export const STAGE_FORMS: Record<StageKey, StageCard[]> = {
     },
     paymentCard('cash_m3', 'Cash M3 milestone', 'cash_m3', true),
     financeM1Card,
-    driveCard('Install photos and sign-offs filed to the Drive folder'),
+    attachmentsCard('install'),
   ],
 
   inspection_pto: [
@@ -551,7 +603,7 @@ export const STAGE_FORMS: Record<StageKey, StageCard[]> = {
       ],
     },
     financeM2Card,
-    driveCard('PTO letter, inspection sign-off and final documents filed to the Drive folder'),
+    attachmentsCard('inspection_pto'),
   ],
 
   complete: [
@@ -581,15 +633,9 @@ export const STAGE_FORMS: Record<StageKey, StageCard[]> = {
           type: 'textarea',
           note: 'Closing summary, open items, anything the next person should know',
         },
-        {
-          name: 'final_drive_updated',
-          label: 'Final Drive Updated',
-          type: 'toggle',
-          required: true,
-          note: 'Confirms the complete document trail is filed to the Drive folder',
-        },
       ],
     },
+    attachmentsCard('complete'),
   ],
 };
 

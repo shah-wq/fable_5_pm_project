@@ -1,4 +1,5 @@
 import type { StageKey } from './definitions.ts';
+import { STAGE_ATTACHMENTS } from './fields.ts';
 
 /**
  * The advance gates from the Stage Field Specification, as pure functions
@@ -55,8 +56,22 @@ function approvalGaps(
   return has(row, dateField) ? [] : [`${label} ${terminal} date missing`];
 }
 
-function driveGap(row: StageRow): string[] {
-  return val(row, 'drive_updated') === true ? [] : ['Drive Updated not toggled'];
+/**
+ * The stage's required attachments, each at least one file in its category on
+ * the project. An HOA approval is not asked for when the HOA is N/A.
+ *
+ * A stage already closed under the old rule — its "Drive Updated" ticked
+ * before attachments replaced it — stays closed: the documents were filed in
+ * the drive then, and asking for them again here would block a project that
+ * had already met the bar it was set.
+ */
+function attachmentGaps(b: StageBundle, stage: StageKey, row: StageRow): string[] {
+  if (val(row, 'drive_updated') === true) return [];
+  return STAGE_ATTACHMENTS[stage]
+    .filter((f) => f.required === true)
+    .filter((f) => !(f.requiredUnless && val(row, f.requiredUnless.field) === f.requiredUnless.value))
+    .filter((f) => !b.docCategories.has(f.name))
+    .map((f) => `${f.label} not attached`);
 }
 
 function surveyGaps(b: StageBundle): string[] {
@@ -70,7 +85,7 @@ function surveyGaps(b: StageBundle): string[] {
         ? []
         : ['Site Survey completed date missing']
       : ['Site Survey not marked Completed']),
-    ...driveGap(s),
+    ...attachmentGaps(b, 'survey', s),
   ];
 }
 
@@ -85,7 +100,7 @@ function designGaps(b: StageBundle): string[] {
     if (!has(d, 'design_received_date')) gaps.push('Designs received date missing');
   }
   gaps.push(...approvalGaps(d, 'stamps_status', 'stamps_received_date', 'received', 'Stamps'));
-  gaps.push(...driveGap(d));
+  gaps.push(...attachmentGaps(b, 'design', d));
   return gaps;
 }
 
@@ -109,7 +124,7 @@ function permitsGaps(b: StageBundle): string[] {
     ...permitTrackGaps(p, 'hoa', 'HOA', true),
     ...paymentGaps(p, 'cash_m2', 'Cash M2', true),
     ...approvalGaps(p, 'hdm_ntp_status', 'hdm_ntp_approved_date', 'approved', 'HDM NTP'),
-    ...driveGap(p),
+    ...attachmentGaps(b, 'permits', p),
   ];
 }
 
@@ -123,7 +138,7 @@ function procurementGaps(b: StageBundle): string[] {
     if (!has(p, 'material_requested_date')) gaps.push('Material requested date missing');
     if (!has(p, 'material_delivered_date')) gaps.push('Material delivered date missing');
   }
-  gaps.push(...driveGap(p));
+  gaps.push(...attachmentGaps(b, 'procurement', p));
   return gaps;
 }
 
@@ -143,7 +158,7 @@ function installGaps(b: StageBundle): string[] {
   gaps.push(
     ...approvalGaps(b.finance, 'm1_status', 'm1_approved_date', 'approved', 'Finance M1')
   );
-  gaps.push(...driveGap(i));
+  gaps.push(...attachmentGaps(b, 'install', i));
   return gaps;
 }
 
@@ -169,7 +184,7 @@ function inspectionGaps(b: StageBundle): string[] {
   gaps.push(
     ...approvalGaps(b.finance, 'm2_status', 'm2_approved_date', 'approved', 'Finance M2')
   );
-  gaps.push(...driveGap(q));
+  gaps.push(...attachmentGaps(b, 'inspection_pto', q));
   return gaps;
 }
 

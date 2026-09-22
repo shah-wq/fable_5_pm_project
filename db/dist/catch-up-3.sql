@@ -1,7 +1,7 @@
 -- ============================================================================
 -- GENERATED FILE — do not edit. Rebuild with: node scripts/build-sql-bootstrap.mjs
 --
---   SolarFlow PM · catch-up 3 of 3 · newest migration: 20260803004200_sales_see_deal_projects.sql
+--   SolarFlow PM · catch-up 3 of 3 · newest migration: 20260803004300_stage_upload_fix.sql
 --
 -- Paste this whole file into a SQL console (e.g. the Neon SQL Editor) and run
 -- it. Safe to run more than once: every statement below skips work already
@@ -11,7 +11,7 @@
 -- Run the catch-up files in order, each as its own execution: catch-up-1.sql, catch-up-2.sql, catch-up-3.sql.
 -- Each break falls where one script adds a value to an enum and the next uses
 -- it, which PostgreSQL will not allow in a single transaction.
--- Includes: 20260803003400_crm_foundation.sql, 20260803003500_deals.sql, 20260803003600_contact_intake.sql, 20260803003700_contact_create.sql, 20260803003800_contact_stages.sql, 20260803003900_contract_signed_system.sql, 20260803004000_project_holds_contact.sql, 20260803004100_signing_creates_project.sql, 20260803004200_sales_see_deal_projects.sql, migration bookkeeping
+-- Includes: 20260803003400_crm_foundation.sql, 20260803003500_deals.sql, 20260803003600_contact_intake.sql, 20260803003700_contact_create.sql, 20260803003800_contact_stages.sql, 20260803003900_contract_signed_system.sql, 20260803004000_project_holds_contact.sql, 20260803004100_signing_creates_project.sql, 20260803004200_sales_see_deal_projects.sql, 20260803004300_stage_upload_fix.sql, migration bookkeeping
 -- ============================================================================
 
 -- >>> 20260803003400_crm_foundation.sql
@@ -2788,6 +2788,92 @@ create policy projects_select_via_deal on public.projects
 
 
 
+-- >>> 20260803004300_stage_upload_fix.sql
+
+-- =============================================================================
+-- Stage-form uploads work again
+-- =============================================================================
+-- public.record_staff_upload — the function behind every file on a stage form
+-- (install pictures, shading reports, and now each stage's attachments) —
+-- wrote the document's kind as a CASE of two string literals. PostgreSQL types
+-- that CASE as text, and documents.kind is the enum public.document_kind, so
+-- every upload failed:
+--
+--   column "kind" is of type public.document_kind but expression is of type text
+--
+-- The same slip was fixed for deal documents in 003500. This replaces the
+-- function with the cast in place; nothing else about it changes. Added as a
+-- new file rather than an edit to 001400, because a database that already has
+-- 001400 would never see an edit.
+-- =============================================================================
+
+create or replace function public.record_staff_upload(
+  p_project_id uuid,
+  p_category   text,
+  p_filename   text,
+  p_mime       text,
+  p_data       bytea
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_name text;
+  v_path text;
+  v_object_id uuid;
+  v_document_id uuid;
+begin
+  if not app.is_project_staff(p_project_id) then
+    raise exception 'only project staff may upload' using errcode = '42501';
+  end if;
+  if p_category is null or btrim(p_category) = '' then
+    raise exception 'category is required';
+  end if;
+  if p_mime not in ('image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif',
+                    'application/pdf') then
+    raise exception 'only photos and PDFs are accepted';
+  end if;
+  if p_data is null or octet_length(p_data) = 0 or octet_length(p_data) > 26214400 then
+    raise exception 'file must be between 1 byte and 25 MB';
+  end if;
+
+  v_name := coalesce(nullif(regexp_replace(coalesce(p_filename, ''), '[^\w.\-]+', '_', 'g'), ''), 'file');
+  v_name := right(v_name, 100);
+  v_path := p_project_id || '/uploads/' || p_category || '/'
+            || floor(extract(epoch from clock_timestamp()) * 1000)::bigint || '-' || v_name;
+
+  insert into storage.objects (bucket_id, name, owner)
+  values (case when p_mime = 'application/pdf' then 'project-deliverables' else 'project-photos' end,
+          v_path, auth.uid())
+  returning id into v_object_id;
+
+  insert into storage.object_data (object_id, data) values (v_object_id, p_data);
+
+  insert into public.documents
+    (project_id, bucket, object_path, kind, category, title, mime_type, size_bytes,
+     customer_visible, uploaded_by)
+  values
+    (p_project_id,
+     case when p_mime = 'application/pdf' then 'project-deliverables' else 'project-photos' end,
+     v_path,
+     (case when p_mime = 'application/pdf' then 'pdf' else 'photo' end)::public.document_kind,
+     btrim(p_category), p_filename, p_mime, octet_length(p_data), false, auth.uid())
+  returning id into v_document_id;
+
+  perform app.write_audit('document.uploaded', 'documents', v_document_id::text, p_project_id,
+    null, null, jsonb_build_object('category', p_category, 'filename', p_filename));
+
+  return v_document_id;
+end;
+$$;
+
+revoke execute on function public.record_staff_upload(uuid, text, text, text, bytea) from public, anon;
+grant execute on function public.record_staff_upload(uuid, text, text, text, bytea) to authenticated;
+
+
+
 -- >>> migration bookkeeping (lets `npm run db:migrate` skip these later)
 create table if not exists public.schema_migrations (
   name       text primary key,
@@ -2836,5 +2922,6 @@ insert into public.schema_migrations (name) values
   ('20260803003900_contract_signed_system.sql'),
   ('20260803004000_project_holds_contact.sql'),
   ('20260803004100_signing_creates_project.sql'),
-  ('20260803004200_sales_see_deal_projects.sql')
+  ('20260803004200_sales_see_deal_projects.sql'),
+  ('20260803004300_stage_upload_fix.sql')
 on conflict (name) do nothing;

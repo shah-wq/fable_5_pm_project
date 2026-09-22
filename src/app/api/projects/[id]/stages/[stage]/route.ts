@@ -84,15 +84,6 @@ export async function PATCH(
     byTable[field.table ?? 'stage'].push({ col: name, value });
   }
 
-  // Drive Updated carries its own timestamp (Complete uses final_drive_updated).
-  for (const [col, stampCol] of [
-    ['drive_updated', 'drive_updated_at'],
-    ['final_drive_updated', 'final_drive_updated_at'],
-  ] as const) {
-    const drive = byTable.stage.find((u) => u.col === col);
-    if (drive) byTable.stage.push({ col: stampCol, value: drive.value ? new Date() : null });
-  }
-
   if (!byTable.stage.length && !byTable.finance.length && !byTable.project.length) {
     return NextResponse.json({ error: 'nothing to save' }, { status: 400 });
   }

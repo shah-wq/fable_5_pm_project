@@ -10,6 +10,7 @@ is a regression suite you do not have.
 
     bash scripts/e2e/crm-foundation.sh   # migrations 003300/003400, as the database sees them
     bash scripts/e2e/people.sh           # module 16, through the running app
+    bash scripts/e2e/stage-attachments.sh  # stage attachments in place of Drive Updated
 
 Run them one at a time: they each bind a port, and two at once will fight over
 PostgreSQL's socket directory.

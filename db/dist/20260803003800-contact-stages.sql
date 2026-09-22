@@ -1,7 +1,7 @@
 -- ============================================================================
 -- GENERATED FILE — do not edit. Rebuild with: node scripts/build-sql-bootstrap.mjs
 --
---   SolarFlow PM · newest module · step 6 of 10 · 20260803003800_contact_stages.sql
+--   SolarFlow PM · newest module · step 6 of 11 · 20260803003800_contact_stages.sql
 --
 -- For a database that is already up to date apart from this module. Paste the
 -- whole file into a SQL console (e.g. the Neon SQL Editor) and run it once.
@@ -20,6 +20,7 @@
 --   8. 20260803004000-project-holds-contact.sql
 --   9. 20260803004100-signing-creates-project.sql
 --   10. 20260803004200-sales-see-deal-projects.sql
+--   11. 20260803004300-stage-upload-fix.sql
 -- Each break is where one script adds something the next one uses, which
 -- PostgreSQL will not allow inside a single pasted transaction.
 --

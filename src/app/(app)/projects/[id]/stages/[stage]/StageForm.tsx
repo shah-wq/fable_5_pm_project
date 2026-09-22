@@ -47,7 +47,7 @@ function daysBetween(from: unknown, to: unknown): number | null {
  * collapsible with a status chip in the header (a PM sees which of the five
  * Permit tracks is outstanding without scrolling); status dropdowns
  * auto-stamp their matching date (always editable); 'Days' counters run live
- * and turn amber past the ageing threshold; Drive Updated closes the stage.
+ * and turn amber past the ageing threshold; the Attachments card closes the stage.
  */
 export function StageForm({
   projectId,
@@ -189,7 +189,13 @@ export function StageForm({
                 type="file"
                 hidden
                 multiple={field.multiple}
-                accept={field.accept === 'pdf' ? 'application/pdf' : 'image/*'}
+                accept={
+                  field.accept === 'pdf'
+                    ? 'application/pdf'
+                    : field.accept === 'any'
+                      ? 'application/pdf,image/*'
+                      : 'image/*'
+                }
                 onChange={(e) => {
                   upload(field.name, e.target.files);
                   e.target.value = '';
@@ -247,7 +253,7 @@ export function StageForm({
     }
 
     if (field.type === 'toggle') {
-      const stampedAt = values.drive_updated_at;
+      const stampedAt = values[`${field.name}_at`];
       return (
         <div className="field" key={field.name}>
           <label className="check-inline big">

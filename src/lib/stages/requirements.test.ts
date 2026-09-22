@@ -59,10 +59,47 @@ test('survey: DP received + M1 resolved + survey completed + drive', () => {
   m1Received.cash_m1_received_date = '2026-08-03';
   assert.deepEqual(evaluateStage('survey', bundle({ survey: m1Received })), []);
 
+  // Attachments close the stage now: with no Drive Updated tick behind it, the
+  // survey photos have to be on the project.
   const noDrive = goodSurvey();
   noDrive.drive_updated = false;
   assert.ok(evaluateStage('survey', bundle({ survey: noDrive }))
-    .some((g) => g.includes('Drive Updated')));
+    .some((g) => g === 'Site survey photos not attached'));
+  assert.deepEqual(
+    evaluateStage('survey', bundle({ survey: noDrive, docCategories: new Set(['survey_photos']) })),
+    []
+  );
+});
+
+test('attachments: each working stage names exactly its required files', () => {
+  const needed: Record<string, string[]> = {
+    survey: ['Site survey photos'],
+    design: ['Plan set'],
+    permits: ['Building permit approval', 'Interconnection (ICA) approval', 'HOA approval'],
+    procurement: ['Delivery confirmation / packing slip'],
+    install: [],
+    inspection_pto: ['Inspection report / pass card', 'PTO letter'],
+  };
+  const table: Record<string, keyof StageBundle> = {
+    survey: 'survey', design: 'design', permits: 'permits', procurement: 'procurement',
+    install: 'install', inspection_pto: 'inspection',
+  };
+  for (const [stage, labels] of Object.entries(needed)) {
+    const gaps = evaluateStage(stage as never, bundle({ [table[stage]]: { drive_updated: false } }));
+    const attached = gaps.filter((g) => g.endsWith(' not attached'));
+    assert.deepEqual(attached, labels.map((l) => `${l} not attached`), stage);
+  }
+});
+
+test('attachments: an HOA that is N/A needs no approval; an old Drive Updated tick still closes', () => {
+  const permits = { hoa_status: 'na' };
+  const gaps = evaluateStage('permits', bundle({
+    permits, docCategories: new Set(['permit_approval', 'ica_approval']),
+  }));
+  assert.ok(!gaps.some((g) => g.endsWith(' not attached')), gaps.join('; '));
+
+  const legacy = evaluateStage('inspection_pto', bundle({ inspection: { drive_updated: true } }));
+  assert.ok(!legacy.some((g) => g.endsWith(' not attached')), 'a stage closed under Drive Updated stays closed');
 });
 
 function goodDesign(): Record<string, unknown> {
