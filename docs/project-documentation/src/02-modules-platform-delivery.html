@@ -1,0 +1,111 @@
+<section class="chapter" data-no="5" data-title="Modules — platform (M01–M05)">
+  <span class="mk">@@C5@@</span>
+  <div class="kicker">Chapter 5 · Module catalogue</div>
+  <h1>Platform modules</h1>
+  <p class="lede">The layer everything else stands on: the database and how it keeps itself current, who can sign in, what each role may see, where files live, and the record of who did what.</p>
+
+  <div class="module"><span class="num">M01</span><span class="name">Database &amp; self-applying migrations</span><span class="pill live">Live</span></div>
+  <p class="meta">Migrations 000000–000400, db-migrations/db-apply, Admin → Database, /api/health</p>
+  <p>Plain PostgreSQL with no vendor-specific features, so it runs on Neon, any managed Postgres or a local install. The app role connects through a pooled connection and switches to an <code>authenticated</code> role per request, carrying the user's identity as claims that the security policies read.</p>
+  <dl class="facts">
+    <dt>Screens</dt><dd><strong>Admin → Database</strong>: every migration the deployment carries, which are present, and one <em>Apply</em> button that runs the missing ones in order, each in its own transaction, recording them in <code>schema_migrations</code> and reporting PostgreSQL's exact words on any refusal.</dd>
+    <dt>Health</dt><dd><code>/api/health</code>: build commit, which environment variables are set, a masked database endpoint (so two deployments can be compared), a branch marker, the database connection result and the list of migrations the database is behind.</dd>
+    <dt>Safety</dt><dd>Every migration is idempotent and guarded. When a module is missing, screens show a notice naming the file rather than failing, and errors name the real cause. SQL bundles in <code>db/dist</code> remain for console use.</dd>
+  </dl>
+
+  <div class="module"><span class="num">M02</span><span class="name">Authentication &amp; sign-in</span><span class="pill live">Live</span></div>
+  <p class="meta">Migrations 001000, 002600, 002700, 003000 · docs/auth.md</p>
+  <p>A complete auth engine inside the database, replacing Supabase Auth. Credentials, sessions and one-time tokens are reachable only through security-definer functions; the application role has no direct access to the tables.</p>
+  <ul>
+    <li>bcrypt passwords (cost 12); sessions are opaque 256-bit tokens in an httpOnly cookie, with only the SHA-256 stored; 7-day lifetime, revocable server-side.</li>
+    <li>Lockout after 10 consecutive failures, for 10 minutes. One sign-in function behind three doors (staff, dealer, homeowner), with role-based routing.</li>
+    <li>Invitations and password recovery by 7-day single-use links, for every role including homeowners. Admin-set passwords can force a change at first login. Every password field has a show/hide control.</li>
+  </ul>
+
+  <div class="module"><span class="num">M03</span><span class="name">Roles &amp; row-level security</span><span class="pill live">Live</span></div>
+  <p class="meta">Migrations 000300, 000600, 000800, 000900, 003300, 004200 · docs/rls-matrix.md</p>
+  <p>190 policies across 88 tables implement the role contract in chapter 4. Functions lose the default public execute right, and sensitive writers run as security-definer with explicit role checks. The finance role reads only whitelisted columns through a view. Sales reps see a deal's project exactly when they can see the deal: the policy asks the deals table rather than repeating its rules.</p>
+
+  <div class="module"><span class="num">M04</span><span class="name">Files &amp; documents</span><span class="pill live">Live</span></div>
+  <p class="meta">Migrations 000700, 001100 · lib/storage, /api/files, /api/documents, /u/&lt;token&gt;</p>
+  <p>Private buckets (drawings, PDF deliverables, photos) with the bytes stored beside their metadata in Postgres. Documents are filed against a deal before signing and gain the project link at conversion, so nothing is uploaded twice. Customers see only customer-visible documents. Crews and homeowners can upload photos through time-limited, revocable links without an account.</p>
+
+  <div class="module"><span class="num">M05</span><span class="name">Audit &amp; activity log</span><span class="pill live">Live</span></div>
+  <p class="meta">Migration 000500 (+ kinds, deal/client links in 003400) · Admin → Activity log</p>
+  <p>One shared writer that every module calls. It records actor, role, action, entity, context, the kind of activity (call, email, SMS, meeting, note, form, stage move, field change, login, system) and links to project, deal and client. Rows cannot be edited. Stage moves, signings, project deletions, merges and admin actions are all logged; password values never are. The same log is the contact's Activity tab and the deal timeline.</p>
+</section>
+
+<section class="chapter" data-no="6" data-title="Modules — project delivery (M06–M12)">
+  <span class="mk">@@C6@@</span>
+  <div class="kicker">Chapter 6 · Module catalogue</div>
+  <h1>Project delivery modules</h1>
+  <p class="lede">From a signed contract to a system producing power: the pipeline the project team runs every day, the forms that record each step, and the numbers that show how it is going.</p>
+
+  <div class="module"><span class="num">M06</span><span class="name">Pipeline board &amp; stage engine</span><span class="pill live">Live</span></div>
+  <p class="meta">Migration 001200 · /pipeline, /projects, lib/stages · moves via /api/projects/[id]/move</p>
+  <div class="flow">
+    <div class="step"><b>1 Survey</b>Site survey</div>
+    <div class="step"><b>2 Design</b>Plans &amp; stamps</div>
+    <div class="step"><b>3 Permits</b>Permit · ICA · HOA · NTP</div>
+    <div class="step"><b>4 Procurement</b>Material</div>
+    <div class="step"><b>5 Install</b>Installation</div>
+    <div class="step"><b>6 Inspection &amp; PTO</b>Inspection, PTO, energization</div>
+    <div class="step g"><b>7 Complete</b>Terminal</div>
+    <div class="step r"><b>Hold · Cancelled</b>Side stages</div>
+  </div>
+  <ul>
+    <li><strong>Forward, one stage at a time</strong>, running the same validation as the stage form's Advance button. A rejected drop snaps back with a red outline and a toast listing exactly what is missing, linked to the stage form.</li>
+    <li><strong>Backwards</strong> is admin-only, one stage, with a logged reason, including back out of Complete, which reopens the project.</li>
+    <li><strong>Cards</strong> show system size, days in stage, the missing-items count, unread customer messages and open low-rating follow-ups.</li>
+    <li><strong>Stage history</strong> is written by a trigger on every stage change, and it feeds "days in stage", the dashboard's ageing and typical durations.</li>
+    <li><strong>Live:</strong> boards re-read every 10 seconds while visible and on focus, and immediately when another tab announces a move.</li>
+    <li>Only the PM (ops) or an admin moves projects. The Projects tab is the same data as a filterable table.</li>
+  </ul>
+
+  <div class="module"><span class="num">M07</span><span class="name">Stage forms</span><span class="pill live">Live</span></div>
+  <p class="meta">Migration 001400 · /projects/[id]/stages/[stage] · lib/stages/fields.ts</p>
+  <p>A data-entry form per stage, with typed columns for every field, so later automation needs no schema work. "Days" fields are computed from dates at read time, never stored. Every stage closes on a <strong>Drive Updated</strong> gate.</p>
+  <table class="t-compact">
+    <thead><tr><th class="w18">Stage</th><th>What it records</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Survey</td><td>Site survey status, completed date, days, adders details.</td></tr>
+      <tr><td class="k">Design</td><td>Designer, design status, requested/received dates, LightReach shading &amp; monthly production-loss report and date, PM notes; <em>Stamps</em>: status, requested/received dates.</td></tr>
+      <tr><td class="k">Permits</td><td>Five tracks, each with status, applied/received dates, notes and revision notes: <strong>Building permit</strong> (required permits: building / electrical / structural), <strong>ICA</strong> (interconnection agreement), <strong>HOA</strong>, <strong>HDM NTP</strong> (notice to proceed: submitted/approved) and the Cash M2 milestone.</td></tr>
+      <tr><td class="k">Procurement</td><td>Procurement manager, material status, requested/delivered dates, PM notes.</td></tr>
+      <tr><td class="k">Install</td><td>Install manager, status, requested/scheduled/completed dates, install pictures.</td></tr>
+      <tr><td class="k">Inspection &amp; PTO</td><td>Inspection status, failed-inspection notes, requested/completed dates; PTO status, applied/received dates; monitoring / system energization status and date.</td></tr>
+      <tr><td class="k">Complete</td><td>Total project days, completion status and date, completion notes, final Drive Updated.</td></tr>
+      <tr><td class="k">Payments</td><td>Down payment and Cash M1–M3 (not requested → requested → initiated → received); Finance M1/M2 labelled by partner (not submitted → submitted → approved / rejected), stored once per project.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="module"><span class="num">M08</span><span class="name">Hold, Cancel &amp; Complete</span><span class="pill live">Live</span></div>
+  <p class="meta">Migrations 001500, 001600</p>
+  <p>Any project can go on Hold or be Cancelled from any stage, bypassing validation, because a customer pulling out must never be blocked. The move needs a reason from a list and notes. Hold reasons: customer request, finance pending, weather, access issue, awaiting documents, site issue, other, with an expected resume date. Cancellation reasons: customer cancelled, failed credit, site not viable, permit denied, duplicate, competitor, other, with refund/clawback and equipment-return flags. The origin stage is stored, so Resume and Reinstate (admin-only) restore the project exactly. Held and cancelled projects leave active counts but are never deleted.</p>
+
+  <div class="module"><span class="num">M09</span><span class="name">Projects &amp; project details</span><span class="pill live">Live</span></div>
+  <p class="meta">Migrations 001700, 001800, 002100 · /projects/new, /projects/[id]</p>
+  <p>The New Project form and the project record: customer, site address, dealer, sales rep, jurisdiction, utility, and a system specification (system type, module type and quantity, inverter type and quantity, battery type and quantity, system size) plus financing (cash or financing, company, notes, estimated completion shown to the customer). Equipment and financing values come from admin-managed lists stored by ID, so fixing a typo in a module name fixes it everywhere. The project page has panels for customer, details, system specification, financing and commission, a stepper to each stage form, and the header actions (hold, cancel, resume, reinstate, delete).</p>
+
+  <div class="module"><span class="num">M10</span><span class="name">Admin panel &amp; reference lists</span><span class="pill live">Live</span></div>
+  <p class="meta">Migration 001300 · /admin/*</p>
+  <table class="t-compact">
+    <thead><tr><th class="w25">Area</th><th>Contents</th></tr></thead>
+    <tbody>
+      <tr><td class="k">People &amp; teams</td><td>Users &amp; roles (invite, resend, cancel, set password, force change, deactivate, guarded delete), surveyors, designers, install crews, vendors, dealers, contacts, sales reps.</td></tr>
+      <tr><td class="k">CRM lists</td><td>Sources, loss reasons, roof types, competitors, dealer tiers.</td></tr>
+      <tr><td class="k">Equipment &amp; financing</td><td>System types, module types, inverter types, battery types, financing companies, cash or financing, finance partners, dealer visibility.</td></tr>
+      <tr><td class="k">Operations</td><td>Canned replies (chat), company settings, activity log, Database (migrations).</td></tr>
+    </tbody>
+  </table>
+  <p>Lists are deactivated, not deleted, so history is never broken.</p>
+
+  <div class="module"><span class="num">M11</span><span class="name">Analytics dashboard</span><span class="pill live">Live</span></div>
+  <p class="meta">Migration 002800 · /dashboard (admin, ops, finance)</p>
+  <p>One full-width scrolling page in four bands, densest at the top. Nothing is a hand-maintained list: every figure is a live aggregate grouped by PM, dealer and stage, so a new hire's projects appear the first time one is assigned. Stat cards stream first and charts fill in behind them. Per-stage ageing thresholds live in the database (<code>stage_thresholds</code>) so they can be re-tuned without a release. A quarter is the default period, sample sizes are shown plainly, and a count and its share are shown as two separate figures.</p>
+
+  <div class="module"><span class="num">M12</span><span class="name">Report builder</span><span class="pill live">Live</span> <span class="pill partial">Schedules</span></div>
+  <p class="meta">Migration 002200 · /reports, /reports/builder</p>
+  <p>Drag-and-drop reports opened blank, from a template or from a saved report. A report is a JSON definition, never SQL: the generator builds a parameterised query from whitelisted columns, so nothing a user writes is ever executed. The field library is filtered to what the role may see. Output is preview, print, Excel (.xlsx) or CSV. Reports can be private, shared with a role or shared with named users, and every run is recorded.</p>
+  <div class="callout amber"><span class="t">Open item</span><p>The data model stores report <strong>schedules</strong>, but nothing yet runs them on a timetable. See chapter 14.</p></div>
+</section>

@@ -1,0 +1,68 @@
+<section class="chapter" data-no="13" data-title="Work completed to date">
+  <span class="mk">@@C13@@</span>
+  <div class="kicker">Chapter 13</div>
+  <h1>Work completed to date</h1>
+  <p class="lede">85 commits between 3 August and 22 September 2026, grouped here by what they delivered. Each module shipped with its database migration, its screens and, from the CRM onwards, an automated test suite.</p>
+
+  <table>
+    <thead><tr><th class="w18">Dates</th><th class="w25">Delivered</th><th>Detail</th></tr></thead>
+    <tbody>
+      <tr><td class="k">3–5 Aug</td><td>Platform &amp; pipeline</td><td>Plain-PostgreSQL platform (no Supabase): auth engine, file storage, row-level security, audit. Pipeline board, Projects tab, stage engine; sidebar shell with role-aware navigation; admin panel (users &amp; roles, reference lists, settings, activity log); the six stage forms; Complete, Hold and Cancelled.</td></tr>
+      <tr><td class="k">10–12 Aug</td><td>Projects</td><td>Complete column on the board; New Project form and Project Details with admin-managed equipment and financing lists; inverter and battery quantities.</td></tr>
+      <tr><td class="k">14 Aug</td><td>Dealers, reports, customers</td><td>Dealer portal; dealer companies with commission defaults and guarded delete; drag-and-drop report builder; customer portal; customer management (search, merge, portal access, archive, anonymise). Health endpoint reporting applied migrations; re-runnable migrations; catch-up files; real database errors instead of generic 500s.</td></tr>
+      <tr><td class="k">17 Aug</td><td>Mobile app</td><td>Installable customer app with push, camera and offline support; native Android and iOS projects built from the browser; homeowners sign in with a password; screens that degrade instead of breaking when the database is behind; self-diagnosing error pages.</td></tr>
+      <tr><td class="k">19–21 Aug</td><td>Dashboard &amp; chat</td><td>Full-width analytics dashboard; project chat with the internal-notes wall, global inbox, quiet hours and digest.</td></tr>
+      <tr><td class="k">24–25 Aug</td><td>Experience</td><td>Three sign-in doors; portal redesigned around the current stage with typical durations; dark mode; stage feedback with email fallback, follow-ups and verbatim log; end-to-end sweep.</td></tr>
+      <tr><td class="k">14–15 Sep</td><td>CRM foundation</td><td>Sales role; people with channels and addresses; dealer leads become deals; deals module with proposals and the Won handoff; the full contact intake; Create Contact and a Contacts list holding everybody.</td></tr>
+      <tr><td class="k">17 Sep</td><td>Contacts &amp; database</td><td>Contact fields separated from deal (solar) fields; Contact stages board; tooling to diagnose and catch up a database; then the application applying its own migrations from Admin → Database; contact record as a full page.</td></tr>
+      <tr><td class="k">18 Sep</td><td>Stages &amp; deployment</td><td>The eight business contact stages, full width, any-to-any; pill-button tabs; contact owner defaults to the creator; Lost in red; deployment fixes (per-branch Neon provisioning, TLS behaviour documented).</td></tr>
+      <tr><td class="k">22 Sep</td><td>Signing &amp; deals</td><td>Contract signed opens the system form; signing creates the project and holds the contact; admin project delete; signing fix for databases with the first version; Deals board full width, then the project stages, live with Pipeline; sales reps see their deals' projects.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Quality work that shipped alongside</h2>
+  <ul>
+    <li><strong>Test suites:</strong> RLS matrix and auth flows (SQL); end-to-end suites for the CRM foundation, people, deals, contact intake, contact stages, migration apply, every "database behind" state, the signing upgrade path, and a real-browser suite for signing, the hold, deletion and live boards; 62 unit tests.</li>
+    <li><strong>Diagnosability:</strong> health endpoint, drift-aware screens, errors in PostgreSQL's own words, a branch fingerprint to confirm which database a deployment talks to.</li>
+    <li><strong>Documentation:</strong> README, auth design, RLS matrix, mobile store submission guide, deployment guide, and this document.</li>
+  </ul>
+</section>
+
+<section class="chapter" data-no="14" data-title="Known gaps &amp; open items">
+  <span class="mk">@@C14@@</span>
+  <div class="kicker">Chapter 14</div>
+  <h1>Known gaps &amp; open items</h1>
+  <p class="lede">Everything not finished, not switched on, or worth fixing, in priority order. Nothing on this list is hidden elsewhere in the document.</p>
+
+  <h2>Do first: infrastructure &amp; configuration</h2>
+  <table>
+    <thead><tr><th class="w25">Item</th><th>What to do</th><th class="w12">Effort</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Scheduled jobs are not scheduled</td><td>Add a cron entry for <code>/api/push/reminders</code> and set <code>CRON_SECRET</code>. Note: on Vercel's Hobby plan a cron can run at most once a day; the reminders and quiet-hours flush want hourly, so use Vercel Pro, a GitHub Actions schedule, or an external scheduler calling the endpoint with the secret.</td><td>Hours</td></tr>
+      <tr><td class="k">Neon ↔ Vercel integration</td><td>The integration's per-deployment branch step has failed deployments. Protect the branch holding the live data (set it as default), disconnect the integration, set <code>DATABASE_URL</code> (pooled, marked Sensitive) by hand, and rotate the database password that was exposed. See <code>docs/deployment.md</code>.</td><td>Hours</td></tr>
+      <tr><td class="k">Confirm the live database branch</td><td>The data was found on a Vercel-created preview branch, not <code>main</code>. Confirm with the query in the deployment guide, and make that branch the production default before anything else changes.</td><td>Minutes</td></tr>
+      <tr><td class="k">Backups</td><td>The Neon free plan keeps 6 hours of history. Move to a paid plan for days-long point-in-time restore, and add a scheduled off-site dump.</td><td>Hours</td></tr>
+      <tr><td class="k">Environment variables</td><td>Confirm in Vercel: <code>SMTP_*</code> and <code>EMAIL_FROM</code> (all email), <code>VAPID_*</code> (push), <code>NEXT_PUBLIC_SITE_URL</code> (links in emails), <code>CRON_SECRET</code>. Without SMTP, invites, recovery and rating emails fail with a clear error.</td><td>Minutes</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Functional gaps</h2>
+  <table>
+    <thead><tr><th class="w25">Item</th><th>Detail</th><th class="w12">Status</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Report schedules</td><td>Stored but not executed; needs a runner that emails the export on the timetable.</td><td><span class="pill gap">Gap</span></td></tr>
+      <tr><td class="k">Subscribers (M26)</td><td>List and consent basis exist; the sender, double opt-in and preference page do not.</td><td><span class="pill partial">Partial</span></td></tr>
+      <tr><td class="k">Dealer CRM extensions</td><td>Module 18 of the CRM specification (dealer-side CRM features) not started.</td><td><span class="pill planned">Planned</span></td></tr>
+      <tr><td class="k">CRM reports &amp; sales band</td><td>Sales reporting and a sales band on the dashboard (lead-to-signed conversion, source ROI, rep leaderboards).</td><td><span class="pill planned">Planned</span></td></tr>
+      <tr><td class="k">Pipeline board width</td><td>The Pipeline's nine columns overflow sideways even on wide screens; the Deals and Contact boards were fixed, Pipeline was not changed.</td><td><span class="pill gap">Gap</span></td></tr>
+      <tr><td class="k">Returning customers</td><td>A completed project still holds its contact in Contract signed; a second sale needs the rule relaxed for complete/cancelled projects.</td><td><span class="pill planned">Decision</span></td></tr>
+      <tr><td class="k">Earlier signed contacts</td><td>Contacts signed before automatic project creation have no project; convert them from the Deals table.</td><td><span class="pill partial">One-off</span></td></tr>
+      <tr><td class="k">SMS</td><td>The activity log knows the "sms" kind but nothing sends or receives SMS.</td><td><span class="pill gap">Gap</span></td></tr>
+      <tr><td class="k">E-signature</td><td>Contract signed is recorded by a person; no DocuSign/PandaDoc-style capture or webhook.</td><td><span class="pill gap">Gap</span></td></tr>
+      <tr><td class="k">External integrations</td><td>No connections yet to utilities, permitting portals, lenders, design tools, distributors or monitoring platforms.</td><td><span class="pill gap">Gap</span></td></tr>
+      <tr><td class="k">Staff two-factor sign-in</td><td>Passwords with lockout only; admins and ops should have a second factor.</td><td><span class="pill gap">Gap</span></td></tr>
+      <tr><td class="k">Continuous integration</td><td>The test suites run by hand; add a GitHub Actions workflow with a Postgres service to run them on every push. The browser suite needs <code>playwright-core</code> added as a dev dependency.</td><td><span class="pill gap">Gap</span></td></tr>
+      <tr><td class="k">Placeholder addresses</td><td>Deals created before signing required an address may carry "Address to be confirmed"; signing now refuses it, but existing rows should be cleaned.</td><td><span class="pill partial">Cleanup</span></td></tr>
+    </tbody>
+  </table>
+</section>

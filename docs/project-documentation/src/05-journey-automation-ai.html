@@ -1,0 +1,122 @@
+<section class="chapter" data-no="10" data-title="The end-to-end journey">
+  <span class="mk">@@C10@@</span>
+  <div class="kicker">Chapter 10</div>
+  <h1>The end-to-end journey</h1>
+  <p class="lede">One homeowner, from the first contact to a system producing power. Each step below is either done by the system on its own, or done by a person with the system checking the work.</p>
+
+  <h2>Sale</h2>
+  <div class="flow">
+    <div class="step b"><b>1 · Contact arrives</b>Create Contact, a dealer lead, or a web form. Duplicates caught on every channel; owner set to the creator.</div>
+    <div class="step b"><b>2 · Appointment</b>Scheduled, rescheduled or no-show on Contact stages; every move logged.</div>
+    <div class="step b"><b>3 · Quote &amp; finance</b>Deal with versioned proposals; financing approved.</div>
+    <div class="step g"><b>4 · Contract signed</b>Signing form, then system recorded, project created at Survey, contact held.</div>
+  </div>
+  <h2>Delivery</h2>
+  <div class="flow">
+    <div class="step"><b>5 · Survey</b>Site survey; homeowner auto-invited; rating asked on completion.</div>
+    <div class="step"><b>6 · Design</b>Plans, shading report, engineering stamps.</div>
+    <div class="step"><b>7 · Permits</b>Building permit, ICA, HOA, NTP in parallel tracks.</div>
+    <div class="step"><b>8 · Procurement</b>Material ordered and delivered.</div>
+    <div class="step"><b>9 · Install</b>Scheduled; 48 h and 24 h reminders; photos uploaded.</div>
+    <div class="step"><b>10 · Inspection &amp; PTO</b>Inspection passed; utility PTO; "power on" push.</div>
+    <div class="step g"><b>11 · Complete</b>Total days, final Drive Updated, last rating.</div>
+  </div>
+  <p>At every step: the homeowner sees the current stage in plain language with its typical duration; the PM sees cards ageing against thresholds; the dealer sees the project move in their portal; each stage change is written to history and the activity log; and the dashboard and reports reflect it immediately.</p>
+
+  <h2>Who touches what</h2>
+  <table class="t-compact">
+    <thead><tr><th class="w22">Step</th><th class="w25">Person</th><th>System</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Contact capture</td><td>Rep or dealer types it</td><td>Dedupes, normalises channels, assigns owner, logs.</td></tr>
+      <tr><td class="k">Appointment</td><td>Rep books and moves the card</td><td>Stamps the time in stage, logs the move.</td></tr>
+      <tr><td class="k">Signing</td><td>Rep fills the system form</td><td>Creates the deal if needed, the project, the document links; holds the contact.</td></tr>
+      <tr><td class="k">Each stage</td><td>PM fills the stage form</td><td>Validates, blocks incomplete advances, computes days, notifies homeowner, asks for a rating.</td></tr>
+      <tr><td class="k">Customer contact</td><td>PM answers chat and asks</td><td>Push or email, quiet hours, digest, unread badges.</td></tr>
+      <tr><td class="k">Unhappy customer</td><td>PM closes the follow-up</td><td>Low score opens a task and flags the card until it is closed.</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section class="chapter" data-no="11" data-title="Automations running today">
+  <span class="mk">@@C11@@</span>
+  <div class="kicker">Chapter 11</div>
+  <h1>Automations running today</h1>
+  <p class="lede">Every automatic behaviour in the product, grouped by what triggers it. Those marked <span class="pill gap">Not scheduled</span> are written and tested but only run when started by hand until a schedule is added.</p>
+
+  <h2>Business workflows</h2>
+  <table>
+    <thead><tr><th class="w25">When…</th><th>…the system automatically</th></tr></thead>
+    <tbody>
+      <tr><td class="k">A contact is created</td><td>Normalises and indexes every email and phone; checks all channels for duplicates; sets the contact owner to the creator; stamps who created it; creates the first deal only if deal fields were filled; composes the mailing line; starts the stage clock.</td></tr>
+      <tr><td class="k">A contact changes stage</td><td>Restarts the days-in-stage clock (only on a real change); writes the move and its direction to the activity log.</td></tr>
+      <tr><td class="k">A contact is signed</td><td>Creates a deal if there is none; writes the system onto it; moves the contact; converts the deal into a project at Survey with system, brands, quantities and contract value; links the deal's documents to the project; marks the deal Won; puts the dealer on the contact; locks the contact in Contract signed.</td></tr>
+      <tr><td class="k">A deal is won (deal board)</td><td>Refuses without a signed contract; creates the project in the same transaction; carries contract, specification and documents; flips the person to customer.</td></tr>
+      <tr><td class="k">A dealer lead is converted</td><td>Creates the client and project prefilled from the lead; links it back for the dealer; invites the homeowner.</td></tr>
+      <tr><td class="k">A project is created</td><td>Seeds commission from the dealer's defaults; auto-invites the homeowner with a 7-day set-password link; fixes the originating dealer so reporting cannot drift.</td></tr>
+      <tr><td class="k">A project moves stage</td><td>Validates the stage form and refuses with the exact missing items; records stage history; pushes "stage advanced" (and "power on" at energization) to the homeowner; refreshes every open board (instantly in the same browser, within 10 s elsewhere).</td></tr>
+      <tr><td class="k">A project goes on hold</td><td>Requires a reason; stores the origin stage for an exact resume; notifies the homeowner; removes it from active counts.</td></tr>
+      <tr><td class="k">A stage completes</td><td>Asks the homeowner for a one-tap rating; after 24 hours without an answer, emails five clickable faces; on a low score, opens a follow-up task, flags the pipeline card and alerts the PM.</td></tr>
+      <tr><td class="k">An install date is set</td><td>Pushes the appointment to the homeowner; queues 48 h and 24 h reminders. <span class="pill gap">Not scheduled</span></td></tr>
+      <tr><td class="k">A chat message is sent</td><td>Pushes to the app or emails; holds it through quiet hours (9pm–8am) and delivers in the morning <span class="pill gap">Not scheduled</span>; sends the PM a twice-daily digest of unanswered messages <span class="pill gap">Not scheduled</span>; never notifies anyone of their own message.</td></tr>
+      <tr><td class="k">A PM asks the customer</td><td>Pushes an "action needed" notification; the answer lands back on the project.</td></tr>
+      <tr><td class="k">Activity is logged</td><td>Updates the person's last-activity date; links the entry to project, deal and client.</td></tr>
+      <tr><td class="k">A battery quantity is entered</td><td>Answers "System includes battery?" by itself, identically on screen and in reports.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Integrity guards (always on)</h2>
+  <table class="t-compact">
+    <thead><tr><th class="w30">Guard</th><th>Effect</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Project hold on contact</td><td>A signed contact with a live project cannot leave Contract signed by any path.</td></tr>
+      <tr><td class="k">Won deal read-only</td><td>A won deal's stage, contract value, client and dealer are fixed (admin excepted).</td></tr>
+      <tr><td class="k">Deal on project immutable</td><td>The originating dealer and deal cannot be changed except by an admin with a reason.</td></tr>
+      <tr><td class="k">Role guard</td><td>Only an admin can change anyone's role.</td></tr>
+      <tr><td class="k">Audit log immutable</td><td>Log rows cannot be edited or deleted; 30 tables write row-level audit entries.</td></tr>
+      <tr><td class="k">Guarded deletes</td><td>Dealers, customers and reference records with history cannot be deleted; lists deactivate instead.</td></tr>
+      <tr><td class="k">Security</td><td>Account lockout after 10 failures; sessions revoked when a user is deactivated; upload links expire.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Computed live, never typed</h2>
+  <p>Lifecycle (lead / prospect / customer / past customer) · days in every stage · total project days · deal probability (unless set by hand) and weighted pipeline · dashboard figures grouped by PM, dealer and stage · ageing against per-stage thresholds · the homeowner's plain-language status and typical duration · the missing-items count on every card.</p>
+
+  <h2>Scheduled jobs</h2>
+  <table class="t-compact">
+    <thead><tr><th class="w30">Job</th><th>Status</th></tr></thead>
+    <tbody>
+      <tr><td class="k"><code>/api/push/reminders</code>: install reminders, quiet-hours flush, PM digest</td><td><span class="pill gap">Not scheduled</span> Built, idempotent and protected by <code>CRON_SECRET</code>. Runs from Admin → Settings by hand; needs a cron entry (chapter 14).</td></tr>
+      <tr><td class="k">Saved report schedules</td><td><span class="pill gap">No runner</span> Schedules are stored; nothing executes them yet.</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section class="chapter" data-no="12" data-title="AI integration — current state">
+  <span class="mk">@@C12@@</span>
+  <div class="kicker">Chapter 12</div>
+  <h1>AI integration — current state</h1>
+  <p class="lede">The product contains no calls to an AI model today. That was deliberate: phase one made the data right first, because AI working on wrong or scattered data is worse than no AI. The schema was designed from day one so that phase two needs no database redesign. Chapter 16 lists each AI capability to add; chapter 17 orders them into phases.</p>
+
+  <h2>AI-ready foundations already in the database</h2>
+  <table>
+    <thead><tr><th class="w25">Table</th><th>Built for</th><th class="w14">Today</th></tr></thead>
+    <tbody>
+      <tr><td class="k">price_book</td><td>Catalogue of parts and services with cost and price, for automated quoting and bills of materials.</td><td>Manual</td></tr>
+      <tr><td class="k">adder_rules · project_adders</td><td>Rules that add line items (e.g. main panel upgrade) from a JSON condition; each adder records its <em>source</em> as <code>rule</code>, <code>manual</code> or <code>ai</code>.</td><td>Manual / rule</td></tr>
+      <tr><td class="k">availability_slots</td><td>Designer and surveyor scheduling, so AI can book survey and review slots.</td><td>Manual</td></tr>
+      <tr><td class="k">vendor_quotes · bom_items</td><td>Vendor pricing and bills of materials, for automated quote requests; source can be <code>ai</code>.</td><td>Manual</td></tr>
+      <tr><td class="k">designs · design_assets · site_surveys</td><td>Structured design and survey data an AI designer or reviewer can read and write.</td><td>Manual</td></tr>
+      <tr><td class="k">stage_feedback</td><td>Ratings and comments; source can be <code>ai</code> for AI self-critique of its own stage work.</td><td>Customer</td></tr>
+      <tr><td class="k">exceptions</td><td>The work queue of things a person must look at: rule conflicts, <strong>low-confidence AI output</strong>, anything the automation will not decide alone.</td><td>Ready</td></tr>
+      <tr><td class="k">permits · permit_events</td><td>Permit tracking with an event history, for automated status monitoring.</td><td>Manual</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Why the platform is well placed for AI</h2>
+  <div class="grid2">
+    <div class="card"><h4>Typed, structured stage data</h4><p>Every stage field is a real column with a known type, so an AI's answer can be written into a column and validated, not pasted into a notes box.</p></div>
+    <div class="card"><h4>Rules the AI cannot break</h4><p>Stage validation, the hold, the won-deal lock and row-level security are all in the database. An AI agent acting through the same API gets exactly the same refusals as a person.</p></div>
+    <div class="card"><h4>A place for doubt</h4><p>The exceptions queue gives AI somewhere to put work it is not sure of, which is what lets it act alone on everything else.</p></div>
+    <div class="card"><h4>A full audit trail</h4><p>Every action is logged with actor and kind, so AI actions can be attributed, reviewed and reversed like anyone else's.</p></div>
+  </div>
+</section>

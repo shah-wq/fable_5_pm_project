@@ -1,0 +1,104 @@
+<section class="chapter" data-no="A" data-title="Appendix A — database migrations">
+  <span class="mk">@@CA@@</span>
+  <div class="kicker">Appendix A</div>
+  <h1>Database migrations</h1>
+  <p class="lede">Every schema file, in the order it is applied. Generated from <code>db/migrations</code> when this document is built.</p>
+  <!--APPX_MIGRATIONS-->
+</section>
+
+<section class="chapter" data-no="B" data-title="Appendix B — screens &amp; API endpoints">
+  <span class="mk">@@CB@@</span>
+  <div class="kicker">Appendix B</div>
+  <h1>Screens &amp; API endpoints</h1>
+  <p class="lede">Generated from <code>src/app</code> when this document is built.</p>
+  <h2>Screens</h2>
+  <!--APPX_SCREENS-->
+  <h2>API endpoints</h2>
+  <!--APPX_API-->
+</section>
+
+<section class="chapter" data-no="C" data-title="Appendix C — tests, configuration &amp; tooling">
+  <span class="mk">@@CC@@</span>
+  <div class="kicker">Appendix C</div>
+  <h1>Tests, configuration &amp; tooling</h1>
+
+  <h2>Automated tests</h2>
+  <table class="t-compact">
+    <thead><tr><th class="w30">Suite</th><th>Proves</th></tr></thead>
+    <tbody>
+      <tr><td class="k">db/tests/rls_verification.sql</td><td>The role-access matrix: each role sees exactly its rows.</td></tr>
+      <tr><td class="k">db/tests/auth_flows.sql</td><td>Sessions, lockout, one-time codes, invites, recovery, upload-grant expiry and revocation.</td></tr>
+      <tr><td class="k">npm run test:unit</td><td>62 unit tests: route access truth table, drift classification and more.</td></tr>
+      <tr><td class="k">e2e/crm-foundation.sh</td><td>The CRM scripts apply over live data; channels, lifecycle, leads becoming deals, re-runnable.</td></tr>
+      <tr><td class="k">e2e/people.sh</td><td>People screen and contact page; lifecycle filter; duplicate detection on any channel; web enquiries with no invented attribution; deletion and suppression of subscription-only prospects; one activity log.</td></tr>
+      <tr><td class="k">e2e/contact-intake.sh</td><td>The contact form's exact fields; one save split between person and deal; documents on the deal; the deal picker; Create Contact and its required rules.</td></tr>
+      <tr><td class="k">e2e/contact-stages.sh</td><td>The eight stages, any-to-any moves, signing, the project hold, admin deletion.</td></tr>
+      <tr><td class="k">e2e/deals.sh</td><td>Deal rules, proposals, Won creates the project, the live board, sales visibility.</td></tr>
+      <tr><td class="k">e2e/apply-migrations.sh</td><td>Admin → Database applies missing files, admin-only, idempotent, reports refusals.</td></tr>
+      <tr><td class="k">e2e/schema-behind.sh</td><td>Every screen loads with the database stopped at each of 13 earlier states.</td></tr>
+      <tr><td class="k">e2e/signing-upgrade.sh</td><td>A database with the first signing function is detected and fixed by Apply.</td></tr>
+      <tr><td class="k">e2e/contract-signed-ui.sh</td><td>In a real browser: the signing popup, the hold, deletion, and live Deals/Pipeline updates.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Environment variables</h2>
+  <table class="t-compact">
+    <thead><tr><th class="w30">Variable</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td class="k">DATABASE_URL</td><td>Pooled PostgreSQL connection string (store as Sensitive).</td></tr>
+      <tr><td class="k">DATABASE_SSL</td><td>Only for connection strings without <code>sslmode</code>; not needed with Neon.</td></tr>
+      <tr><td class="k">NEXT_PUBLIC_SITE_URL</td><td>The public address used in emailed links.</td></tr>
+      <tr><td class="k">SMTP_HOST · SMTP_PORT · SMTP_USER · SMTP_PASS · SMTP_SECURE · EMAIL_FROM</td><td>Outgoing email.</td></tr>
+      <tr><td class="k">VAPID_PUBLIC_KEY · VAPID_PRIVATE_KEY · VAPID_SUBJECT</td><td>Web push (generate with <code>npm run make:vapid</code>).</td></tr>
+      <tr><td class="k">CRON_SECRET</td><td>Authorises the scheduled reminders endpoint.</td></tr>
+      <tr><td class="k">PRIVACY_REQUEST_EMAIL</td><td>Where account-deletion requests are sent.</td></tr>
+      <tr><td class="k">EMAIL_DEV_LOG</td><td>Development only: log emails instead of sending.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Commands</h2>
+  <table class="t-compact">
+    <thead><tr><th class="w30">Command</th><th>Does</th></tr></thead>
+    <tbody>
+      <tr><td class="k">npm run db:migrate</td><td>Apply migrations from a terminal (Admin → Database does the same from the browser).</td></tr>
+      <tr><td class="k">npm run db:create-admin</td><td>Create the first admin account.</td></tr>
+      <tr><td class="k">npm run db:demo-customer</td><td>Create a demonstration homeowner and project.</td></tr>
+      <tr><td class="k">npm run db:verify</td><td>Run the SQL verification suites on a throwaway database.</td></tr>
+      <tr><td class="k">npm run make:icons · make:vapid</td><td>App icons; push keys.</td></tr>
+      <tr><td class="k">GitHub Actions: Build Android app / Build iOS app</td><td>Mobile builds from the browser (debug APK or signed store bundle).</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section class="chapter" data-no="D" data-title="Appendix D — glossary">
+  <span class="mk">@@CD@@</span>
+  <div class="kicker">Appendix D</div>
+  <h1>Glossary</h1>
+  <table class="t-compact">
+    <thead><tr><th class="w22">Term</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Adder</td><td>An extra line item on a solar job (e.g. main panel upgrade, trenching, roof work).</td></tr>
+      <tr><td class="k">AHJ</td><td>Authority having jurisdiction: the city or county that issues the permit and inspects.</td></tr>
+      <tr><td class="k">Contact stage</td><td>Where a person stands in the sale (created → signed / lost). Belongs to the contact.</td></tr>
+      <tr><td class="k">Deal stage</td><td>The opportunity's own stages (New → Contract out → Won / Lost).</td></tr>
+      <tr><td class="k">Drive Updated</td><td>The gate closing each stage: the job's shared drive has the stage's documents.</td></tr>
+      <tr><td class="k">Energization</td><td>The system switched on and producing; monitoring active.</td></tr>
+      <tr><td class="k">HDM NTP</td><td>Notice to proceed from the finance partner before installation.</td></tr>
+      <tr><td class="k">HOA</td><td>Homeowners' association approval, where the property has one.</td></tr>
+      <tr><td class="k">ICA</td><td>Interconnection agreement with the utility.</td></tr>
+      <tr><td class="k">kW / kWh</td><td>System size (kilowatts, DC) / energy produced or used (kilowatt-hours).</td></tr>
+      <tr><td class="k">Lifecycle</td><td>Lead, prospect, customer, past customer: derived from the person's projects.</td></tr>
+      <tr><td class="k">Migration</td><td>An ordered SQL file that changes the database schema.</td></tr>
+      <tr><td class="k">Offset</td><td>The share of annual usage the system is expected to produce.</td></tr>
+      <tr><td class="k">PM / Ops</td><td>Project manager: the role that runs the pipeline.</td></tr>
+      <tr><td class="k">PPA / lease</td><td>Third-party ownership: the homeowner pays for power or rent, not the system.</td></tr>
+      <tr><td class="k">PTO</td><td>Permission to operate, granted by the utility after inspection.</td></tr>
+      <tr><td class="k">Rapid shutdown</td><td>The electrical code requirement to de-energize rooftop conductors quickly for firefighter safety.</td></tr>
+      <tr><td class="k">RLS</td><td>Row-level security: database rules that decide which rows each user may read or change.</td></tr>
+      <tr><td class="k">Stamps</td><td>A licensed engineer's approval on the plan set.</td></tr>
+      <tr><td class="k">The hold</td><td>The rule that keeps a signed contact in Contract signed while their project exists.</td></tr>
+    </tbody>
+  </table>
+  <hr class="soft">
+  <p class="small">This document was generated from the repository at commit 725548b on 22 September 2026. Its source is <code>docs/project-documentation/</code>; rebuild it with <code>node docs/project-documentation/build.mjs</code> as the platform changes.</p>
+</section>

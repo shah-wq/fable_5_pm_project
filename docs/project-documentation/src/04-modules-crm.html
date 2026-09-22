@@ -1,0 +1,86 @@
+<section class="chapter" data-no="9" data-title="Modules — CRM &amp; sales (M21–M26)">
+  <span class="mk">@@C9@@</span>
+  <div class="kicker">Chapter 9 · Module catalogue</div>
+  <h1>CRM &amp; sales modules</h1>
+  <p class="lede">The half of the business that happens before anybody signs: every person you have ever spoken to, where each one stands, the moment they sign, and the sale followed through to a finished install.</p>
+
+  <div class="module"><span class="num">M21</span><span class="name">CRM foundation</span><span class="pill live">Live</span></div>
+  <p class="meta">Migrations 003300, 003400 · Sales role · the People model</p>
+  <ul>
+    <li><strong>One person, one record:</strong> <code>clients</code> is the spine. A person moves from prospect to customer with no copying: their lifecycle (lead, prospect, customer, past customer) is derived from the projects that exist, never typed by hand.</li>
+    <li><strong>Channels:</strong> every email and phone a person has, normalised and matched, with one primary per kind kept in sync with the person's main columns. The duplicate check searches all of them, so a second address is still the same person.</li>
+    <li><strong>Addresses:</strong> mailing and property addresses kept separately, so a person with two houses has two deals rather than two records.</li>
+    <li><strong>Sales role</strong> with deal visibility (own, team, all), a "manage all deals" capability, and the unassigned pool every rep can work.</li>
+    <li>Activity kinds on the audit log (call, email, SMS, meeting, note, form…) linked to deal and client, so a logged call "touches" the person.</li>
+    <li>Dealer submissions (the old leads table) became deals with their attribution and a stage, and a compatibility view keeps old readers working.</li>
+  </ul>
+
+  <div class="module"><span class="num">M22</span><span class="name">Contacts &amp; Create Contact</span><span class="pill live">Live</span></div>
+  <p class="meta">Migrations 003600, 003700 · /admin/people, /admin/people/new, /admin/people/[id] · lib/crm/intake.ts</p>
+  <p><strong>Contacts holds everybody</strong>, customers or not: a simple list with name, lifecycle, email, phone, city/state and last activity, defaulting to "Everyone". <strong>Create Contact</strong> is a full page asking only for the 24 contact fields:</p>
+  <table class="t-compact">
+    <thead><tr><th class="w18">Group</th><th>Fields</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Contact</td><td>Contact owner (auto-set to whoever is creating), salutation, first name, last name*, email / secondary email, phone / mobile*, owner's phone, lead source (set once), dealer, consultant, created by (recorded), description.</td></tr>
+      <tr><td class="k">Mailing address</td><td>Street, city, state, ZIP, country.</td></tr>
+      <tr><td class="k">Status</td><td>Lead status (the contact stage), lost reason, reschedule reason.</td></tr>
+      <tr><td class="k">Dealer &amp; notes</td><td>Dealer code, Wave sales notes, additional information.</td></tr>
+    </tbody>
+  </table>
+  <p class="small">* Needed to save: a last name, and an email or a phone. A rep on a driveway with only a mobile number can still save.</p>
+  <ul>
+    <li><strong>Duplicate guard</strong> across every channel on file, offering to open the existing record, with "they are a different person — save anyway". <strong>Save and New</strong> for data entry.</li>
+    <li>Filling a deal-side field (dealer code, notes, reschedule reason) creates the first deal alongside the contact in the same statement. A business-card contact gets no empty deal.</li>
+    <li>The <strong>contact record</strong> opens as a full page with pill tabs: Details, Contact details, <em>System</em> (only once a system has been recorded at signing), Projects, Deals, Subscriptions, Portal access, Activity.</li>
+    <li>The system, usage and price fields are not on the contact. They live on the deal, and one registry drives the forms, the save allowlists and the signing popup, so the lists cannot drift apart.</li>
+  </ul>
+
+  <div class="module"><span class="num">M23</span><span class="name">Contact stages</span><span class="pill live">Live</span></div>
+  <p class="meta">Migration 003800 · /admin/people/stages</p>
+  <div class="flow">
+    <div class="step b"><b>Contact created</b>On file, not booked</div>
+    <div class="step b"><b>Appointment scheduled</b>A date in the diary</div>
+    <div class="step b"><b>Appointment rescheduled</b>Moved at least once</div>
+    <div class="step b"><b>No-show</b>Nobody there</div>
+    <div class="step b"><b>Quoted</b>A number is with them</div>
+    <div class="step b"><b>Financing approved</b>The money is in place</div>
+    <div class="step g"><b>Contract signed</b>Signed</div>
+    <div class="step r"><b>Lost</b>Closed, reversible</div>
+  </div>
+  <ul>
+    <li>The stage belongs to the person, so every contact has exactly one card from the moment they exist. It is the same field as <em>Lead status</em> on the record.</li>
+    <li><strong>Any stage to any stage</strong>, because diary states move sideways and backwards (a no-show goes back to rescheduled). The one exception is Contract signed, which is a step (M24).</li>
+    <li>Optimistic drag with snap-back on refusal, search, "only assigned", days in stage, last contact. The board fills the window with all eight columns on a 1440px screen. <strong>Lost is red</strong> and Contract signed is green.</li>
+    <li>Every move is written to the activity log with its direction. The clock restarts only when the stage changes.</li>
+  </ul>
+
+  <div class="module"><span class="num">M24</span><span class="name">Contract signing → project</span><span class="pill live">Live</span></div>
+  <p class="meta">Migrations 003900, 004000, 004100 · public.sign_contact, public.delete_project · /api/contacts/[id]/sign, DELETE /api/projects/[id]</p>
+  <div class="flow">
+    <div class="step"><b>Drop on Contract signed</b>or choose it in Lead status</div>
+    <div class="step"><b>Signing form</b>Dealer*, site address*, system size*, modules, inverter, battery, usage, price, financing</div>
+    <div class="step g"><b>One transaction</b>System recorded on the deal · contact signed · project created at Survey</div>
+    <div class="step r"><b>Held</b>Contact locked in Contract signed while the project exists</div>
+  </div>
+  <ul>
+    <li><strong>Signing is a step, not a drag.</strong> Nothing moves until the form is saved, and Cancel leaves the contact where they were. The form opens pre-filled from their open deal (a 5.4 kW quote arrives as 5.4) and from their dealer and mailing address.</li>
+    <li><strong>The project is created automatically</strong> through the same conversion the deal board uses: system size, brands, battery, module count and contract value are copied; the deal's documents gain the project link; the deal becomes Won. A contact with no deal gets one, at Contract out. Any refusal leaves nothing behind.</li>
+    <li><strong>The hold:</strong> a database trigger refuses every path out of Contract signed (board, Lead status, SQL) while the project exists. The board shows the card locked with its project link, and the record explains why.</li>
+    <li><strong>Delete project</strong> (admin only, with the project code typed to confirm) unwinds the sale. The project's stages, tasks, messages and forms are removed. The deal is reopened at Contract out with its system, the deal's documents such as the signed agreement are kept, and the activity log is kept. The contact is then free to move.</li>
+    <li>Only the system, usage, money, dealer and address columns can be written by signing, whatever the request carries, and whole-number fields are rounded instead of failing.</li>
+  </ul>
+
+  <div class="module"><span class="num">M25</span><span class="name">Deals</span><span class="pill live">Live</span></div>
+  <p class="meta">Migration 003500, 004200 · /deals, /deals/new, /deals/[id] · lib/deals</p>
+  <ul>
+    <li><strong>Board:</strong> the project stages Survey → Complete with Hold and Cancelled. It is the Pipeline's own board over the projects deals became, so the two can never disagree. It updates <strong>live</strong>: a change in another tab arrives in under a second, and anyone else's within 10 seconds, with no reload. A note points to deals not yet signed.</li>
+    <li><strong>Sales reps</strong> follow their sales here view-only (the project team moves projects), and their cards open the deal.</li>
+    <li><strong>Table:</strong> every deal, signed or not, in the deal's own stages (New → Contacted → Qualified → Proposal → Negotiation → Contract out → Won / Lost), with probability (computed or set by hand), next action and due date, value, weighted pipeline and missing items.</li>
+    <li><strong>Deal record:</strong> qualification, logged activity (a voicemail is an attempt and does not move the deal; a real conversation with a next action does), versioned proposals (the newest sets the price), Solar details, documents.</li>
+    <li><strong>Rules in the database:</strong> New cannot advance without two-way contact; a skip is allowed only when every skipped stage is satisfied; Won requires a signed contract and creates the project; a won deal cannot be un-won (except by an admin deleting its project); Lost needs a reason from the list and can be reopened.</li>
+  </ul>
+
+  <div class="module"><span class="num">M26</span><span class="name">Subscribers</span><span class="pill partial">Partial</span></div>
+  <p class="meta">/admin/subscribers · E-book subscribers</p>
+  <p>The subscriber list, with the <strong>consent basis always visible</strong>, because that is the record produced if someone complains. Still to build: the sender, double opt-in confirmation and the preference page (chapter 14).</p>
+</section>

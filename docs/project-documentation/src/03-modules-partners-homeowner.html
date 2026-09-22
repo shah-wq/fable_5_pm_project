@@ -1,0 +1,76 @@
+<section class="chapter" data-no="7" data-title="Modules — dealers &amp; partners (M13–M15)">
+  <span class="mk">@@C7@@</span>
+  <div class="kicker">Chapter 7 · Module catalogue</div>
+  <h1>Dealer &amp; partner modules</h1>
+  <p class="lede">Dealers bring sales. They see their own book, submit leads and follow their commissions, all read-only over data the project team enters, and scoped in the database so one dealer can never see another's.</p>
+
+  <div class="module"><span class="num">M13</span><span class="name">Dealer portal</span><span class="pill live">Live</span></div>
+  <p class="meta">Migration 001900 · /dealers, /dealers/projects, /dealers/leads, /dealers/commissions · sign-in door: dealer</p>
+  <ul>
+    <li><strong>Dashboard:</strong> four stat cards, projects by stage, recent activity ("what is moving") and needs attention ("what is stuck").</li>
+    <li><strong>Projects:</strong> their company's projects and each project's detail, with <strong>per-field dealer visibility</strong> set by the admin, so a dealer sees exactly the fields the business chooses to show.</li>
+    <li><strong>Leads:</strong> the dealer submits a lead into a queue the PM reviews. It never creates a project directly. The dealer sees the status and the resulting project once converted.</li>
+    <li><strong>Commissions:</strong> their commission lines per project.</li>
+    <li>The only dealer write paths are lead submission and their own account settings.</li>
+  </ul>
+
+  <div class="module"><span class="num">M14</span><span class="name">Dealer companies &amp; commissions</span><span class="pill live">Live</span></div>
+  <p class="meta">Migration 002000 · Admin → Dealers · /api/projects/[id]/commission</p>
+  <p>Each dealer company has a full record covering identity, commercial terms, portal behaviour and <strong>commission defaults</strong>. A trigger seeds a new project's commission from those defaults. Names are unique regardless of case and spacing (so "SunPro Energy LLC" and "sunpro energy llc " are caught at creation), and every change is audited. A company with projects or leads cannot be deleted by any code path, because the foreign keys refuse it. Dealer users are linked to companies, and a company can be created inline from the project form.</p>
+
+  <div class="module"><span class="num">M15</span><span class="name">Lead review queue</span><span class="pill live">Live</span></div>
+  <p class="meta">/leads (admin, ops) · /api/leads</p>
+  <p>Everything dealers have submitted, with Review, Convert and Decline actions. Converting creates the client and the project prefilled from the lead, links it back for the dealer, and <strong>auto-invites the homeowner</strong> with a set-password link. Since the CRM foundation, dealer submissions also live on as deals, keeping their attribution. The original <code>leads</code> view still answers for anything that reads it.</p>
+</section>
+
+<section class="chapter" data-no="8" data-title="Modules — homeowner experience (M16–M20)">
+  <span class="mk">@@C8@@</span>
+  <div class="kicker">Chapter 8 · Module catalogue</div>
+  <h1>Homeowner experience modules</h1>
+  <p class="lede">The homeowner is kept informed without having to phone: where their project is, how long this part usually takes, what is needed from them, and a direct line to their project manager.</p>
+
+  <div class="module"><span class="num">M16</span><span class="name">Customer portal</span><span class="pill live">Live</span></div>
+  <p class="meta">Migrations 002300, 003100 · /portal, /portal/project, /portal/documents, /portal/photos, /portal/messages, /portal/more</p>
+  <ul>
+    <li><strong>Shows the stage they are in, not the seven they could be in:</strong> one clear card with progress, the <strong>typical duration</strong> of the current stage ("Typical 15–30 days") and what is up next ("Up next: Design · 7–10 days"). This answers the question behind most status calls before anyone picks up the phone.</li>
+    <li><strong>Plain language:</strong> one admin-editable mapping layer turns internal values ("ICA Status: Applied") into homeowner wording. A raw dropdown value is never shown.</li>
+    <li><strong>Four genuine actions</strong> land as requests in the PM's queue rather than writing stage data: give availability, ask a question, update contact details, send a document.</li>
+    <li>An optional <strong>PM-set completion estimate</strong> (no estimate is better than a wrong one), a "call my PM" card, and customer-visible documents and photos with ZIP download.</li>
+    <li>Typical durations are configuration, not code: they are seeded from the business's own history once enough projects have completed.</li>
+    <li>Dark mode, installable, mobile-first.</li>
+  </ul>
+
+  <div class="module"><span class="num">M17</span><span class="name">Customer management</span><span class="pill live">Live</span></div>
+  <p class="meta">Migration 002400 · /admin/customers, /admin/people, /api/customers/*</p>
+  <p>The customer is a person and the project is a job: one client can carry several projects. This module finds, corrects, merges and controls portal access for existing records. It covers search, merging duplicates with a field-by-field choice, archiving, and <strong>anonymising</strong> for data-deletion requests. Portal access is managed here too: send an invite, set or reset a password, revoke. A customer with projects or leads cannot be deleted, and destructive operations run through admin-checked database functions.</p>
+
+  <div class="module"><span class="num">M18</span><span class="name">Customer mobile app (iOS &amp; Android)</span><span class="pill live">Live</span></div>
+  <p class="meta">Migration 002500 · Capacitor projects in /android, /ios · GitHub Actions: Build Android app, Build iOS app · docs/mobile-store-submission.md</p>
+  <ul>
+    <li>An installable portal with six tabs (Home, Messages, Project, Docs, Photos, More). It adds camera upload, offline support and native push. It uses one database, one API and one set of security rules, with nothing copied or synced.</li>
+    <li><strong>Push</strong> for stage changes, PM asks, chat and <strong>install reminders 48 and 24 hours before</strong>. It respects per-customer notification preferences, and every delivery is recorded, keeping pushes under ten per project in a measurable way.</li>
+    <li><strong>PM asks:</strong> the PM requests something (a photo of the electrical panel, a signature, a date) and the customer answers in the app.</li>
+    <li>The store app contains the customer portal and nothing else. Builds refuse a pinned deployment URL (which would never update), and in-app account deletion meets store rules.</li>
+    <li>A debug APK is built from the GitHub website with no signing setup. Signed release bundles are built when the signing secrets are present.</li>
+  </ul>
+
+  <div class="module"><span class="num">M19</span><span class="name">Project chat &amp; Messages inbox</span><span class="pill live">Live</span></div>
+  <p class="meta">Migration 002900 · /projects/[id]/chat (+ print view), /messages, /portal/messages</p>
+  <ul>
+    <li>One thread per project between the PM and that project's customer, kept on the project record for the life of the job.</li>
+    <li><strong>Internal notes are walled off in the database:</strong> a customer's query cannot return one, and a customer cannot create one. In the UI they are a separate tab in a different colour.</li>
+    <li><strong>Messages</strong> is the PM's global inbox across all projects, unread first then newest, so a message from three days ago is never buried.</li>
+    <li>Canned replies, flags, read tracking, unread badges on pipeline cards, and a print view for the record.</li>
+    <li><strong>Notifications:</strong> push if the customer has the app, otherwise email. Quiet hours hold messages between 9pm and 8am local and deliver them in the morning rather than dropping them. PMs get a per-message email if they opt in, otherwise a <strong>twice-daily digest</strong> of unanswered messages.</li>
+  </ul>
+
+  <div class="module"><span class="num">M20</span><span class="name">Stage feedback &amp; follow-ups</span><span class="pill live">Live</span></div>
+  <p class="meta">Migration 003200 · in-portal sheet, email faces via /r/&lt;token&gt;, /tasks (Follow-ups), /feedback (verbatim log)</p>
+  <ul>
+    <li>A <strong>one-tap rating the moment each stage completes</strong>, six or seven times per project instead of one survey at the end, so you learn <em>which stage</em> lost the customer while it can still be fixed.</li>
+    <li>The score is saved on tap. Reasons ("chips") and a comment are optional and attached separately. Every score offers the comment box.</li>
+    <li><strong>Email fallback:</strong> if a rating is not answered in the app within 24 hours, one email with five clickable faces goes out. Clicking records the score immediately, with no login.</li>
+    <li><strong>A low score opens a follow-up task</strong> (Follow-ups, oldest first) that stays on the pipeline card until someone closes it with a note.</li>
+    <li>The <strong>verbatim log</strong> lists every comment with score, stage, date and chips, filterable and searchable.</li>
+  </ul>
+</section>

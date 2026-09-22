@@ -1,0 +1,156 @@
+<section class="chapter" id="toc-page">
+  <div class="kicker">Contents</div>
+  <h1>Table of contents</h1>
+  <div class="chapter-rule"></div>
+  <div class="toc"><!--TOC--></div>
+  <div class="callout amber" style="margin-top:14pt">
+    <span class="t">How to read this document</span>
+    <p>Chapters 1–4 describe the platform as a whole. Chapters 5–9 are the module catalogue: every module, what it does, the screens, the data, and the automation inside it, each tagged <span class="pill live">Live</span>, <span class="pill partial">Partial</span>, <span class="pill planned">Planned</span> or <span class="pill gap">Gap</span>. Chapters 10–14 cover the end-to-end flow, the automation and AI running today, the work done and what is still open. Chapters 15–17 are the roadmap to a pipeline with no routine human steps. Chapters 18–21 are best practice and the numbers to run the business by.</p>
+  </div>
+</section>
+
+<section class="chapter" data-no="1" data-title="Executive summary">
+  <span class="mk">@@C1@@</span>
+  <div class="kicker">Chapter 1</div>
+  <h1>Executive summary</h1>
+  <p class="lede">SolarFlow PM is one system for the whole life of a residential solar sale, from the first contact to a completed installation. Office staff, sales reps, dealers, designers, finance and the homeowner all work in it.</p>
+
+  <div class="grid4" style="margin-bottom:8pt">
+    <div class="stat"><div class="n">26</div><div class="l">Modules</div></div>
+    <div class="stat"><div class="n">7</div><div class="l">User roles</div></div>
+    <div class="stat"><div class="n">53</div><div class="l">Screens</div></div>
+    <div class="stat"><div class="n">64</div><div class="l">API endpoints</div></div>
+    <div class="stat"><div class="n">88</div><div class="l">Database tables</div></div>
+    <div class="stat"><div class="n">190</div><div class="l">Security policies</div></div>
+    <div class="stat"><div class="n">43</div><div class="l">Schema migrations</div></div>
+    <div class="stat"><div class="n">85</div><div class="l">Commits shipped</div></div>
+  </div>
+
+  <h2>What it does today</h2>
+  <ul>
+    <li><strong>Sells.</strong> A CRM of every contact, with duplicate detection across every email and phone on file, and a Contact stages board from first contact to signed or lost.</li>
+    <li><strong>Signs.</strong> Contract signed records the system sold and creates the project in one step; the project then holds the contact in place.</li>
+    <li><strong>Delivers.</strong> A seven-stage pipeline (Survey to Complete, plus Hold and Cancelled) with a form per stage; a project cannot advance with paperwork missing.</li>
+    <li><strong>Serves the homeowner.</strong> A plain-language portal and iOS/Android app: current stage and its typical duration, chat with their PM, uploads, push, and a rating after every stage.</li>
+    <li><strong>Serves dealers and measures.</strong> A dealer portal (own projects, leads, commissions), a live dashboard, and a report builder with Excel/CSV export.</li>
+  </ul>
+
+  <h2>Where it stands</h2>
+  <p>The delivery pipeline, portals, mobile app, chat, feedback, dashboard, reports and the core CRM are built and covered by automated tests. The platform runs on plain PostgreSQL (Neon) and Vercel. The application applies its own database migrations from <strong>Admin → Database</strong>, so no SQL console is needed.</p>
+  <div class="callout warn">
+    <span class="t">The honest position on AI</span>
+    <p>There are no AI model calls in the product yet. The foundation is in place: tables built for AI quoting, booking, adders and vendor quotes, and an exceptions queue for low-confidence AI output. Chapters 12, 16 and 17 set out what to build on it.</p>
+  </div>
+
+  <h2>The three most valuable next steps</h2>
+  <ol>
+    <li><strong>Turn on the automation that is already written.</strong> Install reminders, quiet-hours chat delivery and the unanswered-message digest run from one endpoint, but no schedule calls it. Adding a cron entry is a one-line change (chapter 14).</li>
+    <li><strong>Automate the paperwork bottleneck with AI.</strong> Utility-bill and document extraction, permit-packet assembly, and permit/interconnection status tracking remove the most repetitive office work, and the stage forms already have typed columns ready for the answers (chapter 16).</li>
+    <li><strong>Close the loop on speed-to-lead.</strong> Instant, automated first response and appointment booking on every new contact. This is the single largest driver of close rate in residential solar (chapter 19).</li>
+  </ol>
+</section>
+
+<section class="chapter" data-no="2" data-title="The platform at a glance">
+  <span class="mk">@@C2@@</span>
+  <div class="kicker">Chapter 2</div>
+  <h1>The platform at a glance</h1>
+  <p class="lede">Five groups of modules, one database, one API, and one set of access rules, shared by the web app, the portals and the mobile app. Nothing is copied or synced between them.</p>
+
+  <table>
+    <thead><tr><th class="w22">Group</th><th>Modules</th><th class="w14">Status</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Platform</td><td>M01 Database &amp; self-applying migrations · M02 Authentication &amp; sign-in · M03 Roles &amp; row-level security · M04 Files &amp; documents · M05 Audit &amp; activity log</td><td><span class="pill live">Live</span></td></tr>
+      <tr><td class="k">Project delivery</td><td>M06 Pipeline board &amp; stage engine · M07 Stage forms · M08 Hold, Cancel &amp; Complete · M09 Projects &amp; project details · M10 Admin panel &amp; reference lists · M11 Analytics dashboard · M12 Report builder</td><td><span class="pill live">Live</span></td></tr>
+      <tr><td class="k">Dealers &amp; partners</td><td>M13 Dealer portal · M14 Dealer companies &amp; commissions · M15 Lead review queue</td><td><span class="pill live">Live</span></td></tr>
+      <tr><td class="k">Homeowner experience</td><td>M16 Customer portal · M17 Customer management · M18 Customer mobile app · M19 Project chat &amp; inbox · M20 Stage feedback &amp; follow-ups</td><td><span class="pill live">Live</span></td></tr>
+      <tr><td class="k">CRM &amp; sales</td><td>M21 CRM foundation · M22 Contacts &amp; Create Contact · M23 Contact stages · M24 Contract signing → project · M25 Deals · M26 Subscribers</td><td><span class="pill live">Live</span> <span class="pill partial">M26 partial</span></td></tr>
+    </tbody>
+  </table>
+
+  <h2>Channels</h2>
+  <div class="grid3">
+    <div class="card"><h4>Web application</h4><p>Staff, sales, dealers, designers and finance, each landing on the screen for their role. Deployed on Vercel from the <code>main</code> branch.</p></div>
+    <div class="card"><h4>Customer portal</h4><p>The homeowner's view in any browser: a mobile-first, installable web app with dark mode, offline support and push.</p></div>
+    <div class="card"><h4>iOS &amp; Android apps</h4><p>Native shells (Capacitor) around the same portal, built from GitHub Actions with no Mac or Android Studio needed. App ID <code>com.integratesun.solarflow</code>.</p></div>
+  </div>
+
+  <h2>Scale of the codebase</h2>
+  <table class="t-compact">
+    <thead><tr><th>Measure</th><th>Value</th><th>Measure</th><th>Value</th></tr></thead>
+    <tbody>
+      <tr><td>Application code (TypeScript)</td><td>41,200 lines</td><td>Database code (SQL migrations)</td><td>12,300 lines</td></tr>
+      <tr><td>Screens</td><td>53</td><td>API endpoints</td><td>64</td></tr>
+      <tr><td>Database tables</td><td>88</td><td>Database functions</td><td>118</td></tr>
+      <tr><td>Row-level security policies</td><td>190</td><td>Database triggers (named)</td><td>19</td></tr>
+      <tr><td>End-to-end test suites</td><td>9 (incl. 1 in a real browser)</td><td>SQL verification suites</td><td>2 (RLS matrix + auth flows)</td></tr>
+      <tr><td>Unit tests</td><td>62</td><td>Commits, 3 Aug – 22 Sep 2026</td><td>85</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section class="chapter" data-no="3" data-title="Architecture &amp; technology">
+  <span class="mk">@@C3@@</span>
+  <div class="kicker">Chapter 3</div>
+  <h1>Architecture &amp; technology</h1>
+  <p class="lede">A deliberately small stack. The database carries the rules that matter: who can see what, what a stage move requires, and what signing does. So every screen, the portals, the app and any future automation get the same answers.</p>
+
+  <h2>Stack</h2>
+  <table>
+    <thead><tr><th class="w22">Layer</th><th>Technology</th><th>Why</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Web framework</td><td>Next.js 15.5 (App Router), React 19, strict TypeScript</td><td>Server components for data-heavy screens; client islands only where there is interaction (boards, forms, dialogs).</td></tr>
+      <tr><td class="k">Database</td><td>PostgreSQL 17 on Neon (serverless, pooled endpoint); driver <code>pg</code> 8</td><td>Plain Postgres, no vendor lock-in: the platform replaced Supabase with its own auth engine and file storage inside the database.</td></tr>
+      <tr><td class="k">Access control</td><td>Row-level security on every table; per-request identity claims</td><td>Access rules live in one place and cannot be bypassed by a new screen or a forgotten filter.</td></tr>
+      <tr><td class="k">Authentication</td><td>In-database engine: bcrypt (cost 12), opaque 256-bit session tokens, SHA-256 at rest</td><td>7-day revocable sessions; deactivating a user ends access on their next request.</td></tr>
+      <tr><td class="k">Files</td><td>File bytes stored in Postgres, behind two security-definer functions</td><td>Right-sized for site photos and plan PDFs; metadata already shaped for S3 if volume grows.</td></tr>
+      <tr><td class="k">Email</td><td>SMTP via Nodemailer</td><td>Invites, password recovery, chat notifications, rating emails, digests.</td></tr>
+      <tr><td class="k">Push</td><td>Web Push (VAPID) + Capacitor push for native</td><td>Install reminders, stage updates, PM asks and chat, with quiet hours.</td></tr>
+      <tr><td class="k">Spreadsheets</td><td>ExcelJS</td><td>Report-builder exports to .xlsx and .csv.</td></tr>
+      <tr><td class="k">Mobile</td><td>Capacitor 8 (camera, push, preferences, share)</td><td>One codebase for iOS and Android, built in GitHub Actions.</td></tr>
+      <tr><td class="k">Hosting</td><td>Vercel (Node runtime, 60-second functions); GitHub for source and CI</td><td>Push-to-deploy from <code>main</code>; previews disabled for the working branch.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Design principles the code follows</h2>
+  <div class="grid2">
+    <div class="card"><h4>One source of truth</h4><p>The Deals board is the Pipeline's own board over the projects deals became, not a copy. The contact's stage lives on the person. Field lists such as the intake registry are data, and they drive the forms, the save allowlists and the signing popup together.</p></div>
+    <div class="card"><h4>Rules in the database</h4><p>A won deal cannot be un-won, a signed contact with a project cannot be moved, a customer cannot read an internal chat note, and a dealer cannot see another dealer's project. All of this is enforced by triggers, security-definer functions and policies, not by the UI.</p></div>
+    <div class="card"><h4>Atomic business steps</h4><p>Signing records the system, moves the contact and creates the project in one statement. Deal-to-project conversion carries the documents across. A refusal leaves nothing half-written.</p></div>
+    <div class="card"><h4>Degrade, never break</h4><p>If the database is a migration behind, screens show which file is missing rather than crashing. <code>/api/health</code> reports the build, the database endpoint and every migration.</p></div>
+  </div>
+
+  <h2>Database migrations</h2>
+  <p>The schema is 43 ordered migration files (appendix A). Each is idempotent and guarded: it refuses, with the name of the file to run first, if a prerequisite is missing. The deployment carries its own migration files, and <strong>Admin → Database</strong> shows which are applied and applies the rest with one button, each file in its own transaction, recording what ran. Detection works by probing for what each file creates, including the shape of a function where the name alone is ambiguous.</p>
+  <div class="callout tip"><span class="t">Lesson built in</span><p>A migration that has shipped is never edited again; a correction always goes in a new file. The one time an applied file was rewritten, databases that already had it could not see the change, which is why the signing function now lives in its own file (004100) and is detected by what it returns.</p></div>
+</section>
+
+<section class="chapter" data-no="4" data-title="Users, roles &amp; access">
+  <span class="mk">@@C4@@</span>
+  <div class="kicker">Chapter 4</div>
+  <h1>Users, roles &amp; access</h1>
+  <p class="lede">Seven roles. Each lands on its own home screen, and each sees exactly what the database's row-level security allows. Hiding a button is never the protection.</p>
+  <table>
+    <thead><tr><th class="w14">Role</th><th class="w18">Lands on</th><th>Can see and do</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Admin</td><td>Pipeline</td><td>Everything, including user management, the activity log, the finance view, database migrations, moving projects backwards, reinstating cancelled projects and deleting projects.</td></tr>
+      <tr><td class="k">Ops / PM</td><td>Pipeline</td><td>All project data: runs the pipeline, fills stage forms, manages customers, contacts and deals. Not user management, the audit log or the finance view.</td></tr>
+      <tr><td class="k">Sales</td><td>Deals</td><td>Contacts, Contact stages and deals they own, the unassigned pool, or all deals, depending on the capability or profile setting. Sees the projects of deals they can see, view-only.</td></tr>
+      <tr><td class="k">Designer</td><td>Designer queue</td><td>Projects where they are the assigned designer, plus the internal design tables for those projects.</td></tr>
+      <tr><td class="k">Finance</td><td>Finance</td><td>Whitelisted financial columns through a dedicated view, plus price book, change orders, vendor quotes and adders. No direct project or client rows.</td></tr>
+      <tr><td class="k">Dealer</td><td>Dealer dashboard</td><td>Their own company's projects (read-only, with per-field visibility), lead submission, commissions, their own settings.</td></tr>
+      <tr><td class="k">Customer</td><td>Portal</td><td>Their own project in plain language, customer-facing documents and photos, chat with their PM (never internal notes), requests, ratings.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Sign-in</h2>
+  <p>Three front doors: <strong>staff</strong>, <strong>dealer</strong> and <strong>homeowner</strong>. Behind them is one login function, one validation path, one rate limiter and one role router. Ten failed passwords lock an account for ten minutes. Password recovery and invitations use 7-day, single-use links. Admins can set a password with force-change-on-first-login. Homeowners are auto-invited when their project is created.</p>
+
+  <h2>Access that needs no login</h2>
+  <table class="t-compact">
+    <thead><tr><th class="w22">Link</th><th>Grants</th></tr></thead>
+    <tbody>
+      <tr><td class="k"><code>/u/&lt;token&gt;</code></td><td>Uploading photos to one project, for a crew member or homeowner without an account. The token is hashed at rest, expires within 7 days and can be revoked, and no session is ever created.</td></tr>
+      <tr><td class="k"><code>/r/&lt;token&gt;</code></td><td>Recording one stage rating from the email's five faces. The score is saved before the page renders, because requiring a login loses most responses.</td></tr>
+    </tbody>
+  </table>
+</section>

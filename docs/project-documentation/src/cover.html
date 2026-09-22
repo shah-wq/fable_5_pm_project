@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>SolarFlow PM — Project Documentation</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  @page { size: A4; margin: 0; }
+  body { margin: 0; }
+  .cover {
+    width: 210mm; height: 297mm; background: var(--navy); color: #fff; position: relative; overflow: hidden;
+    padding: 30mm 22mm 20mm;
+  }
+  .sun {
+    position: absolute; right: -38mm; top: -38mm; width: 150mm; height: 150mm; border-radius: 50%;
+    background: radial-gradient(circle at 40% 60%, #f7c24a 0%, #e8a317 38%, rgba(232,163,23,.25) 62%, rgba(232,163,23,0) 72%);
+  }
+  .rings { position: absolute; right: -60mm; top: -60mm; width: 194mm; height: 194mm; border-radius: 50%;
+    border: .6mm solid rgba(232,163,23,.18); }
+  .rings.two { right: -84mm; top: -84mm; width: 242mm; height: 242mm; border-color: rgba(232,163,23,.10); }
+  .mark { display: flex; align-items: center; gap: 4mm; font-weight: 700; font-size: 13pt; letter-spacing: .02em; position: relative; }
+  .mark .logo { width: 11mm; height: 11mm; border-radius: 3mm; background: var(--amber); color: var(--navy);
+    display: flex; align-items: center; justify-content: center; font-size: 15pt; font-weight: 800; }
+  .title { position: absolute; left: 22mm; right: 22mm; top: 108mm; }
+  .title .kicker { color: var(--amber); font-size: 9pt; }
+  .title h1 { color: #fff; font-size: 38pt; line-height: 1.02; margin: 4mm 0 6mm; letter-spacing: -.02em; }
+  .title .sub { font-size: 13.5pt; line-height: 1.45; color: #cdd6e4; max-width: 150mm; }
+  .contents { position: absolute; left: 22mm; right: 22mm; top: 190mm; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4mm; }
+  .contents div { border-top: .5mm solid rgba(255,255,255,.25); padding-top: 3mm; font-size: 8.6pt; color: #cdd6e4; }
+  .contents b { display: block; color: #fff; font-size: 9.4pt; margin-bottom: 1mm; }
+  .foot { position: absolute; left: 22mm; right: 22mm; bottom: 18mm; display: flex; justify-content: space-between;
+    font-size: 8.6pt; color: #9fb0c8; border-top: .4mm solid rgba(255,255,255,.18); padding-top: 4mm; }
+  .foot b { color: #fff; font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="cover">
+  <div class="rings two"></div><div class="rings"></div><div class="sun"></div>
+  <div class="mark"><div class="logo">☀</div>SolarFlow PM</div>
+
+  <div class="title">
+    <div class="kicker">Complete project documentation</div>
+    <h1>Solar project management &amp; CRM platform</h1>
+    <div class="sub">Every module, every automation, the AI foundation, what has been built to date, what is still open, and the roadmap to a pipeline that runs itself — with solar and CRM best practice alongside.</div>
+  </div>
+
+  <div class="contents">
+    <div><b>Platform</b>Architecture, roles, security, database, deployment</div>
+    <div><b>26 modules</b>Delivery pipeline, portals, mobile app, CRM, signing</div>
+    <div><b>Automation &amp; AI</b>What runs today, and the path to zero-touch</div>
+    <div><b>Status</b>85 commits of work, known gaps, open items</div>
+    <div><b>Best practice</b>Solar operations, CRM, security, KPIs</div>
+    <div><b>Appendices</b>Migrations, screens, APIs, tests, glossary</div>
+  </div>
+
+  <div class="foot">
+    <span>Prepared for <b>Integrate Sun</b> · SolarFlow PM</span>
+    <span>Version as of commit <b>725548b</b> · <b>22 September 2026</b></span>
+  </div>
+</div>
+</body>
+</html>

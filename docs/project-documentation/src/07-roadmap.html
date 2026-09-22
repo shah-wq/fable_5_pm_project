@@ -1,0 +1,148 @@
+<section class="chapter" data-no="15" data-title="Future automations — toward zero-touch">
+  <span class="mk">@@C15@@</span>
+  <div class="kicker">Chapter 15 · Roadmap</div>
+  <h1>Future automations — toward zero-touch</h1>
+  <p class="lede">Rules-based automation that needs no AI: an event from outside, or a date, moves the work forward without anyone pressing a button. Each entry names what triggers it, what it does, and which manual step it removes.</p>
+
+  <h2>Lead to signed contract</h2>
+  <table>
+    <thead><tr><th class="w22">Automation</th><th>Trigger → action</th><th class="w25">Removes</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Web-to-contact capture</td><td>Website/landing-page form or ad platform webhook → Contact created with UTM source, medium, campaign and original source; duplicate check; owner assigned.</td><td>Re-typing web leads</td></tr>
+      <tr><td class="k">Speed-to-lead response</td><td>New contact → within 60 seconds an SMS and email with a self-booking link; a call task if not booked in 15 minutes.</td><td>Delayed first contact</td></tr>
+      <tr><td class="k">Round-robin &amp; territory routing</td><td>New contact → owner chosen by ZIP code, language, rep capacity and availability.</td><td>Manual lead assignment</td></tr>
+      <tr><td class="k">Self-booking</td><td>Homeowner picks a slot → Appointment scheduled, calendar invite to rep and homeowner.</td><td>Phone tag</td></tr>
+      <tr><td class="k">Appointment reminders &amp; no-show recovery</td><td>24 h and 2 h reminders with a reschedule link; a no-show moves the card to No-show and starts a rebooking sequence; rebooking moves it to Rescheduled.</td><td>Reminder calls, moving cards</td></tr>
+      <tr><td class="k">Stage-based nurture</td><td>Quoted → follow-ups on days 1, 3, 7, 14; Lost → re-engagement at 90 days; each tied to the contact's stage.</td><td>Follow-up tracking</td></tr>
+      <tr><td class="k">Financing status sync</td><td>Lender application link sent from the deal; lender webhook/API (e.g. GoodLeap, Mosaic, Sunlight, LightReach) → Financing approved, amount and terms written to the deal.</td><td>Checking lender portals</td></tr>
+      <tr><td class="k">E-signature → signing</td><td>Contract sent from the deal; the e-signature platform's "completed" webhook → the existing signing step runs with the proposal's system, the signed PDF filed on the deal, and the project created.</td><td>The whole signing step</td></tr>
+      <tr><td class="k">Proposal import</td><td>Design tool (e.g. Aurora, OpenSolar) proposal published → a new proposal version on the deal with system, price and production.</td><td>Copying proposal figures</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Signed contract to permission to operate</h2>
+  <table>
+    <thead><tr><th class="w22">Automation</th><th>Trigger → action</th><th class="w25">Removes</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Survey auto-scheduling</td><td>Project created → offer the homeowner open surveyor slots (<code>availability_slots</code>); confirmation books it and fills the survey date.</td><td>Scheduling calls</td></tr>
+      <tr><td class="k">Evidence-based auto-advance</td><td>When every required field and photo of a stage is present and valid, the project advances on its own through the existing validation.</td><td>Pressing Advance</td></tr>
+      <tr><td class="k">Design hand-off</td><td>Survey complete → design request sent to the designer queue or design partner; the partner's delivery webhook fills Designs Received and files the plan set.</td><td>Chasing designs</td></tr>
+      <tr><td class="k">Permit &amp; interconnection tracking</td><td>Portal notification emails and APIs (e.g. SolarAPP+ where the jurisdiction uses it, PowerClerk-style utility portals) → statuses and dates written to the permit tracks, with <code>permit_events</code> history.</td><td>Logging in to portals daily</td></tr>
+      <tr><td class="k">Purchase orders</td><td>Permits approved → purchase order to the distributor from the bill of materials; shipment tracking → Material delivered.</td><td>Ordering, tracking</td></tr>
+      <tr><td class="k">Install scheduling</td><td>Material delivered → the job is placed on the crew calendar by capacity, travel and weather; homeowner confirms in the app; day-of ETA message.</td><td>Crew scheduling</td></tr>
+      <tr><td class="k">Inspection scheduling</td><td>Install complete → inspection request to the jurisdiction; a failure opens a correction task from the failure notes.</td><td>Follow-up admin</td></tr>
+      <tr><td class="k">Monitoring &amp; energization</td><td>Monitoring platform API (e.g. Enphase, SolarEdge, Tesla) reports first production → energization date filled, "power on" sent, production checked at 7 and 30 days.</td><td>Manual activation checks</td></tr>
+      <tr><td class="k">Delay alerts</td><td>A stage passes its ageing threshold → the PM and manager are alerted and the homeowner gets a proactive "this is taking longer" note.</td><td>Surprise escalations</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Money, reviews and the business</h2>
+  <table>
+    <thead><tr><th class="w22">Automation</th><th>Trigger → action</th><th class="w25">Removes</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Milestone invoicing</td><td>Stage complete → invoice for the matching payment milestone; payment platform/accounting sync (e.g. Stripe, QuickBooks) → milestone status Received.</td><td>Billing and reconciling</td></tr>
+      <tr><td class="k">Finance milestone submission</td><td>Milestone reached → evidence package sent to the finance partner; approval updates Finance M1/M2.</td><td>Lender paperwork</td></tr>
+      <tr><td class="k">Dealer commissions</td><td>Milestones paid → commission statements calculated from the dealer's defaults, sent monthly.</td><td>Commission spreadsheets</td></tr>
+      <tr><td class="k">Reviews &amp; referrals</td><td>Completion with a high rating → review request and referral invitation; a low rating goes to follow-up instead.</td><td>Asking for reviews</td></tr>
+      <tr><td class="k">Scheduled reports</td><td>A runner for the saved report schedules → Excel export emailed to recipients.</td><td>Weekly report building</td></tr>
+      <tr><td class="k">Homeowner weekly digest</td><td>Weekly → a one-screen status summary to every active homeowner.</td><td>Status calls</td></tr>
+      <tr><td class="k">Data hygiene</td><td>Nightly → duplicate-merge suggestions, stale deals flagged, missing next actions listed per rep.</td><td>Cleanup days</td></tr>
+      <tr><td class="k">Operations watch</td><td>Health endpoint monitored every few minutes; failures and error spikes alert the admin.</td><td>Finding outages from users</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section class="chapter" data-no="16" data-title="Future AI integrations">
+  <span class="mk">@@C16@@</span>
+  <div class="kicker">Chapter 16 · Roadmap</div>
+  <h1>Future AI integrations</h1>
+  <p class="lede">Where judgement, reading or language is involved and rules alone cannot finish the job. For each capability: what the AI does, where its answer goes, how far it can act alone, and where a person stays in the loop.</p>
+
+  <div class="callout"><span class="t">Recommended model approach</span><p>Use a hosted model family through one server-side integration, for example the Anthropic Claude API: a capable general model (e.g. Claude Sonnet 5) for drafting, reasoning and document reading, a fast low-cost model (e.g. Claude Haiku 4.5) for high-volume classification and routing, and vision input for photos and scanned documents. Pair it with solar data services: Google Solar API or aerial imagery providers (e.g. EagleView, Nearmap) for roof geometry and sunlight, and NREL PVWatts for production estimates. Every AI result is written through the same API and database rules as a person's.</p></div>
+
+  <h2>Sales &amp; customer</h2>
+  <table>
+    <thead><tr><th class="w22">Capability</th><th>What the AI does → where it lands</th><th class="w18">Autonomy target</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Intake assistant</td><td>Reads inbound emails, web messages and call transcripts → fills contact fields, detects duplicates, sets source.</td><td>Acts; flags doubts</td></tr>
+      <tr><td class="k">Lead scoring</td><td>Roof suitability (imagery + sunlight), homeownership, utility rate, bill size, engagement → priority score and routing.</td><td>Acts</td></tr>
+      <tr><td class="k">AI appointment setter</td><td>Two-way SMS (and optionally voice) that answers questions, books, confirms and reschedules within consent rules; hands over to a rep on request or complexity.</td><td>Acts; escalates</td></tr>
+      <tr><td class="k">Utility-bill reader</td><td>Photo or PDF of the bill → utility, rate plan, monthly and annual kWh, average bill: written to the deal's typed usage fields.</td><td>Acts; low confidence → exceptions</td></tr>
+      <tr><td class="k">Instant preliminary design</td><td>Address + usage → roof segments, module count, system size, estimated production and offset → a draft proposal version.</td><td>Drafts; rep approves</td></tr>
+      <tr><td class="k">Quote &amp; adders</td><td>Survey facts + price book + adder rules → line items (e.g. main panel upgrade) with <code>source = 'ai'</code>.</td><td>Drafts; approval over threshold</td></tr>
+      <tr><td class="k">Homeowner copilot</td><td>Answers status questions 24/7 in chat from the plain-language status and typical durations; drafts PM replies for anything else; always discloses it is automated.</td><td>Acts on routine; drafts the rest</td></tr>
+      <tr><td class="k">Conversation summaries</td><td>Calls, chats and emails → a short summary and next action in the activity log.</td><td>Acts</td></tr>
+      <tr><td class="k">Cancellation-risk signal</td><td>Ratings, chat sentiment, delays and response times → a risk score that triggers proactive outreach before a cancellation.</td><td>Alerts</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Delivery</h2>
+  <table>
+    <thead><tr><th class="w22">Capability</th><th>What the AI does → where it lands</th><th class="w18">Autonomy target</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Survey photo QA</td><td>Checks every required shot (roof planes, attic, main panel, meter, service drop) is present and legible; spots panel-upgrade or roof-condition issues → adders and a survey pass/fail.</td><td>Acts; failures to PM</td></tr>
+      <tr><td class="k">Document classification</td><td>Every upload is recognised and filed in the right category (bill front/back, panel, meter, agreement, plan set, permit).</td><td>Acts</td></tr>
+      <tr><td class="k">Plan-set pre-check</td><td>Reads the plan set against the jurisdiction's requirements and common code items (e.g. NEC 690/705, rapid shutdown, fire setbacks, labelling) before submission → a list of likely rejections.</td><td>Advises; engineer decides</td></tr>
+      <tr><td class="k">Permit packet assembly</td><td>Collects plans, spec sheets, forms and signatures required by the jurisdiction and utility into a submission-ready packet.</td><td>Drafts; PM submits → later acts</td></tr>
+      <tr><td class="k">Portal &amp; inbox monitor</td><td>Reads permit, interconnection and utility emails and portals → updates statuses, dates and revision notes; drafts responses to revision requests.</td><td>Acts; revisions to PM</td></tr>
+      <tr><td class="k">Install photo QA</td><td>Checks install pictures for compliance items (labels, conduit, rapid-shutdown devices, grounding, workmanship) before inspection is requested.</td><td>Acts; failures to install manager</td></tr>
+      <tr><td class="k">Inspection-failure triage</td><td>Failure notes → corrective task list with parts and time estimate.</td><td>Drafts</td></tr>
+      <tr><td class="k">Delay prediction &amp; forecasting</td><td>Stage history → which projects will slip, and the install and revenue forecast for the next 90 days.</td><td>Advises</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Back office</h2>
+  <table>
+    <thead><tr><th class="w22">Capability</th><th>What the AI does → where it lands</th><th class="w18">Autonomy target</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Ask the data</td><td>"Installs by dealer last quarter" → a report definition for the existing builder. Safe by design: the builder takes JSON over whitelisted fields, never SQL.</td><td>Acts</td></tr>
+      <tr><td class="k">Commission &amp; payment checks</td><td>Flags commissions, milestones and invoices that do not match contract terms.</td><td>Alerts</td></tr>
+      <tr><td class="k">Duplicate &amp; data-quality review</td><td>Suggests merges and corrections with a confidence score; high-confidence cases merge automatically.</td><td>Acts above threshold</td></tr>
+      <tr><td class="k">Self-review</td><td>The AI rates its own stage work into <code>stage_feedback</code> with <code>source = 'ai'</code>, so quality can be tracked over time.</td><td>Acts</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Guardrails for every AI feature</h2>
+  <div class="grid2">
+    <div class="card"><h4>Confidence and the exceptions queue</h4><p>Every AI action carries a confidence. Below the threshold it goes to <code>exceptions</code> for a person; above it, it acts. Thresholds are per capability and tuned from real outcomes.</p></div>
+    <div class="card"><h4>People for money, law and safety</h4><p>Prices over a limit, contract terms, engineering sign-off, electrical safety and anything a regulator requires a licensed person for always stay with a person.</p></div>
+    <div class="card"><h4>Consent and disclosure</h4><p>AI texts and calls only with prior express written consent, within quiet hours, honouring do-not-call; the AI identifies itself. Consent basis is stored (as M26 already does).</p></div>
+    <div class="card"><h4>Measured, logged, reversible</h4><p>Every AI action is in the audit log under an AI actor. Each capability has a test set it must pass before release and a dashboard of accuracy and cost.</p></div>
+  </div>
+</section>
+
+<section class="chapter" data-no="17" data-title="Autonomy roadmap (phases)">
+  <span class="mk">@@C17@@</span>
+  <div class="kicker">Chapter 17 · Roadmap</div>
+  <h1>Autonomy roadmap</h1>
+  <p class="lede">A realistic path from today to a pipeline where people handle only exceptions and the work that law and physics reserve for them.</p>
+
+  <h2>Levels of autonomy</h2>
+  <table class="t-compact">
+    <thead><tr><th class="w12">Level</th><th class="w25">Name</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td class="k">L0</td><td>Manual</td><td>A person does the work; the system records it. (Most stage data entry today.)</td></tr>
+      <tr><td class="k">L1</td><td>Assisted</td><td>The system checks and blocks mistakes. (Stage validation, duplicate guard, hold: today.)</td></tr>
+      <tr><td class="k">L2</td><td>Drafted</td><td>AI prepares the work; a person approves with one click.</td></tr>
+      <tr><td class="k">L3</td><td>Supervised</td><td>AI or rules act on their own; people review exceptions and samples.</td></tr>
+      <tr><td class="k">L4</td><td>Autonomous</td><td>The step runs end to end; people see results and outliers only.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Phases</h2>
+  <table>
+    <thead><tr><th class="w18">Phase</th><th class="w14">When</th><th>Scope</th></tr></thead>
+    <tbody>
+      <tr><td class="k">0 · Switch on</td><td>Weeks 0–2</td><td>Schedule the reminders job; fix the database hosting (integration, default branch, backups, rotated password); confirm email and push configuration; add CI for the test suites; fit the Pipeline board to the screen.</td></tr>
+      <tr><td class="k">1 · Connect</td><td>Months 1–2</td><td>SMS provider; self-booking calendar; speed-to-lead sequence; e-signature webhook into signing; lender status sync; monitoring platform API; report schedule runner; staff two-factor sign-in.</td></tr>
+      <tr><td class="k">2 · AI drafts (L2)</td><td>Months 2–4</td><td>Utility-bill reader; document classification; conversation summaries; homeowner copilot drafting replies; survey and install photo QA flags; preliminary design drafts.</td></tr>
+      <tr><td class="k">3 · AI acts (L3)</td><td>Months 4–8</td><td>Copilot answers routine status questions itself; permit/interconnection monitoring writes statuses; survey auto-scheduling; evidence-based auto-advance; adders and quotes below a price limit; cancellation-risk outreach.</td></tr>
+      <tr><td class="k">4 · Near zero-touch (L4)</td><td>Months 8–12</td><td>AI appointment setter; permit packet submission where portals allow; purchase orders; install scheduling optimisation; forecasting; auto-merge of high-confidence duplicates.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>What stays with people</h2>
+  <div class="callout amber">
+    <p>"No human interaction" is achievable for the office work: data entry, chasing, scheduling, status updates, filing and reporting. It is not achievable, and should not be attempted, for the steps that require a licensed or accountable person: the homeowner's signature and financing consent; a licensed engineer's stamp; the physical survey and installation; the jurisdiction's inspection; the utility's permission to operate; and final decisions on pricing exceptions, cancellations and refunds. The target is that people spend their time only on those steps and on the exceptions queue.</p>
+  </div>
+</section>
