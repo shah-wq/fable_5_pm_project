@@ -58,7 +58,10 @@ export async function GET(_request: Request, ctx: { params: Promise<{ id: string
           createdAt: new Date(r.created_at).toISOString(),
         }));
       let envelopes: Awaited<ReturnType<typeof listEnvelopes>> = [];
-      let ready = { ready: false, reason: 'E-signature needs migration 004400 — Admin → Database → Apply.' as string | null };
+      let ready = {
+        ready: false,
+        reason: 'E-signature needs migration 004400 — Admin → Database → Apply.' as string | null,
+      };
       try {
         await c.query('savepoint esign');
         envelopes = await listEnvelopes(c, { changeOrderIds: orders.map((o) => o.id) });
@@ -107,20 +110,20 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
     );
   }
   if (Math.abs(amount) > 10_000_000) {
-    return NextResponse.json({ error: 'That amount is not believable for a change order.' }, { status: 400 });
+    return NextResponse.json(
+      { error: 'That amount is not believable for a change order.' },
+      { status: 400 }
+    );
   }
   try {
     const { rows } = await withUser(session, (c) =>
-      c.query<{ id: string }>(
-        'select public.create_change_order($1, $2, $3, $4, $5) as id',
-        [
-          id,
-          typeof body?.reason === 'string' ? body.reason.slice(0, 300) : '',
-          typeof body?.description === 'string' ? body.description.slice(0, 4000) : null,
-          amount,
-          body?.requiresSignature !== false,
-        ]
-      )
+      c.query<{ id: string }>('select public.create_change_order($1, $2, $3, $4, $5) as id', [
+        id,
+        typeof body?.reason === 'string' ? body.reason.slice(0, 300) : '',
+        typeof body?.description === 'string' ? body.description.slice(0, 4000) : null,
+        amount,
+        body?.requiresSignature !== false,
+      ])
     );
     return NextResponse.json({ id: rows[0].id }, { status: 201 });
   } catch (e) {

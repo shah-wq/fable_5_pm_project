@@ -155,3 +155,23 @@ the project. When a change order is signed its amount is added to the
 project's contract value and its PDF is filed. If something stops the outcome
 from applying (for example the contact was signed by hand meanwhile), the
 record shows the reason with a **Finish** button.
+
+## Connecting Ask SolarFlow (the assistant)
+
+1. **API key.** console.anthropic.com → API keys → create one. In Vercel →
+   Settings → Environment Variables add `ANTHROPIC_API_KEY`, marked
+   **Sensitive**, for Production. Redeploy. `/api/health` shows
+   `ANTHROPIC_API_KEY: true` once it is picked up.
+2. **Optional tuning.** `ASSISTANT_MODEL` (default `claude-opus-5`) and
+   `ASSISTANT_EFFORT` (`low`, `medium`, `high`, `xhigh`, `max`; default
+   `medium`). Higher effort gives more thorough answers to hard questions, but
+   they take longer and cost more.
+3. **Function time.** A question can take several lookups. The route asks
+   Vercel for up to 120 seconds (`maxDuration`), which needs a plan that
+   allows it; on a plan capped lower, long questions end with a timeout.
+
+The assistant reads through the same permissions as the screens. A dealer
+asking about "all projects" gets their own, and a sales rep is not offered the
+dashboard. It cannot change anything. Every question is written to the activity
+log (`assistant.asked`) with who asked, what was looked up and the token usage.
+The answers themselves are not stored.

@@ -59,7 +59,9 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
           typeof body.note === 'string' ? body.note.slice(0, 500) : null,
         ])
       );
-      return NextResponse.json({ contractValue: rows[0].value === null ? null : Number(rows[0].value) });
+      return NextResponse.json({
+        contractValue: rows[0].value === null ? null : Number(rows[0].value),
+      });
     }
     if (body?.action === 'void') {
       await withUser(session, (c) => c.query('select public.void_change_order($1)', [co]));

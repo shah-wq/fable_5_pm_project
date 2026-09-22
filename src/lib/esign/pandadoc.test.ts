@@ -5,7 +5,8 @@ import { mapStatus, parseWebhook, verifyWebhook } from './pandadoc.ts';
 
 test('a webhook is accepted only with the HMAC of its exact body', () => {
   process.env.PANDADOC_WEBHOOK_KEY = 'shared-key';
-  const body = '[{"event":"document_state_changed","data":{"id":"abc","status":"document.completed"}}]';
+  const body =
+    '[{"event":"document_state_changed","data":{"id":"abc","status":"document.completed"}}]';
   const good = createHmac('sha256', 'shared-key').update(body).digest('hex');
   assert.equal(verifyWebhook(body, good), true);
   assert.equal(verifyWebhook(body, good.toUpperCase()), true);

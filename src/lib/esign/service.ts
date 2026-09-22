@@ -158,7 +158,8 @@ export function readiness(
   if (!pandadocConfigured()) {
     return { ready: false, reason: 'PandaDoc is not connected (PANDADOC_API_KEY is not set).' };
   }
-  const template = purpose === 'contract' ? settings.contractTemplate : settings.changeOrderTemplate;
+  const template =
+    purpose === 'contract' ? settings.contractTemplate : settings.changeOrderTemplate;
   if (!template) {
     return {
       ready: false,
@@ -168,7 +169,11 @@ export function readiness(
   return { ready: true, reason: null };
 }
 
-function splitName(name: string | null, fallbackFirst?: string | null, fallbackLast?: string | null) {
+function splitName(
+  name: string | null,
+  fallbackFirst?: string | null,
+  fallbackLast?: string | null
+) {
   const parts = (name ?? '').trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) return { first: fallbackFirst ?? '', last: fallbackLast ?? '' };
   return { first: parts[0], last: parts.slice(1).join(' ') || (fallbackLast ?? '') };
@@ -185,15 +190,34 @@ const money = (v: unknown) =>
  * the names.
  */
 export const CONTRACT_TOKENS = [
-  'Client.FirstName', 'Client.LastName', 'Client.Email', 'Client.Phone',
-  'Project.Address', 'Dealer.Name', 'Company.Name',
-  'System.SizeKw', 'System.ModuleQuantity', 'System.BatteryQuantity',
-  'Contract.Value', 'Contract.GrossPrice', 'Contract.DownPayment', 'Contract.AmountFinanced',
+  'Client.FirstName',
+  'Client.LastName',
+  'Client.Email',
+  'Client.Phone',
+  'Project.Address',
+  'Dealer.Name',
+  'Company.Name',
+  'System.SizeKw',
+  'System.ModuleQuantity',
+  'System.BatteryQuantity',
+  'Contract.Value',
+  'Contract.GrossPrice',
+  'Contract.DownPayment',
+  'Contract.AmountFinanced',
 ];
 export const CHANGE_ORDER_TOKENS = [
-  'Client.FirstName', 'Client.LastName', 'Client.Email', 'Project.Code', 'Project.Address',
-  'Company.Name', 'ChangeOrder.Number', 'ChangeOrder.Reason', 'ChangeOrder.Description',
-  'ChangeOrder.Amount', 'Contract.CurrentValue', 'Contract.NewValue',
+  'Client.FirstName',
+  'Client.LastName',
+  'Client.Email',
+  'Project.Code',
+  'Project.Address',
+  'Company.Name',
+  'ChangeOrder.Number',
+  'ChangeOrder.Reason',
+  'ChangeOrder.Description',
+  'ChangeOrder.Amount',
+  'Contract.CurrentValue',
+  'Contract.NewValue',
 ];
 
 async function documentInput(identity: SessionIdentity, env: EnvelopeRow, settings: EsignSettings) {
@@ -217,7 +241,12 @@ async function documentInput(identity: SessionIdentity, env: EnvelopeRow, settin
       return {
         name: `Solar installation agreement — ${[cl?.first_name, cl?.last_name].filter(Boolean).join(' ')}`,
         templateId: settings.contractTemplate as string,
-        recipient: { email: env.signer_email, first_name: who.first, last_name: who.last, role: settings.signerRole },
+        recipient: {
+          email: env.signer_email,
+          first_name: who.first,
+          last_name: who.last,
+          role: settings.signerRole,
+        },
         tokens: {
           'Client.FirstName': cl?.first_name,
           'Client.LastName': cl?.last_name,
@@ -264,7 +293,12 @@ async function documentInput(identity: SessionIdentity, env: EnvelopeRow, settin
     return {
       name: `Change order ${settings.coPrefix}${co?.number} — ${co?.code}`,
       templateId: settings.changeOrderTemplate as string,
-      recipient: { email: env.signer_email, first_name: who.first, last_name: who.last, role: settings.signerRole },
+      recipient: {
+        email: env.signer_email,
+        first_name: who.first,
+        last_name: who.last,
+        role: settings.signerRole,
+      },
       tokens: {
         'Client.FirstName': co?.first_name,
         'Client.LastName': co?.last_name,
@@ -384,7 +418,8 @@ export async function syncEnvelope(identity: SessionIdentity, id: string): Promi
   if (env.status === 'completed' && env.signed_object_id) {
     await completeEnvelope(identity, env);
   } else if (!env.provider_document_id || env.status === 'preparing') {
-    if (['declined', 'voided'].includes(env.status)) return { envelope: toView(env), sessionUrl: null };
+    if (['declined', 'voided'].includes(env.status))
+      return { envelope: toView(env), sessionUrl: null };
     return sendEnvelope(identity, id);
   } else {
     const doc = await getDocument(env.provider_document_id);
@@ -403,7 +438,8 @@ export async function syncEnvelope(identity: SessionIdentity, id: string): Promi
 /** A fresh link for signing on this screen, for a document already sent. */
 export async function signingSession(identity: SessionIdentity, id: string): Promise<string> {
   const env = await withUser(identity, (c) => loadEnvelope(c, id));
-  if (!env?.provider_document_id) throw new PandaDocError('This envelope has not been sent yet.', 409);
+  if (!env?.provider_document_id)
+    throw new PandaDocError('This envelope has not been sent yet.', 409);
   if (!['sent', 'viewed'].includes(env.status)) {
     throw new PandaDocError(`A ${env.status} document cannot be signed.`, 409);
   }

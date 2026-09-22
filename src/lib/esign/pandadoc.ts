@@ -19,7 +19,10 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 export const PANDADOC_APP = 'https://app.pandadoc.com';
 
 export function pandadocBase(): string {
-  return (process.env.PANDADOC_API_BASE ?? 'https://api.pandadoc.com/public/v1').replace(/\/+$/, '');
+  return (process.env.PANDADOC_API_BASE ?? 'https://api.pandadoc.com/public/v1').replace(
+    /\/+$/,
+    ''
+  );
 }
 
 export function pandadocConfigured(): boolean {
@@ -39,7 +42,8 @@ export class PandaDocError extends Error {
 
 async function call<T>(method: string, path: string, body?: unknown): Promise<T> {
   const key = process.env.PANDADOC_API_KEY;
-  if (!key) throw new PandaDocError('PandaDoc is not connected — PANDADOC_API_KEY is not set.', 503);
+  if (!key)
+    throw new PandaDocError('PandaDoc is not connected — PANDADOC_API_KEY is not set.', 503);
   const res = await fetch(`${pandadocBase()}${path}`, {
     method,
     headers: {
@@ -140,17 +144,23 @@ export async function createSession(
     `/documents/${encodeURIComponent(id)}/session`,
     { recipient, lifetime }
   );
-  return { id: s.id, url: `${PANDADOC_APP}/s/${encodeURIComponent(s.id)}`, expiresAt: s.expires_at ?? null };
+  return {
+    id: s.id,
+    url: `${PANDADOC_APP}/s/${encodeURIComponent(s.id)}`,
+    expiresAt: s.expires_at ?? null,
+  };
 }
 
 export async function downloadDocument(id: string): Promise<Buffer> {
   const key = process.env.PANDADOC_API_KEY;
-  if (!key) throw new PandaDocError('PandaDoc is not connected — PANDADOC_API_KEY is not set.', 503);
+  if (!key)
+    throw new PandaDocError('PandaDoc is not connected — PANDADOC_API_KEY is not set.', 503);
   const res = await fetch(`${pandadocBase()}/documents/${encodeURIComponent(id)}/download`, {
     headers: { authorization: `API-Key ${key}` },
     cache: 'no-store',
   });
-  if (!res.ok) throw new PandaDocError(`PandaDoc refused the download (${res.status})`, res.status, true);
+  if (!res.ok)
+    throw new PandaDocError(`PandaDoc refused the download (${res.status})`, res.status, true);
   return Buffer.from(await res.arrayBuffer());
 }
 

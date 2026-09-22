@@ -29,6 +29,7 @@ export async function GET() {
     SMTP_HOST: Boolean(process.env.SMTP_HOST),
     PANDADOC_API_KEY: Boolean(process.env.PANDADOC_API_KEY),
     PANDADOC_WEBHOOK_KEY: Boolean(process.env.PANDADOC_WEBHOOK_KEY),
+    ANTHROPIC_API_KEY: Boolean(process.env.ANTHROPIC_API_KEY),
     NEXT_PUBLIC_SITE_URL: Boolean(process.env.NEXT_PUBLIC_SITE_URL),
   };
 

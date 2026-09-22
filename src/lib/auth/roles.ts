@@ -55,6 +55,9 @@ export const ROUTE_ACCESS: Record<string, readonly UserRole[]> = {
   // /api/integrations/pandadoc/webhook is deliberately absent — PandaDoc has
   // no session, and the route checks PandaDoc's signature instead.
   '/api/esign': ['admin', 'ops', 'sales'],
+  // Ask SolarFlow: every staff role and dealers. What each may see is decided
+  // by the database, exactly as on the screens (src/lib/assistant/tools.ts).
+  '/api/assistant': ['admin', 'ops', 'finance', 'sales', 'designer', 'dealer'],
   // Consent records are admin's, with the marketing and consent capability
   // flags deciding who may change them (Part 8).
   '/admin/subscribers': ['admin'],

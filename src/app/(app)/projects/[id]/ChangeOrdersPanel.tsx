@@ -50,9 +50,18 @@ export function ChangeOrdersPanel({ projectId, prefix }: { projectId: string; pr
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [adding, setAdding] = useState(false);
-  const [draft, setDraft] = useState({ reason: '', description: '', amount: '', requiresSignature: true });
+  const [draft, setDraft] = useState({
+    reason: '',
+    description: '',
+    amount: '',
+    requiresSignature: true,
+  });
   const [sending, setSending] = useState<ChangeOrder | null>(null);
-  const [signer, setSigner] = useState({ name: '', email: '', delivery: 'email' as 'email' | 'embedded' });
+  const [signer, setSigner] = useState({
+    name: '',
+    email: '',
+    delivery: 'email' as 'email' | 'embedded',
+  });
   const [embed, setEmbed] = useState<{ id: string; url: string } | null>(null);
 
   const load = useCallback(async () => {
@@ -252,7 +261,12 @@ export function ChangeOrdersPanel({ projectId, prefix }: { projectId: string; pr
                 <span>The homeowner must sign it</span>
               </label>
               <div className="dialog-actions">
-                <button className="btn secondary" type="button" disabled={busy} onClick={() => setAdding(false)}>
+                <button
+                  className="btn secondary"
+                  type="button"
+                  disabled={busy}
+                  onClick={() => setAdding(false)}
+                >
                   Cancel
                 </button>
                 <button className="btn" type="button" disabled={busy} onClick={() => void create()}>
@@ -281,7 +295,10 @@ export function ChangeOrdersPanel({ projectId, prefix }: { projectId: string; pr
             {error && <p className="notice error">{error}</p>}
             <label className="field">
               <span>Signer’s name</span>
-              <input value={signer.name} onChange={(e) => setSigner((s) => ({ ...s, name: e.target.value }))} />
+              <input
+                value={signer.name}
+                onChange={(e) => setSigner((s) => ({ ...s, name: e.target.value }))}
+              />
             </label>
             <label className="field">
               <span>Signer’s email</span>
@@ -310,7 +327,12 @@ export function ChangeOrdersPanel({ projectId, prefix }: { projectId: string; pr
               </label>
             </fieldset>
             <div className="dialog-actions">
-              <button className="btn secondary" type="button" disabled={busy} onClick={() => setSending(null)}>
+              <button
+                className="btn secondary"
+                type="button"
+                disabled={busy}
+                onClick={() => setSending(null)}
+              >
                 Cancel
               </button>
               <button className="btn" type="button" disabled={busy} onClick={() => void send()}>
@@ -323,7 +345,12 @@ export function ChangeOrdersPanel({ projectId, prefix }: { projectId: string; pr
 
       {embed && (
         <div className="dialog-backdrop">
-          <div className="dialog wide-dialog" role="dialog" aria-modal aria-label="Sign the change order">
+          <div
+            className="dialog wide-dialog"
+            role="dialog"
+            aria-modal
+            aria-label="Sign the change order"
+          >
             <EmbeddedSigning
               sessionUrl={embed.url}
               envelopeId={embed.id}

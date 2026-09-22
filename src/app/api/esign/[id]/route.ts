@@ -3,7 +3,13 @@ import { getSession } from '@/lib/auth/session';
 import { withUser } from '@/lib/db';
 import { isUuid } from '@/lib/crm/coerce';
 import { esignErrorResponse } from '@/lib/esign/errors';
-import { loadEnvelope, signingSession, syncEnvelope, toView, voidEnvelope } from '@/lib/esign/service';
+import {
+  loadEnvelope,
+  signingSession,
+  syncEnvelope,
+  toView,
+  voidEnvelope,
+} from '@/lib/esign/service';
 
 const ROLES = ['admin', 'ops', 'sales'];
 

@@ -81,7 +81,8 @@ export function EmbeddedSigning({
         return;
       }
       if (r.envelope.status === 'completed') onDone(r.envelope);
-      else setNote(`PandaDoc says: ${ESIGN_STATUS_LABELS[r.envelope.status] ?? r.envelope.status}.`);
+      else
+        setNote(`PandaDoc says: ${ESIGN_STATUS_LABELS[r.envelope.status] ?? r.envelope.status}.`);
     } finally {
       setChecking(false);
     }
@@ -141,7 +142,11 @@ export function EnvelopeList({
   const [embed, setEmbed] = useState<{ id: string; url: string } | null>(null);
 
   async function act(env: EnvelopeView, action: 'refresh' | 'session' | 'void') {
-    if (action === 'void' && !window.confirm('Withdraw this document? The signer can no longer sign it.')) return;
+    if (
+      action === 'void' &&
+      !window.confirm('Withdraw this document? The signer can no longer sign it.')
+    )
+      return;
     setBusy(env.id);
     setError(null);
     try {
@@ -245,7 +250,12 @@ export function EnvelopeList({
       </ul>
       {embed && (
         <div className="dialog-backdrop">
-          <div className="dialog wide-dialog" role="dialog" aria-modal aria-label="Sign the document">
+          <div
+            className="dialog wide-dialog"
+            role="dialog"
+            aria-modal
+            aria-label="Sign the document"
+          >
             <EmbeddedSigning
               sessionUrl={embed.url}
               envelopeId={embed.id}

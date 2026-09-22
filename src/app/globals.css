@@ -5571,3 +5571,189 @@ a.btn {
   gap: 8px;
   margin-top: 8px;
 }
+
+/* ---------------------------------------------------------------- Ask SolarFlow */
+.assistant-trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 12px 0;
+  padding: 9px 12px;
+  border: 1px solid var(--navy-line);
+  border-radius: var(--radius);
+  background: var(--navy-soft);
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  text-align: left;
+}
+.assistant-trigger span {
+  color: var(--amber);
+}
+.assistant-trigger.active,
+.assistant-trigger:hover {
+  border-color: var(--amber);
+}
+.assistant-panel {
+  position: fixed;
+  right: 16px;
+  top: 16px;
+  z-index: 60;
+  width: min(460px, calc(100vw - 32px));
+  height: calc(100vh - 32px);
+  display: flex;
+  flex-direction: column;
+  background: var(--card);
+  /* Mounted inside the sidebar, whose light text colour it must not inherit. */
+  color: var(--ink);
+  text-align: left;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: 0 16px 48px rgba(11, 27, 51, 0.25);
+  overflow: hidden;
+}
+.assistant-panel header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  background: var(--navy);
+  color: #fff;
+}
+.assistant-panel header div {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.assistant-panel header .linklike {
+  color: #cfd8e6;
+  font-size: 13px;
+}
+.assistant-close {
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+.assistant-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 14px;
+}
+.assistant-turn {
+  max-width: 92%;
+  padding: 8px 12px;
+  border-radius: 12px;
+  line-height: 1.45;
+}
+.assistant-turn p {
+  margin: 0 0 6px;
+}
+.assistant-turn p:last-child,
+.assistant-turn ul:last-child,
+.assistant-turn ol:last-child {
+  margin-bottom: 0;
+}
+.assistant-turn ul,
+.assistant-turn ol {
+  margin: 0 0 6px;
+  padding-left: 18px;
+}
+.assistant-turn h4 {
+  margin: 6px 0 4px;
+  font-size: 14px;
+}
+.assistant-turn.user {
+  align-self: flex-end;
+  background: var(--navy);
+  color: #fff;
+}
+.assistant-turn.assistant {
+  align-self: flex-start;
+  background: var(--paper);
+  border: 1px solid var(--line);
+}
+.assistant-turn.error {
+  background: #f8e4e2;
+  border-color: #efc4bf;
+  color: var(--danger);
+}
+.assistant-table {
+  overflow-x: auto;
+  margin: 4px 0 6px;
+}
+.assistant-table table {
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+.assistant-table th,
+.assistant-table td {
+  border: 1px solid var(--line);
+  padding: 3px 6px;
+  text-align: left;
+  vertical-align: top;
+}
+.assistant-table th {
+  background: #efece5;
+}
+.assistant-status {
+  align-self: flex-start;
+  color: var(--ink-soft);
+  font-size: 13px;
+  font-style: italic;
+}
+.assistant-empty .assistant-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.chip-button {
+  border: 1px solid var(--line);
+  background: var(--paper);
+  border-radius: 999px;
+  padding: 5px 10px;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  text-align: left;
+}
+.chip-button:hover {
+  border-color: var(--navy);
+}
+.assistant-input {
+  display: flex;
+  gap: 8px;
+  padding: 10px;
+  border-top: 1px solid var(--line);
+}
+.assistant-input .btn {
+  flex: none;
+  width: auto;
+  align-self: stretch;
+}
+.assistant-input textarea {
+  flex: 1;
+  min-width: 0;
+  color: var(--ink);
+  background: #fff;
+  resize: none;
+  font: inherit;
+  font-size: 14px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+@media print {
+  .assistant-trigger,
+  .assistant-panel {
+    display: none;
+  }
+}

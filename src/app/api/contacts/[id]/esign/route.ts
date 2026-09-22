@@ -75,11 +75,13 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
   const incoming = body?.values ?? {};
   const payload: Record<string, unknown> = {};
   for (const field of signingColumns()) {
-    if (field.name in incoming) payload[field.name] = coerceIntakeValue(field, incoming[field.name]);
+    if (field.name in incoming)
+      payload[field.name] = coerceIntakeValue(field, incoming[field.name]);
   }
   const delivery = body?.delivery === 'embedded' ? 'embedded' : 'email';
   const signerEmail = typeof body?.signerEmail === 'string' ? body.signerEmail.trim() : '';
-  const signerName = typeof body?.signerName === 'string' ? body.signerName.trim().slice(0, 200) : '';
+  const signerName =
+    typeof body?.signerName === 'string' ? body.signerName.trim().slice(0, 200) : '';
   const dealId = isUuid(body?.dealId) ? body.dealId : null;
 
   try {
