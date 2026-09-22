@@ -220,7 +220,7 @@ pass "lost needs a reason from the list, and lost is reversible"
 get "$BASE/deals" 200 "$SALES"
 has "the board" "Dana Deal"
 has "the board" "board-col"
-has "the board" "Contract out"
+has "the board" "Survey"
 get "$BASE/deals?view=table" 200 "$SALES"
 has "the table" "Dana Deal"
 has "the table" "Probability"
@@ -250,14 +250,86 @@ import re, sys
 html = open(sys.argv[1], encoding='utf-8').read()
 assert re.search(r'<main class="surface full-bleed"', html), 'the deal board is still held to the page width'
 assert 'board deal-board' in html, 'the deal board does not use its full-width columns'
-cols = re.findall(r'<section class="board-col[^"]*"[^>]*><header><span>([^<]+)</span>', html)
-want = ['New', 'Contacted', 'Qualified', 'Proposal', 'Negotiation', 'Contract out', 'Won', 'Lost']
+import html as H
+cols = [H.unescape(c) for c in re.findall(r'<section class="board-col[^"]*"[^>]*><header><span>([^<]+)</span>', html)]
+want = ['Survey', 'Design', 'Permits', 'Procurement', 'Install', 'Inspection & PTO', 'Complete', 'Hold', 'Cancelled']
 assert cols == want, f'the board has {cols}'
 print('WIDE-OK', len(cols))
 WIDE
 curl -s -o "$W/table.html" -b "$ADMIN" "$BASE/deals?view=table"
 grep -q '<main class="surface wide"' "$W/table.html" || fail "the table view lost its page width"
-pass "the deal board runs the full width with all eight columns; the table keeps the page"
+pass "the deal board runs the full width with the nine project columns; the table keeps the page"
+
+# --- the board is the pipeline, over the projects deals became -------------
+column_of() {  # which board column a card sits in, on the page just fetched
+  python3 - "$1" "$2" <<'COL'
+import html as H, re, sys
+page, who = open(sys.argv[1], encoding='utf-8').read(), sys.argv[2]
+for sec in re.split(r'<section class="board-col', page)[1:]:
+    if who in sec.split('</section>')[0]:
+        print(H.unescape(re.search(r'<header><span>([^<]+)</span>', sec).group(1))); break
+else:
+    print('-')
+COL
+}
+[ "$(column_of "$W/board.html" 'Dana Deal')" = Survey ] || fail "Dana's project is not in Survey on the deal board"
+# Lou's deal was reopened at New: not signed, so no project, so not a card —
+# and the board says so rather than losing her.
+[ "$(column_of "$W/board.html" 'Lou Lost')" = - ] || fail "an unsigned deal has a card on the project board"
+grep -q "not signed yet" "$W/board.html" || fail "the board does not say which deals are not signed"
+# A project entered directly has no sale behind it: Pipeline only.
+CL=$(q "select client_id from public.projects where id='$PROJECT'")
+q "insert into public.projects (name, dealer_id, client_id, stage, address)
+   values ('Walk In', '$D', '$CL', 'survey', '9 Direct Road')" >/dev/null
+curl -s -o "$W/board.html" -b "$ADMIN" "$BASE/deals"
+curl -s -o "$W/pipeline.html" -b "$ADMIN" "$BASE/pipeline"
+[ "$(column_of "$W/board.html" 'Walk In')" = - ] || fail "a project with no deal is on the deal board"
+[ "$(column_of "$W/pipeline.html" 'Walk In')" != - ] || fail "the directly entered project is missing from Pipeline"
+# A change to the project is a change on the deal board: they read one row.
+q "update public.projects set status = 'on_hold' where id='$PROJECT'" >/dev/null
+curl -s -o "$W/board.html" -b "$ADMIN" "$BASE/deals"
+curl -s -o "$W/pipeline.html" -b "$ADMIN" "$BASE/pipeline"
+[ "$(column_of "$W/board.html" 'Dana Deal')" = Hold ] || fail "putting the project on hold did not move it on the deal board"
+[ "$(column_of "$W/pipeline.html" 'Dana Deal')" = Hold ] || fail "Pipeline and the deal board disagree"
+q "update public.projects set status = 'active' where id='$PROJECT'" >/dev/null
+# And both boards keep themselves live: a move anywhere is announced to the
+# other tabs, and every board re-reads on a short poll while it is visible.
+python3 - <<'LIVE'
+import pathlib, re
+root = pathlib.Path('/home/user/fable_5_pm_project/src/app/(app)')
+board = (root / 'pipeline/Board.tsx').read_text()
+assert re.search(r'LIVE_REFRESH_MS = 10_000', board), 'the board no longer polls every 10s'
+assert 'onProjectsChanged(' in board and 'announceProjectsChanged()' in board, 'the board does not listen for, or announce, moves'
+for f in ('projects/[id]/ProjectActions.tsx', 'projects/[id]/stages/[stage]/AdvanceButton.tsx'):
+    assert 'announceProjectsChanged()' in (root / f).read_text(), f'{f} moves a project without announcing it'
+print('LIVE-OK')
+LIVE
+pass "the deal board is Pipeline's board over deal projects: one row, one position, kept live"
+
+# --- a rep sees exactly the projects of the deals they can see, and only looks
+# Dana's deal is unassigned, so it is in every rep's pool — and so is its project.
+curl -s -o "$W/repboard.html" -b "$SALES" "$BASE/deals"
+[ "$(column_of "$W/repboard.html" 'Dana Deal')" = Survey ] || fail "a rep cannot see the project of an unassigned deal"
+python3 - "$W/repboard.html" "$DEAL" <<'LOOK'
+import re, sys
+html, deal = open(sys.argv[1], encoding='utf-8').read(), sys.argv[2]
+card = [c for c in re.split(r'<article ', html)[1:] if 'Dana Deal' in c.split('</article>')[0]][0]
+assert 'draggable="false"' in card[:card.index('>')], 'a rep can pick up a project card'
+assert f'href="/deals/{deal}"' in card.split('</article>')[0], 'the rep\'s card does not open the deal'
+assert 'the project team moves the cards' in html, 'the rep is not told who moves the cards'
+print('REP-LOOKS-OK')
+LOOK
+# The admin's board still moves, and still opens the project.
+grep -q "href=\"/projects/$PROJECT\"" "$W/board.html" || fail "the admin's card does not open the project"
+# Owned by somebody else, with the rep on "own deals only": the deal is not
+# theirs to see, and neither is its project.
+ADMINU=$(q "select id from public.profiles where email='admin@de.test'")
+q "update public.deals set owner_id='$ADMINU' where id='$DEAL'" >/dev/null
+q "update public.profiles set deal_visibility='own' where id='$REP'" >/dev/null
+curl -s -o "$W/repboard.html" -b "$SALES" "$BASE/deals"
+[ "$(column_of "$W/repboard.html" 'Dana Deal')" = - ] || fail "a rep sees the project of a deal they cannot see"
+q "update public.deals set owner_id=null where id='$DEAL'" >/dev/null
+pass "a rep sees the projects of the deals they can see, and follows them without moving them"
 
 # A picture of the board at an ordinary laptop width, because whether eight
 # columns fit is the one thing curl cannot check.

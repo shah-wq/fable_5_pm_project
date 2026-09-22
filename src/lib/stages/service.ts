@@ -58,6 +58,11 @@ export interface ProjectCard {
    * not have to go looking."
    */
   openFollowUps: number;
+  /**
+   * The deal this project was sold as. Loaded for the Deals board only, where a
+   * sales rep — who cannot open project pages — follows the card to the deal.
+   */
+  dealId?: string | null;
   createdAt: string;
 }
 
@@ -123,6 +128,12 @@ interface CardFilters {
   jurisdictionId?: string;
   dealerId?: string;
   includeCompleted?: boolean;
+  /**
+   * Only projects a deal became — the Deals board, which follows a sale through
+   * delivery. Projects entered directly, with no sale behind them, stay on the
+   * Pipeline alone.
+   */
+  fromDeals?: boolean;
 }
 
 /** Projects + computed days-in-stage + missing items, RLS-scoped. */
@@ -149,6 +160,7 @@ export async function loadProjectCards(
     if (filters.stage) add('p.stage = ?::public.project_stage', filters.stage);
     if (filters.jurisdictionId) add('p.jurisdiction_id = ?', filters.jurisdictionId);
     if (filters.dealerId) add('p.dealer_id = ?', filters.dealerId);
+    if (filters.fromDeals) where.push('p.deal_id is not null');
     if (filters.q) {
       add(
         `(p.name ilike ? or p.address ilike '%' || $${params.length + 1} || '%' or p.code ilike '%' || $${params.length + 1} || '%')`,
@@ -158,7 +170,7 @@ export async function loadProjectCards(
 
     const { rows } = await client.query(
       `select p.id, p.code, p.name, p.address, p.stage, p.status, p.system_size_kw,
-              p.created_at, p.assigned_pm,
+              p.created_at, p.assigned_pm,${filters.fromDeals ? ' p.deal_id,' : ''}
               c.first_name || ' ' || c.last_name as client_name,
               dl.name as dealer_name,
               j.name as jurisdiction_name,
@@ -219,6 +231,7 @@ export async function loadProjectCards(
         unreadMessages: chat.get(r.id)?.unread ?? 0,
         chatFlagged: chat.get(r.id)?.flagged ?? false,
         openFollowUps: followUps.get(r.id) ?? 0,
+        ...(filters.fromDeals ? { dealId: r.deal_id ?? null } : {}),
         createdAt: asIso(r.created_at),
       };
     });

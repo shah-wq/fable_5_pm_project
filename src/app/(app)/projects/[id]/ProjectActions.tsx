@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { HOLD_REASONS, CANCELLATION_REASONS } from '@/lib/stages/fields';
+import { announceProjectsChanged } from '@/lib/projects/live';
 
 /**
  * The header controls the spec puts on every stage form: Put on hold / Cancel
@@ -46,6 +47,7 @@ export function ProjectActions({
       }
       setDialog(null);
       router.refresh();
+      announceProjectsChanged();
       return true;
     } finally {
       setBusy(false);
@@ -250,6 +252,7 @@ function DeleteDialog({
         setError(json?.error ?? `Could not delete (${res.status}).`);
         return;
       }
+      announceProjectsChanged();
       onDeleted(json?.clientId ?? null);
     } finally {
       setBusy(false);

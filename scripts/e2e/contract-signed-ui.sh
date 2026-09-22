@@ -8,7 +8,9 @@
 # creates the project; that the project then holds the card in place and the
 # record's Lead status stops being offered; that the record's own Lead status
 # box signs the same way; and that deleting the project from its page releases
-# the contact to be moved again.
+# the contact to be moved again. Then that the Deals board is the Pipeline's
+# nine columns, and stays live: a move made on Pipeline in another tab shows on
+# it at once, and a change made anywhere else within its poll, with no reload.
 #
 # Needs playwright-core. It is not a project dependency, so point at an install
 # with PLAYWRIGHT_CORE=/path/to/node_modules/playwright-core, or the check skips.
@@ -67,7 +69,7 @@ for i in $(seq 1 60); do
   [ "$i" = 60 ] && fail "app never came up"; sleep 1
 done
 
-BASE="$BASE" PW="$PW" CHROME="$CHROME" SHOTS="$W/shots" DANA="$DANA" RITA="$RITA" D="$D" \
+BASE="$BASE" PW="$PW" CHROME="$CHROME" SHOTS="$W/shots" DANA="$DANA" RITA="$RITA" D="$D" PGPORT="$PGPORT" DB="$DB" \
 node - <<'JS' || fail "the browser check failed (screenshots in $W/shots)"
 const { chromium } = require(process.env.PW);
 const { BASE, CHROME, SHOTS, DANA, RITA, D } = process.env;
@@ -211,6 +213,54 @@ const ok = (cond, msg) => { if (!cond) throw new Error(msg); };
     await page.screenshot({ path: `${SHOTS}/8-released.png` });
     console.log('PASS: deleting the project from its page releases the contact, who can then be moved');
 
+    // --- the Deals board is the pipeline, and it keeps itself live --------
+    const deals = await context.newPage();
+    deals.on('pageerror', (e) => errors.push(e.message));
+    await deals.goto('/deals');
+    const dcol = (label) =>
+      deals.locator('section.board-col', {
+        has: deals.locator(':scope > header > span:first-child', { hasText: new RegExp(`^${esc(label)}$`) }),
+      });
+    const heads = await deals.locator('section.board-col > header > span:first-child').allTextContents();
+    const want = ['Survey', 'Design', 'Permits', 'Procurement', 'Install', 'Inspection & PTO', 'Complete', 'Hold', 'Cancelled'];
+    ok(JSON.stringify(heads) === JSON.stringify(want), `the deal board has ${JSON.stringify(heads)}`);
+    await dcol('Survey').locator('article.card', { hasText: 'Rita Record' }).waitFor();
+    // A mark on the window: if the tab reloads to catch up, the mark is gone.
+    await deals.evaluate(() => { window.__sameTab = true; });
+    await deals.screenshot({ path: `${SHOTS}/9-deals-board.png` });
+
+    // Put Rita's project on hold from its own page, in the other tab — the
+    // project team's everyday way to change it.
+    const ritaHref = await dcol('Survey').locator('article.card', { hasText: 'Rita Record' })
+      .locator('a.card-title').getAttribute('href');
+    ok(ritaHref.startsWith('/projects/'), `the admin's card does not open the project (${ritaHref})`);
+    await page.goto(ritaHref);
+    await page.locator('.header-actions').getByRole('button', { name: 'Put on hold' }).click();
+    const hold = page.getByRole('dialog');
+    await hold.getByRole('heading', { name: 'Put on hold' }).waitFor();
+    await hold.locator('select').first().selectOption({ index: 1 });
+    await hold.locator('textarea').first().fill('Waiting on the utility');
+    await hold.getByRole('button', { name: 'Put on hold' }).click();
+    await hold.waitFor({ state: 'detached', timeout: 10000 });
+    // The Deals tab shows it straight away — announced, not polled — and did
+    // not reload to do it.
+    const t0 = Date.now();
+    await dcol('Hold').locator('article.card', { hasText: 'Rita Record' }).waitFor({ timeout: 5000 });
+    ok(await deals.evaluate(() => window.__sameTab === true), 'the Deals tab reloaded to catch up');
+    console.log(`PASS: a project change in another tab shows on the Deals board within ${Date.now() - t0}ms, no reload`);
+
+    // Somebody else's change, made where no tab of ours can announce it: the
+    // Deals board picks it up on its poll.
+    require('child_process').execSync(
+      `psql -h 127.0.0.1 -p ${process.env.PGPORT} -U postgres -d ${process.env.DB} -qtA -c ` +
+        `"update public.projects set status = 'active', stage = 'design' where name = 'Rita Record'"`
+    );
+    const t1 = Date.now();
+    await dcol('Design').locator('article.card', { hasText: 'Rita Record' }).waitFor({ timeout: 15000 });
+    ok(await deals.evaluate(() => window.__sameTab === true), 'the Deals tab reloaded to catch up');
+    await deals.screenshot({ path: `${SHOTS}/10-deals-live.png` });
+    console.log(`PASS: a change made elsewhere reaches the open Deals board on its own, in ${Date.now() - t1}ms`);
+
     ok(errors.length === 0, `the page threw: ${errors.join(' | ')}`);
   } catch (e) {
     await page.screenshot({ path: `${SHOTS}/failure.png`, fullPage: true }).catch(() => {});
@@ -229,5 +279,7 @@ JS
 [ "$(q "select count(*) from public.projects where client_id='$DANA'")" = 0 ] || fail "Dana's project was not deleted"
 [ "$(q "select c.contact_stage || '|' || d.stage || '|' || p.system_size_kw || '|' || p.address from public.clients c join public.deals d on d.client_id=c.id join public.projects p on p.id=d.project_id where c.id='$RITA'")" \
   = "contract_signed|won|6.000|4 Beam Road" ] || fail "Rita's signing from the record did not make her project"
+[ "$(q "select stage || '|' || status from public.projects where name='Rita Record'")" = "design|active" ] \
+  || fail "Rita's project is not where the boards last showed it"
 pass "the database holds exactly what was typed into the forms"
 echo "CONTRACT-SIGNED UI CHECKS PASSED"

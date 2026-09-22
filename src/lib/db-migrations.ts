@@ -75,7 +75,10 @@ const PROBE_SQL = `select
            -- by name said "applied" to databases that still had it.
            (select count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
              where n.nspname = 'public' and p.proname = 'sign_contact'
-               and 'signed_project_id' = any(p.proargnames)) as m_004100`;
+               and 'signed_project_id' = any(p.proargnames)) as m_004100,
+           (select count(*) from pg_policy
+             where polrelid = 'public.projects'::regclass
+               and polname = 'projects_select_via_deal')     as m_004200`;
 
 export interface MigrationState {
   applied: Record<string, boolean>;
@@ -124,6 +127,7 @@ export async function migrationState(client: PoolClient): Promise<MigrationState
     '20260803003900_contract_signed_system.sql': Number(p.m_003900) === 1,
     '20260803004000_project_holds_contact.sql': Boolean(p.m_004000),
     '20260803004100_signing_creates_project.sql': Number(p.m_004100) === 1,
+    '20260803004200_sales_see_deal_projects.sql': Number(p.m_004200) === 1,
   };
   const behind = Object.entries(applied)
     .filter(([, present]) => !present)

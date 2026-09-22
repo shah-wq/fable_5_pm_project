@@ -5402,16 +5402,20 @@ a.btn {
   cursor: default;
 }
 
-/* The deal board and the contact board: eight columns each, all of them on an
-   ordinary 1440-wide laptop screen, widening to fill anything bigger, and
-   scrolling sideways only below that. At that width a card is about 130px, so
-   its contents wrap rather than run out of it — the stage badges drop to a
-   line of their own, and a long address or email breaks inside the card. */
+/* The deal board and the contact board — nine columns and eight — all of them
+   on an ordinary 1440-wide laptop screen, widening to fill anything bigger,
+   and scrolling sideways only below that. At that width a card is about
+   120–130px, so its contents wrap rather than run out of it — the badges drop
+   to a line of their own, and a long address or email breaks inside the card. */
 .deal-board,
 .contact-board {
   grid-auto-columns: minmax(126px, 1fr);
   gap: 8px;
   padding-bottom: 8px;
+}
+
+.deal-board {
+  grid-auto-columns: minmax(116px, 1fr);
 }
 
 .deal-board .board-col,

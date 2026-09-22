@@ -6,6 +6,14 @@ import { useEffect, useRef, useState } from 'react';
 import { STAGES, STAGE_LABELS, stageIndex, type StageKey } from '@/lib/stages/definitions';
 import { HOLD_REASONS, CANCELLATION_REASONS } from '@/lib/stages/fields';
 import type { ProjectCard } from '@/lib/stages/service';
+import { announceProjectsChanged, onProjectsChanged } from '@/lib/projects/live';
+
+/**
+ * How often an open board re-reads while its tab is visible. Short enough that
+ * a move made by somebody else shows up while you are still looking; a hidden
+ * tab does not poll at all, and catches up the moment it is shown again.
+ */
+const LIVE_REFRESH_MS = 10_000;
 
 interface ToastState {
   kind: 'error' | 'ok';
@@ -25,8 +33,29 @@ type SideState = { card: ProjectCard; kind: SideKind };
  * rejection); a drop on Hold/Cancelled opens a reason dialog and bypasses
  * validation; admins can drag one stage back with a logged reason — including
  * back out of Complete, which reopens the project.
+ *
+ * The same board is the Deals board, over the projects deals became, so the two
+ * can never disagree about where a job is. It keeps itself live: a move in
+ * another tab arrives at once, anybody else's within LIVE_REFRESH_MS.
  */
-export function Board({ cards, isAdmin }: { cards: ProjectCard[]; isAdmin: boolean }) {
+export function Board({
+  cards,
+  isAdmin,
+  className,
+  readOnly = false,
+}: {
+  cards: ProjectCard[];
+  isAdmin: boolean;
+  /** Extra board class — the Deals board's full-width column sizing. */
+  className?: string;
+  /**
+   * Shown, not moved: a sales rep following their sales through delivery. The
+   * project team moves projects; offering a drag the server will refuse is a
+   * board that looks broken. Cards open the deal rather than the project page
+   * the rep cannot see.
+   */
+  readOnly?: boolean;
+}) {
   const router = useRouter();
   const [dragging, setDragging] = useState<ProjectCard | null>(null);
   const [rejectedColumn, setRejectedColumn] = useState<string | null>(null);
@@ -37,12 +66,21 @@ export function Board({ cards, isAdmin }: { cards: ProjectCard[]; isAdmin: boole
   const reasonRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    const interval = setInterval(() => router.refresh(), 30_000);
-    const onFocus = () => router.refresh();
-    window.addEventListener('focus', onFocus);
+    const refresh = () => router.refresh();
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') refresh();
+    }, LIVE_REFRESH_MS);
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') refresh();
+    };
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', onVisible);
+    const stop = onProjectsChanged(refresh);
     return () => {
       clearInterval(interval);
-      window.removeEventListener('focus', onFocus);
+      window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', onVisible);
+      stop();
     };
   }, [router]);
 
@@ -64,6 +102,7 @@ export function Board({ cards, isAdmin }: { cards: ProjectCard[]; isAdmin: boole
       if (res.ok) {
         setToast({ kind: 'ok', title: `${card.name} moved` });
         router.refresh();
+        announceProjectsChanged();
         return true;
       }
       setToast({
@@ -79,7 +118,7 @@ export function Board({ cards, isAdmin }: { cards: ProjectCard[]; isAdmin: boole
   }
 
   function onDrop(column: string) {
-    if (!dragging || busy) return;
+    if (!dragging || busy || readOnly) return;
     const card = dragging;
     setDragging(null);
 
@@ -132,7 +171,7 @@ export function Board({ cards, isAdmin }: { cards: ProjectCard[]; isAdmin: boole
 
   return (
     <>
-      <div className="board" role="list">
+      <div className={`board${className ? ` ${className}` : ''}`} role="list">
         {columns.map((col) => {
           const columnCards = cards.filter((c) => c.column === col.key);
           return (
@@ -151,11 +190,15 @@ export function Board({ cards, isAdmin }: { cards: ProjectCard[]; isAdmin: boole
                   <article
                     key={card.id}
                     className={`card${card.column === 'hold' ? ' on-hold' : ''}${card.column === 'cancelled' ? ' cancelled' : ''}`}
-                    draggable={!busy}
+                    draggable={!busy && !readOnly}
                     onDragStart={() => setDragging(card)}
                     onDragEnd={() => setDragging(null)}
                   >
-                    <Link href={`/projects/${card.id}`} className="card-title" draggable={false}>
+                    <Link
+                      href={readOnly && card.dealId ? `/deals/${card.dealId}` : `/projects/${card.id}`}
+                      className="card-title"
+                      draggable={false}
+                    >
                       {card.name}
                     </Link>
                     <div className="card-sub">{card.address ?? card.code}</div>

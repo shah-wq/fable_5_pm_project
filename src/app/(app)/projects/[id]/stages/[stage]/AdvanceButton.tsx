@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { announceProjectsChanged } from '@/lib/projects/live';
 
 /**
  * The green button at the bottom of every stage form. Disabled until the
@@ -37,6 +38,7 @@ export function AdvanceButton({
       });
       const json = await res.json().catch(() => null);
       if (res.ok) {
+        announceProjectsChanged();
         router.push(`/projects/${projectId}`);
         router.refresh();
         return;

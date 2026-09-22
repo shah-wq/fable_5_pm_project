@@ -76,12 +76,13 @@ H=$(curl -s "$BASE/api/health")
 python3 - "$H" <<'PY'
 import json, sys
 behind = json.loads(sys.argv[1])['migrations']['behind']
-assert behind == ['20260803004100_signing_creates_project.sql'], f'health says behind: {behind}'
+assert behind == ['20260803004100_signing_creates_project.sql',
+                  '20260803004200_sales_see_deal_projects.sql'], f'health says behind: {behind}'
 print('BEHIND-OK', behind)
 PY
 curl -s -b "$JAR" "$BASE/admin/database" | sed -e 's/<!--[^>]*-->//g' -e 's/<[^>]*>//g' | tr -s ' \n' ' ' \
-  | grep -q "1 migration is missing" || fail "Admin → Database does not say one migration is missing"
-pass "a database with the first sign_contact is reported one file behind, and named"
+  | grep -q "2 migrations are missing" || fail "Admin → Database does not say which migrations are missing"
+pass "a database with the first sign_contact is reported behind on the file that fixes it, by name"
 
 # --- 2. signing says why it cannot ---------------------------------------
 CODE=$(sign)
@@ -97,7 +98,8 @@ CODE=$(curl -s -o "$W/apply.json" -w '%{http_code}' -X POST -b "$JAR" "$BASE/api
 python3 - "$W/apply.json" <<'PY'
 import json, sys
 j = json.load(open(sys.argv[1]))
-assert [a['file'] for a in j['applied']] == ['20260803004100_signing_creates_project.sql'], j
+assert [a['file'] for a in j['applied']] == ['20260803004100_signing_creates_project.sql',
+                                           '20260803004200_sales_see_deal_projects.sql'], j
 assert all(a['ok'] for a in j['applied']), j
 assert j['behind'] == [], j
 print('APPLIED-OK')
