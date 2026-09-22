@@ -28,15 +28,18 @@
     <tbody>
       <tr><td class="k">db/tests/rls_verification.sql</td><td>The role-access matrix: each role sees exactly its rows.</td></tr>
       <tr><td class="k">db/tests/auth_flows.sql</td><td>Sessions, lockout, one-time codes, invites, recovery, upload-grant expiry and revocation.</td></tr>
-      <tr><td class="k">npm run test:unit</td><td>62 unit tests: route access truth table, drift classification and more.</td></tr>
+      <tr><td class="k">npm run test:unit</td><td>67 unit tests: route access truth table, drift classification, stage attachments, webhook signatures and more.</td></tr>
       <tr><td class="k">e2e/crm-foundation.sh</td><td>The CRM scripts apply over live data; channels, lifecycle, leads becoming deals, re-runnable.</td></tr>
       <tr><td class="k">e2e/people.sh</td><td>People screen and contact page; lifecycle filter; duplicate detection on any channel; web enquiries with no invented attribution; deletion and suppression of subscription-only prospects; one activity log.</td></tr>
       <tr><td class="k">e2e/contact-intake.sh</td><td>The contact form's exact fields; one save split between person and deal; documents on the deal; the deal picker; Create Contact and its required rules.</td></tr>
       <tr><td class="k">e2e/contact-stages.sh</td><td>The eight stages, any-to-any moves, signing, the project hold, admin deletion.</td></tr>
       <tr><td class="k">e2e/deals.sh</td><td>Deal rules, proposals, Won creates the project, the live board, sales visibility.</td></tr>
       <tr><td class="k">e2e/apply-migrations.sh</td><td>Admin → Database applies missing files, admin-only, idempotent, reports refusals.</td></tr>
-      <tr><td class="k">e2e/schema-behind.sh</td><td>Every screen loads with the database stopped at each of 13 earlier states.</td></tr>
+      <tr><td class="k">e2e/schema-behind.sh</td><td>Every screen loads with the database stopped at each of 16 earlier states.</td></tr>
       <tr><td class="k">e2e/signing-upgrade.sh</td><td>A database with the first signing function is detected and fixed by Apply.</td></tr>
+      <tr><td class="k">e2e/stage-attachments.sh</td><td>Every stage form offers its attachments; advancing is refused by name until they are there; old Drive Updated ticks still count; the report field agrees.</td></tr>
+      <tr><td class="k">e2e/esign.sh</td><td>Against a PandaDoc stand-in: templates required, validation before sending, forged webhooks refused, signing as the sender, idempotent completion, change orders by webhook-less Check status, manual approval and void, PandaDoc's own errors, and a browser pass.</td></tr>
+      <tr><td class="k">e2e/assistant.sh</td><td>Against a Claude API stand-in: the request (model, thinking, fallbacks, caching), tools per role, a dealer seeing only their book, PM report, project details, report runs, refusals and errors, logging, and a browser pass of the panel.</td></tr>
       <tr><td class="k">e2e/contract-signed-ui.sh</td><td>In a real browser: the signing popup, the hold, deletion, and live Deals/Pipeline updates.</td></tr>
     </tbody>
   </table>
@@ -51,6 +54,8 @@
       <tr><td class="k">SMTP_HOST · SMTP_PORT · SMTP_USER · SMTP_PASS · SMTP_SECURE · EMAIL_FROM</td><td>Outgoing email.</td></tr>
       <tr><td class="k">VAPID_PUBLIC_KEY · VAPID_PRIVATE_KEY · VAPID_SUBJECT</td><td>Web push (generate with <code>npm run make:vapid</code>).</td></tr>
       <tr><td class="k">CRON_SECRET</td><td>Authorises the scheduled reminders endpoint.</td></tr>
+      <tr><td class="k">PANDADOC_API_KEY · PANDADOC_WEBHOOK_KEY</td><td>E-signature: the PandaDoc API key, and the shared key that signs its webhooks (both Sensitive).</td></tr>
+      <tr><td class="k">ANTHROPIC_API_KEY · ASSISTANT_MODEL · ASSISTANT_EFFORT</td><td>Ask SolarFlow: the Claude API key (Sensitive); optional model (default claude-opus-5) and effort (default medium).</td></tr>
       <tr><td class="k">PRIVACY_REQUEST_EMAIL</td><td>Where account-deletion requests are sent.</td></tr>
       <tr><td class="k">EMAIL_DEV_LOG</td><td>Development only: log emails instead of sending.</td></tr>
     </tbody>
@@ -81,7 +86,9 @@
       <tr><td class="k">AHJ</td><td>Authority having jurisdiction: the city or county that issues the permit and inspects.</td></tr>
       <tr><td class="k">Contact stage</td><td>Where a person stands in the sale (created → signed / lost). Belongs to the contact.</td></tr>
       <tr><td class="k">Deal stage</td><td>The opportunity's own stages (New → Contract out → Won / Lost).</td></tr>
-      <tr><td class="k">Drive Updated</td><td>The gate closing each stage: the job's shared drive has the stage's documents.</td></tr>
+      <tr><td class="k">Attachments</td><td>The files that close each stage (survey photos, plan set, permit approvals…); a project advances only when the required ones are on it. Replaced the old "Drive Updated" tick.</td></tr>
+      <tr><td class="k">Envelope</td><td>One document sent for e-signature through PandaDoc, with its status (preparing, sent, viewed, completed, declined, voided, failed).</td></tr>
+      <tr><td class="k">Change order</td><td>A signed change to the contract: reason, amount and signature; once signed or approved, the amount is part of the contract value.</td></tr>
       <tr><td class="k">Energization</td><td>The system switched on and producing; monitoring active.</td></tr>
       <tr><td class="k">HDM NTP</td><td>Notice to proceed from the finance partner before installation.</td></tr>
       <tr><td class="k">HOA</td><td>Homeowners' association approval, where the property has one.</td></tr>

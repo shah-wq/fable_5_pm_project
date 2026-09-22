@@ -1,0 +1,93 @@
+<section class="chapter" data-no="2" data-title="Stage attachments (replacing Drive Updated)">
+  <span class="mk">@@C2@@</span>
+  <div class="kicker">Chapter 2</div>
+  <h1>Stage attachments</h1>
+  <p class="lede">"Drive Updated" was a promise that the files were somewhere else. Attachments are the files themselves, on the project, where the gate, the reports, the assistant and every future automation can see them.</p>
+
+  <h2>What each stage asks for</h2>
+  <table>
+    <thead><tr><th class="w18">Stage</th><th>Required to advance</th><th class="w30">Optional</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Survey</td><td>Site survey photos</td><td>Survey report</td></tr>
+      <tr><td class="k">Design</td><td>Plan set (PDF)</td><td>Stamped plans</td></tr>
+      <tr><td class="k">Permits</td><td>Permit approval · ICA approval · HOA approval (not when the HOA track is N/A)</td><td>NTP approval</td></tr>
+      <tr><td class="k">Procurement</td><td>Delivery confirmation</td><td>Purchase order</td></tr>
+      <tr><td class="k">Install</td><td>—</td><td>Install sign-off (install pictures stay on the form's own field)</td></tr>
+      <tr><td class="k">Inspection &amp; PTO</td><td>Inspection report · PTO letter</td><td>Monitoring activation</td></tr>
+      <tr><td class="k">Complete</td><td>—</td><td>Completion certificate / final documents</td></tr>
+    </tbody>
+  </table>
+
+  <h2>The rules</h2>
+  <ul>
+    <li><strong>The gate names the file.</strong> A refused advance says exactly what is missing ("Site survey photos not attached"), in the same words on the board, the project page and the stage form.</li>
+    <li><strong>Old projects are not asked twice.</strong> A stage closed under the old Drive Updated tick counts as complete. The tick is kept in the database but is no longer offered.</li>
+    <li><strong>Hidden from the homeowner by default,</strong> like every other document. The PM can share a file from the project's Customer panel.</li>
+    <li><strong>Reports agree with the gate.</strong> The report fields that used to read "Drive Updated (S1…S6)" now read "Attachments complete (S1…S6)", and "Final documents attached" for Complete. They are computed by the same rule the gate uses, old ticks included.</li>
+  </ul>
+  <div class="callout tip"><span class="t">Why this matters for automation</span><p>With the files on the project, a document reader (chapter 9) can open the plan set or the PTO letter, pull out the facts, and close the stage without anyone opening a folder. A tick box never offered that.</p></div>
+
+  <h2>A fix that came with it</h2>
+  <p>Testing showed that every stage-form upload had been failing: the upload function stored the file's kind as text in a column typed as a list of kinds. Migration <strong>004300</strong> fixes it, as a new file, because a database that already has the original would never see an edit to it.</p>
+</section>
+
+<section class="chapter" data-no="3" data-title="E-signature for contracts">
+  <span class="mk">@@C3@@</span>
+  <div class="kicker">Chapter 3</div>
+  <h1>E-signature for contracts</h1>
+  <p class="lede">The contract now goes to the homeowner from the signing form, and their signature is what creates the project.</p>
+
+  <h2>The flow</h2>
+  <div class="flow">
+    <div class="step b"><b>1 · Signing form</b>Drop a contact into Contract signed, or choose it on the record. Dealer, site and system, pre-filled.</div>
+    <div class="step b"><b>2 · Send</b><em>Send for e-signature…</em> Signer pre-filled. Email it, or sign on this screen.</div>
+    <div class="step"><b>3 · Checked first</b>The same three things signing needs (dealer, site address, system size) are checked before PandaDoc is called.</div>
+    <div class="step"><b>4 · Out for signature</b>PandaDoc builds the document from the template with the form's figures. The contact stays in place and shows <em>Awaiting e-signature</em>.</div>
+    <div class="step g"><b>5 · Signed</b>PandaDoc's webhook arrives. Signing runs as the rep who sent it: project created at Survey, contact held, signed PDF filed.</div>
+  </div>
+
+  <h2>Two ways to sign</h2>
+  <div class="grid2">
+    <div class="card"><h4>By email</h4><p>PandaDoc emails the homeowner a link. The rep's work is done at <em>Send</em>. The contact record lists the envelope with its status (sent, opened, signed) and a <em>Check status</em> button.</p></div>
+    <div class="card"><h4>On this screen</h4><p>For a kitchen-table close. The document is sent silently and PandaDoc's signing screen opens inside SolarFlow. When the homeowner finishes, the page asks the server to confirm with PandaDoc, and the project appears.</p></div>
+  </div>
+
+  <h2>What protects it</h2>
+  <table class="t-compact">
+    <thead><tr><th class="w30">Risk</th><th>What happens</th></tr></thead>
+    <tbody>
+      <tr><td class="k">A forged "signed" notice</td><td>The webhook is accepted only with PandaDoc's HMAC-SHA256 signature over the exact body, checked in constant time. A missing key refuses everything.</td></tr>
+      <tr><td class="k">The same signature arriving three times</td><td>Webhook retries, on-screen signing and <em>Check status</em> may all report it. The first applies it; the rest change nothing.</td></tr>
+      <tr><td class="k">No webhook configured</td><td><em>Check status</em> asks PandaDoc directly and applies the result. The webhook is recommended, not required.</td></tr>
+      <tr><td class="k">Signed, but it cannot apply</td><td>The signed PDF is kept regardless; the envelope shows the reason and <em>Finish</em> runs it again. A contact signed by hand meanwhile just gets the PDF on their project.</td></tr>
+      <tr><td class="k">Two contracts out at once</td><td>Refused: one open envelope per contact. <em>Void</em> withdraws the old one in PandaDoc too.</td></tr>
+      <tr><td class="k">The sender has since left</td><td>A webhook acts as the sender, with their permissions and name. If they are deactivated, the envelope waits for <em>Check status</em>.</td></tr>
+    </tbody>
+  </table>
+
+  <p class="small"><strong>Statuses:</strong> <span class="pill planned">Preparing</span> <span class="pill planned">Sent</span> <span class="pill planned">Opened</span> <span class="pill live">Signed</span> <span class="pill gap">Declined</span> <span class="pill gap">Voided</span> <span class="pill gap">Failed</span> (PandaDoc refused, in its own words). A signed envelope not yet applied shows in red with <em>Finish</em>.</p>
+</section>
+
+<section class="chapter" data-no="4" data-title="Change orders">
+  <span class="mk">@@C4@@</span>
+  <div class="kicker">Chapter 4</div>
+  <h1>Change orders</h1>
+  <p class="lede">A change to a signed contract (a main panel upgrade, fewer panels, a critter guard) is now a record with a number, a reason, an amount and a signature, and the contract value follows it.</p>
+
+  <h2>On the project page</h2>
+  <ol>
+    <li><strong>Raise:</strong> <em>+ New change order</em> with a reason, details and the change to the contract value (negative for a credit). Tick whether the homeowner must sign. It takes the company's next number (Admin → Settings: CO prefix and counter).</li>
+    <li><strong>Send for e-signature:</strong> by email or on screen, as for contracts. Its status becomes <em>Out for signature</em>.</li>
+    <li><strong>Or approve by hand:</strong> <em>Signed on paper — approve</em>, or <em>Approve</em> for one that needs no signature. Admin and ops only.</li>
+    <li><strong>Void</strong> a draft or pending one. An approved change order cannot be voided; raise a new one to reverse it, so the history stays true.</li>
+  </ol>
+
+  <h2>When it is signed or approved</h2>
+  <ul>
+    <li>The amount is added to the project's contract value, once, in the same database statement that approves it.</li>
+    <li>The signed PDF is filed on the project and linked from the change order.</li>
+    <li>The activity log records the change order, its number, its amount and whether it came through PandaDoc or by hand.</li>
+    <li>A homeowner who declines leaves it <em>Declined</em>, and it can be revised and sent again.</li>
+  </ul>
+  <div class="callout"><span class="t">Where this goes next</span><p>Today a person raises the change order. Chapter 11 recommends raising it automatically when the final design differs from the signed system, so the homeowner gets it minutes after the designer finishes.</p></div>
+</section>

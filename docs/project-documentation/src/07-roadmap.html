@@ -15,7 +15,7 @@
       <tr><td class="k">Appointment reminders &amp; no-show recovery</td><td>24 h and 2 h reminders with a reschedule link; a no-show moves the card to No-show and starts a rebooking sequence; rebooking moves it to Rescheduled.</td><td>Reminder calls, moving cards</td></tr>
       <tr><td class="k">Stage-based nurture</td><td>Quoted → follow-ups on days 1, 3, 7, 14; Lost → re-engagement at 90 days; each tied to the contact's stage.</td><td>Follow-up tracking</td></tr>
       <tr><td class="k">Financing status sync</td><td>Lender application link sent from the deal; lender webhook/API (e.g. GoodLeap, Mosaic, Sunlight, LightReach) → Financing approved, amount and terms written to the deal.</td><td>Checking lender portals</td></tr>
-      <tr><td class="k">E-signature → signing</td><td>Contract sent from the deal; the e-signature platform's "completed" webhook → the existing signing step runs with the proposal's system, the signed PDF filed on the deal, and the project created.</td><td>The whole signing step</td></tr>
+      <tr><td class="k">E-signature → signing <span class="pill live">Built</span></td><td>Contract sent through PandaDoc from the signing form; the "completed" webhook runs the existing signing step with the system that was sent, files the signed PDF and creates the project. Next: send it automatically when a deal reaches Financing approved.</td><td>The whole signing step</td></tr>
       <tr><td class="k">Proposal import</td><td>Design tool (e.g. Aurora, OpenSolar) proposal published → a new proposal version on the deal with system, price and production.</td><td>Copying proposal figures</td></tr>
     </tbody>
   </table>
@@ -58,7 +58,7 @@
   <h1>Future AI integrations</h1>
   <p class="lede">Where judgement, reading or language is involved and rules alone cannot finish the job. For each capability: what the AI does, where its answer goes, how far it can act alone, and where a person stays in the loop.</p>
 
-  <div class="callout"><span class="t">Recommended model approach</span><p>Use a hosted model family through one server-side integration, for example the Anthropic Claude API: a capable general model (e.g. Claude Sonnet 5) for drafting, reasoning and document reading, a fast low-cost model (e.g. Claude Haiku 4.5) for high-volume classification and routing, and vision input for photos and scanned documents. Pair it with solar data services: Google Solar API or aerial imagery providers (e.g. EagleView, Nearmap) for roof geometry and sunlight, and NREL PVWatts for production estimates. Every AI result is written through the same API and database rules as a person's.</p></div>
+  <div class="callout"><span class="t">Recommended model approach</span><p>Use one server-side integration with the Anthropic Claude API, as Ask SolarFlow already does: Claude Opus 5 for reasoning, drafting and reading documents; a cheaper model (Claude Sonnet 5 or Claude Haiku 4.5) only for high-volume classification and routing, once measured against the same examples; and vision input for photos and scanned documents. Pair it with solar data services: Google Solar API or aerial imagery providers (e.g. EagleView, Nearmap) for roof geometry and sunlight, and NREL PVWatts for production estimates. Every AI result is written through the same API and database rules as a person's.</p></div>
 
   <h2>Sales &amp; customer</h2>
   <table>
@@ -134,7 +134,7 @@
     <thead><tr><th class="w18">Phase</th><th class="w14">When</th><th>Scope</th></tr></thead>
     <tbody>
       <tr><td class="k">0 · Switch on</td><td>Weeks 0–2</td><td>Schedule the reminders job; fix the database hosting (integration, default branch, backups, rotated password); confirm email and push configuration; add CI for the test suites; fit the Pipeline board to the screen.</td></tr>
-      <tr><td class="k">1 · Connect</td><td>Months 1–2</td><td>SMS provider; self-booking calendar; speed-to-lead sequence; e-signature webhook into signing; lender status sync; monitoring platform API; report schedule runner; staff two-factor sign-in.</td></tr>
+      <tr><td class="k">1 · Connect</td><td>Months 1–2</td><td>SMS provider; self-booking calendar; speed-to-lead sequence; e-signature (built — switch on); lender status sync; monitoring platform API; report schedule runner; staff two-factor sign-in.</td></tr>
       <tr><td class="k">2 · AI drafts (L2)</td><td>Months 2–4</td><td>Utility-bill reader; document classification; conversation summaries; homeowner copilot drafting replies; survey and install photo QA flags; preliminary design drafts.</td></tr>
       <tr><td class="k">3 · AI acts (L3)</td><td>Months 4–8</td><td>Copilot answers routine status questions itself; permit/interconnection monitoring writes statuses; survey auto-scheduling; evidence-based auto-advance; adders and quotes below a price limit; cancellation-risk outreach.</td></tr>
       <tr><td class="k">4 · Near zero-touch (L4)</td><td>Months 8–12</td><td>AI appointment setter; permit packet submission where portals allow; purchase orders; install scheduling optimisation; forecasting; auto-merge of high-confidence duplicates.</td></tr>

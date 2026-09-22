@@ -145,3 +145,11 @@ dl.facts dd { margin: 0; }
 .nobreak { break-inside: avoid; }
 .pagebreak { break-before: page; }
 hr.soft { border: 0; border-top: .6pt solid var(--line); margin: 10pt 0; }
+
+/* recommendation tables (blueprint) */
+table.rec td:first-child { width: 23%; }
+table.rec td:last-child { width: 22%; }
+.rk { font-weight: 700; color: var(--navy); display: block; margin-bottom: 2pt; }
+.rid { font-weight: 800; color: var(--amber); margin-right: 3pt; }
+.tags { display: block; margin-top: 2pt; }
+.tags .pill { margin-right: 2pt; }

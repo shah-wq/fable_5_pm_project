@@ -1,6 +1,11 @@
-// Builds SolarFlow-PM-Project-Documentation.pdf from ./src.
+// Builds the PDFs in this folder:
 //
 //   PLAYWRIGHT_CORE=/path/to/node_modules/playwright-core node docs/project-documentation/build.mjs
+//   DOC=blueprint PLAYWRIGHT_CORE=… node docs/project-documentation/build.mjs
+//
+// DOC=main (the default) builds SolarFlow-PM-Project-Documentation.pdf from ./src;
+// DOC=blueprint builds SolarFlow-AI-Automation-Blueprint.pdf from ./blueprint,
+// with the same stylesheet and fonts.
 //
 // Needs Chromium (the one Playwright uses) and Python 3 with pypdf. Two passes:
 // the first renders the body and finds the page each chapter and module landed
@@ -14,8 +19,23 @@ import { fileURLToPath } from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '../..');
-const src = path.join(here, 'src');
-const out = path.join(here, 'SolarFlow-PM-Project-Documentation.pdf');
+const DOCS = {
+  main: {
+    dir: 'src', css: 'style.css', out: 'SolarFlow-PM-Project-Documentation.pdf',
+    title: 'SolarFlow PM — Complete Project Documentation', footer: 'SolarFlow PM · Complete project documentation',
+    subject: 'Modules, automations, AI integration, status, roadmap and best practices',
+  },
+  blueprint: {
+    dir: 'blueprint', css: '../src/style.css', out: 'SolarFlow-AI-Automation-Blueprint.pdf',
+    title: 'SolarFlow PM — E-signature, Ask SolarFlow & the AI and Automation Blueprint',
+    footer: 'SolarFlow PM · New features &amp; AI and automation blueprint',
+    subject: 'PandaDoc e-signature, change orders, stage attachments, the AI assistant, and recommendations to reduce manual work',
+  },
+};
+const doc = DOCS[process.env.DOC || 'main'];
+if (!doc) throw new Error(`unknown DOC: ${process.env.DOC} (main or blueprint)`);
+const src = path.join(here, doc.dir);
+const out = path.join(here, doc.out);
 const require = createRequire(import.meta.url);
 const pwPath = process.env.PLAYWRIGHT_CORE || require.resolve('playwright-core');
 const { chromium } = require(pwPath);
@@ -88,15 +108,15 @@ for (let m; (m = re.exec(body)); ) {
   else entries.push({ key: m[3], no: m[3], title: m[4], sub: true });
 }
 
-const page = (inner) => `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>SolarFlow PM — Project Documentation</title>
-<link rel="stylesheet" href="style.css"><style>.mk{position:absolute;font-size:1px;line-height:1px;color:#fff}</style></head><body>${inner}</body></html>`;
+const page = (inner) => `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${doc.title}</title>
+<link rel="stylesheet" href="${doc.css}"><style>.mk{position:absolute;font-size:1px;line-height:1px;color:#fff}</style></head><body>${inner}</body></html>`;
 
 function tocHtml(pages) {
   return entries.map((e) => `<div class="e${e.sub ? ' sub' : ''}"><span class="no">${e.sub ? e.no : esc(e.no)}</span><span class="ti">${e.title}</span><span class="pg">${pages[e.key] ?? ''}</span></div>`).join('');
 }
 
 const footer = `<div style="width:100%;padding:0 16mm;font-family:Inter,'Liberation Sans',sans-serif;font-size:7.5px;color:#8a93a3;display:flex;justify-content:space-between">
-<span>SolarFlow PM · Complete project documentation</span><span><span class="pageNumber"></span> / <span class="totalPages"></span></span></div>`;
+<span>${doc.footer}</span><span><span class="pageNumber"></span> / <span class="totalPages"></span></span></div>`;
 
 const browser = await chromium.launch({ executablePath: CHROME });
 const tab = await browser.newPage();
@@ -147,9 +167,9 @@ from pypdf import PdfReader, PdfWriter
 w = PdfWriter()
 for f in sys.argv[1:3]:
     for p in PdfReader(f).pages: w.add_page(p)
-w.add_metadata({'/Title': 'SolarFlow PM — Complete Project Documentation', '/Author': 'SolarFlow PM', '/Subject': 'Modules, automations, AI integration, status, roadmap and best practices'})
+w.add_metadata({'/Title': sys.argv[4], '/Author': 'SolarFlow PM', '/Subject': sys.argv[5]})
 with open(sys.argv[3], 'wb') as fh: w.write(fh)
-print(len(w.pages), 'pages')`, coverPdf, bodyPdf, out], { stdio: 'inherit' });
+print(len(w.pages), 'pages')`, coverPdf, bodyPdf, out, doc.title, doc.subject], { stdio: 'inherit' });
 fs.unlinkSync(coverPdf);
 fs.unlinkSync(bodyPdf);
 console.log('wrote', path.relative(root, out));

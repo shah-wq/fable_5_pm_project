@@ -2,7 +2,7 @@
   <span class="mk">@@C13@@</span>
   <div class="kicker">Chapter 13</div>
   <h1>Work completed to date</h1>
-  <p class="lede">85 commits between 3 August and 22 September 2026, grouped here by what they delivered. Each module shipped with its database migration, its screens and, from the CRM onwards, an automated test suite.</p>
+  <p class="lede">90 commits between 3 August and 22 September 2026, grouped here by what they delivered. Each module shipped with its database migration, its screens and, from the CRM onwards, an automated test suite.</p>
 
   <table>
     <thead><tr><th class="w18">Dates</th><th class="w25">Delivered</th><th>Detail</th></tr></thead>
@@ -17,12 +17,13 @@
       <tr><td class="k">17 Sep</td><td>Contacts &amp; database</td><td>Contact fields separated from deal (solar) fields; Contact stages board; tooling to diagnose and catch up a database; then the application applying its own migrations from Admin → Database; contact record as a full page.</td></tr>
       <tr><td class="k">18 Sep</td><td>Stages &amp; deployment</td><td>The eight business contact stages, full width, any-to-any; pill-button tabs; contact owner defaults to the creator; Lost in red; deployment fixes (per-branch Neon provisioning, TLS behaviour documented).</td></tr>
       <tr><td class="k">22 Sep</td><td>Signing &amp; deals</td><td>Contract signed opens the system form; signing creates the project and holds the contact; admin project delete; signing fix for databases with the first version; Deals board full width, then the project stages, live with Pipeline; sales reps see their deals' projects.</td></tr>
+      <tr><td class="k">22 Sep</td><td>Attachments, e-signature, assistant</td><td>Stage attachments replace Drive Updated (and a fix for stage-form uploads); PandaDoc e-signature for contracts and change orders with a change-order panel; sales reps can choose a dealer; Ask SolarFlow, the AI assistant.</td></tr>
     </tbody>
   </table>
 
   <h2>Quality work that shipped alongside</h2>
   <ul>
-    <li><strong>Test suites:</strong> RLS matrix and auth flows (SQL); end-to-end suites for the CRM foundation, people, deals, contact intake, contact stages, migration apply, every "database behind" state, the signing upgrade path, and a real-browser suite for signing, the hold, deletion and live boards; 62 unit tests.</li>
+    <li><strong>Test suites:</strong> RLS matrix and auth flows (SQL); end-to-end suites for the CRM foundation, people, deals, contact intake, contact stages, migration apply, every "database behind" state, the signing upgrade path, stage attachments, e-signature against a PandaDoc stand-in, the assistant against a Claude API stand-in, and real-browser passes for signing, the hold, deletion, live boards, sending a contract and the assistant panel; 67 unit tests.</li>
     <li><strong>Diagnosability:</strong> health endpoint, drift-aware screens, errors in PostgreSQL's own words, a branch fingerprint to confirm which database a deployment talks to.</li>
     <li><strong>Documentation:</strong> README, auth design, RLS matrix, mobile store submission guide, deployment guide, and this document.</li>
   </ul>
@@ -58,7 +59,8 @@
       <tr><td class="k">Returning customers</td><td>A completed project still holds its contact in Contract signed; a second sale needs the rule relaxed for complete/cancelled projects.</td><td><span class="pill planned">Decision</span></td></tr>
       <tr><td class="k">Earlier signed contacts</td><td>Contacts signed before automatic project creation have no project; convert them from the Deals table.</td><td><span class="pill partial">One-off</span></td></tr>
       <tr><td class="k">SMS</td><td>The activity log knows the "sms" kind but nothing sends or receives SMS.</td><td><span class="pill gap">Gap</span></td></tr>
-      <tr><td class="k">E-signature</td><td>Contract signed is recorded by a person; no DocuSign/PandaDoc-style capture or webhook.</td><td><span class="pill gap">Gap</span></td></tr>
+      <tr><td class="k">E-signature</td><td>Built (M27). Needs the PandaDoc API key, the two templates and the webhook set up (chapter 14 of the blueprint document).</td><td><span class="pill partial">Set up</span></td></tr>
+      <tr><td class="k">Ask SolarFlow</td><td>Built (M28). Needs <code>ANTHROPIC_API_KEY</code>; answers only — it cannot yet take actions.</td><td><span class="pill partial">Set up</span></td></tr>
       <tr><td class="k">External integrations</td><td>No connections yet to utilities, permitting portals, lenders, design tools, distributors or monitoring platforms.</td><td><span class="pill gap">Gap</span></td></tr>
       <tr><td class="k">Staff two-factor sign-in</td><td>Passwords with lockout only; admins and ops should have a second factor.</td><td><span class="pill gap">Gap</span></td></tr>
       <tr><td class="k">Continuous integration</td><td>The test suites run by hand; add a GitHub Actions workflow with a Postgres service to run them on every push. The browser suite needs <code>playwright-core</code> added as a dev dependency.</td><td><span class="pill gap">Gap</span></td></tr>

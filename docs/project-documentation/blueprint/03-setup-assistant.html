@@ -1,0 +1,110 @@
+<section class="chapter" data-no="5" data-title="Setting up PandaDoc">
+  <span class="mk">@@C5@@</span>
+  <div class="kicker">Chapter 5</div>
+  <h1>Setting up PandaDoc</h1>
+  <p class="lede">About half an hour, once. Until it is done the signing form simply does not offer e-signature, and everything else works as before.</p>
+
+  <h2>Steps</h2>
+  <table>
+    <thead><tr><th style="width:5%">#</th><th class="w25">Step</th><th>How</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td class="k">Check the plan</td><td>API access and webhooks need a PandaDoc plan that includes the API. Confirm this with PandaDoc before building templates.</td></tr>
+      <tr><td>2</td><td class="k">Apply the SQL</td><td>SolarFlow → Admin → Database → <em>Apply</em> (migrations 004400 and 004500).</td></tr>
+      <tr><td>3</td><td class="k">API key</td><td>PandaDoc → Settings → Integrations → API → a production key. Vercel → Environment Variables → <code>PANDADOC_API_KEY</code>, <strong>Sensitive</strong>. Redeploy.</td></tr>
+      <tr><td>4</td><td class="k">Contract template</td><td>Your installation agreement as a template with one signer role, <code>Client</code> (or your name for it, set in step 6), and tokens where the figures go, e.g. <code>[System.SizeKw]</code>. The list is below.</td></tr>
+      <tr><td>5</td><td class="k">Change-order template</td><td>The same, with change-order tokens such as <code>[ChangeOrder.Amount]</code>.</td></tr>
+      <tr><td>6</td><td class="k">Tell SolarFlow</td><td>Admin → Settings → E-signature: each template's ID (the end of its address in PandaDoc) and the signer role. The page shows whether the keys are set.</td></tr>
+      <tr><td>7</td><td class="k">Webhook</td><td>PandaDoc → Integrations → Webhooks: the URL shown in Admin → Settings, event <strong>Document state changed</strong>. Its shared key goes in Vercel as <code>PANDADOC_WEBHOOK_KEY</code> (Sensitive). Redeploy.</td></tr>
+      <tr><td>8</td><td class="k">Try it</td><td>Send a contract to yourself from a test contact and sign it; the project appears.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Fields the templates can use</h2>
+  <div class="grid2">
+    <div class="card"><h4>Contract</h4><p class="mono" style="font-size:7.8pt">Client.FirstName · Client.LastName · Client.Email · Client.Phone · Project.Address · Dealer.Name · Company.Name · System.SizeKw · System.ModuleQuantity · System.BatteryQuantity · Contract.Value · Contract.GrossPrice · Contract.DownPayment · Contract.AmountFinanced</p></div>
+    <div class="card"><h4>Change order</h4><p class="mono" style="font-size:7.8pt">Client.FirstName · Client.LastName · Client.Email · Project.Code · Project.Address · Company.Name · ChangeOrder.Number · ChangeOrder.Reason · ChangeOrder.Description · ChangeOrder.Amount · Contract.CurrentValue · Contract.NewValue</p></div>
+  </div>
+  <p class="small">Money arrives formatted ($24,500.00). A token with no value is left out, so the template's own default text shows.</p>
+
+  <h2>Who can do what</h2>
+  <table class="t-compact">
+    <thead><tr><th class="w30">Action</th><th>Roles</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Send a contract; check, sign here, void</td><td>Admin, ops, sales: the people who can sign a contact by hand.</td></tr>
+      <tr><td class="k">Raise, send, approve or void a change order</td><td>Admin and ops (the project team). Sales reps cannot see change-order envelopes at all.</td></tr>
+      <tr><td class="k">Choose templates</td><td>Admin.</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section class="chapter" data-no="6" data-title="Ask SolarFlow — the assistant">
+  <span class="mk">@@C6@@</span>
+  <div class="kicker">Chapter 6</div>
+  <h1>Ask SolarFlow</h1>
+  <p class="lede">A question box on every staff and dealer screen. It answers from the live database, with the asking person's own permissions, in a few seconds. It is the first AI in the product that people use directly, and the base the later chapters build on.</p>
+
+  <h2>What people ask it</h2>
+  <table class="t-compact">
+    <thead><tr><th class="w18">Role</th><th>Typical questions</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Admin · PM</td><td>"Give me the PM report." "Which projects are stuck in Permits, and why?" "What is blocking installs this week?" "Which customers are unhappy right now?" "What is still missing on PRJ-1A2B3C4D?"</td></tr>
+      <tr><td class="k">Finance</td><td>"Pipeline value by stage." "Projects completed this quarter and the average days to complete." "Contract value by dealer for projects signed this year."</td></tr>
+      <tr><td class="k">Sales</td><td>"Who is quoted but not contacted in 7 days?" "My deal pipeline by stage." "Which of my signed customers are in Survey?"</td></tr>
+      <tr><td class="k">Dealer</td><td>"Where are all my projects?" "Which of mine are on hold, and why?" "What is still missing on my projects in Design?"</td></tr>
+    </tbody>
+  </table>
+
+  <h2>How it answers</h2>
+  <p>The assistant is Claude Opus 5, given the question and a set of tools. It decides which lookups to run (often several at once), reads the results and writes the answer, with each project's code linked to its page. It runs up to eight rounds of lookups for a hard question. Progress shows while it works ("Building the PM report…").</p>
+  <table>
+    <thead><tr><th class="w22">Tool</th><th>Reads</th><th class="w22">Offered to</th></tr></thead>
+    <tbody>
+      <tr><td class="k">find_projects</td><td>Projects with stage, days in stage, ageing past the threshold, what is missing to advance, PM, dealer, customer, unread customer messages, open follow-ups. Filters by stage, status, PM, dealer, customer, jurisdiction, ageing or blocked.</td><td>Everyone</td></tr>
+      <tr><td class="k">project_details</td><td>One project in full: people, system, stage history with dates, missing items, change orders, documents, open requests to the customer, ratings, recent activity.</td><td>Everyone</td></tr>
+      <tr><td class="k">pm_report</td><td>Per PM: active and on-hold counts, ageing, blocked and why, messages waiting, follow-ups, and each project.</td><td>Admin, ops</td></tr>
+      <tr><td class="k">dashboard_summary</td><td>The dashboard for a period: headline numbers, projects per stage, the needs-attention lists, PM workload.</td><td>Admin, ops, finance</td></tr>
+      <tr><td class="k">run_report</td><td>The report builder itself: columns, group-by, sums and averages, filters, with that role's field list and money rules.</td><td>Admin, ops, finance</td></tr>
+      <tr><td class="k">find_contacts · find_deals</td><td>Contacts by stage, owner and days since contact; deals with value, probability and next action, plus value per stage.</td><td>Admin, ops, sales</td></tr>
+      <tr><td class="k">customer_feedback</td><td>Ratings per stage and party, response rates, recent comments.</td><td>Admin, ops</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section class="chapter" data-no="7" data-title="Ask SolarFlow — security, cost and limits">
+  <span class="mk">@@C7@@</span>
+  <div class="kicker">Chapter 7</div>
+  <h1>Security, cost and limits</h1>
+
+  <h2>Why it cannot leak</h2>
+  <div class="grid2">
+    <div class="card"><h4>Same permissions as the screens</h4><p>Every tool reads through the asker's own database session, so row-level security decides what comes back. A dealer asking about "all projects" gets their own book. Asking by another dealer's project code returns "no project you can see".</p></div>
+    <div class="card"><h4>Read-only</h4><p>No tool writes. Asked to move or change something, it says where in the app to do it. Chapter 15 describes how actions could be added safely.</p></div>
+    <div class="card"><h4>Offered only what the role has</h4><p>Sales is not offered the dashboard, and dealers get two tools. Money fields follow the report builder's rules, so a contract value reaches only admin, ops and finance.</p></div>
+    <div class="card"><h4>Safe on the page</h4><p>Answers render as formatted text built element by element; no HTML from the model reaches the page. A link is live only if it points inside SolarFlow.</p></div>
+  </div>
+  <ul>
+    <li><strong>Logged:</strong> every question is written to the activity log (<code>assistant.asked</code>) with who asked, which tools ran, the time taken and the tokens used. The answers are not stored.</li>
+    <li><strong>Limited:</strong> 40 questions per person per hour. Tool results are capped in size, so a runaway query cannot flood the model.</li>
+    <li><strong>Refusals:</strong> server-side fallbacks are on. If the model's safety filter declines a request, the API retries it on the model Anthropic recommends for that case, and a final refusal becomes a polite sentence.</li>
+    <li><strong>Conversation:</strong> kept in the browser tab only, and sent with each question. Closing the tab forgets it.</li>
+  </ul>
+
+  <h2>Cost</h2>
+  <p>Claude Opus 5 costs $5 per million input tokens and $25 per million output tokens; the fixed instructions are cached at a tenth of that. A typical question runs one or two lookups.</p>
+  <table class="t-compact">
+    <thead><tr><th class="w30">Usage (estimate)</th><th>Approximate cost</th></tr></thead>
+    <tbody>
+      <tr><td class="k">One simple question</td><td>About 2–5 US cents</td></tr>
+      <tr><td class="k">A PM report or a multi-step question</td><td>About 5–15 US cents</td></tr>
+      <tr><td class="k">20 people × 10 questions a working day</td><td>About $10–30 a day, $200–600 a month</td></tr>
+    </tbody>
+  </table>
+  <p class="small">These are estimates. The activity log records the real tokens for every question, so after a week the actual figure can be read off (a report on <code>assistant.asked</code>). Two settings trade quality for cost: <code>ASSISTANT_EFFORT</code> (default <code>medium</code>; <code>low</code> is faster and cheaper, <code>high</code> is more thorough) and <code>ASSISTANT_MODEL</code>. Test a cheaper model on your own real questions before switching.</p>
+
+  <h2>Limits today</h2>
+  <ul>
+    <li>It reads, and does not act.</li>
+    <li>A project list covers the 300 most recent; the report builder has no such limit.</li>
+    <li>It knows what the database knows: a permit status nobody entered cannot be found (chapters 9 and 12 fix that at the source). A long question can take up to 120 seconds on Vercel.</li>
+  </ul>
+</section>

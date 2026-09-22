@@ -16,36 +16,36 @@
   <p class="lede">SolarFlow PM is one system for the whole life of a residential solar sale, from the first contact to a completed installation. Office staff, sales reps, dealers, designers, finance and the homeowner all work in it.</p>
 
   <div class="grid4" style="margin-bottom:8pt">
-    <div class="stat"><div class="n">26</div><div class="l">Modules</div></div>
+    <div class="stat"><div class="n">28</div><div class="l">Modules</div></div>
     <div class="stat"><div class="n">7</div><div class="l">User roles</div></div>
     <div class="stat"><div class="n">53</div><div class="l">Screens</div></div>
-    <div class="stat"><div class="n">64</div><div class="l">API endpoints</div></div>
-    <div class="stat"><div class="n">88</div><div class="l">Database tables</div></div>
-    <div class="stat"><div class="n">190</div><div class="l">Security policies</div></div>
-    <div class="stat"><div class="n">43</div><div class="l">Schema migrations</div></div>
-    <div class="stat"><div class="n">85</div><div class="l">Commits shipped</div></div>
+    <div class="stat"><div class="n">70</div><div class="l">API endpoints</div></div>
+    <div class="stat"><div class="n">89</div><div class="l">Database tables</div></div>
+    <div class="stat"><div class="n">191</div><div class="l">Security policies</div></div>
+    <div class="stat"><div class="n">46</div><div class="l">Schema migrations</div></div>
+    <div class="stat"><div class="n">90</div><div class="l">Commits shipped</div></div>
   </div>
 
   <h2>What it does today</h2>
   <ul>
     <li><strong>Sells.</strong> A CRM of every contact, with duplicate detection across every email and phone on file, and a Contact stages board from first contact to signed or lost.</li>
-    <li><strong>Signs.</strong> Contract signed records the system sold and creates the project in one step; the project then holds the contact in place.</li>
+    <li><strong>Signs.</strong> Contract signed records the system sold and creates the project in one step, signed on screen or sent through PandaDoc; change orders are signed the same way and update the contract value.</li>
     <li><strong>Delivers.</strong> A seven-stage pipeline (Survey to Complete, plus Hold and Cancelled) with a form per stage; a project cannot advance with paperwork missing.</li>
     <li><strong>Serves the homeowner.</strong> A plain-language portal and iOS/Android app: current stage and its typical duration, chat with their PM, uploads, push, and a rating after every stage.</li>
-    <li><strong>Serves dealers and measures.</strong> A dealer portal (own projects, leads, commissions), a live dashboard, and a report builder with Excel/CSV export.</li>
+    <li><strong>Serves dealers, measures and answers.</strong> A dealer portal, a live dashboard, a report builder with Excel/CSV export, and Ask SolarFlow, an AI assistant answering from live data.</li>
   </ul>
 
   <h2>Where it stands</h2>
   <p>The delivery pipeline, portals, mobile app, chat, feedback, dashboard, reports and the core CRM are built and covered by automated tests. The platform runs on plain PostgreSQL (Neon) and Vercel. The application applies its own database migrations from <strong>Admin → Database</strong>, so no SQL console is needed.</p>
   <div class="callout warn">
     <span class="t">The honest position on AI</span>
-    <p>There are no AI model calls in the product yet. The foundation is in place: tables built for AI quoting, booking, adders and vendor quotes, and an exceptions queue for low-confidence AI output. Chapters 12, 16 and 17 set out what to build on it.</p>
+    <p>One AI feature is live: Ask SolarFlow, which answers but does not act. The foundation for more is in place (tables for AI quoting, booking, adders and vendor quotes, and an exceptions queue for low-confidence output). Chapters 12, 16–17 and the separate AI &amp; Automation Blueprint set out what to build on it.</p>
   </div>
 
   <h2>The three most valuable next steps</h2>
   <ol>
-    <li><strong>Turn on the automation that is already written.</strong> Install reminders, quiet-hours chat delivery and the unanswered-message digest run from one endpoint, but no schedule calls it. Adding a cron entry is a one-line change (chapter 14).</li>
-    <li><strong>Automate the paperwork bottleneck with AI.</strong> Utility-bill and document extraction, permit-packet assembly, and permit/interconnection status tracking remove the most repetitive office work, and the stage forms already have typed columns ready for the answers (chapter 16).</li>
+    <li><strong>Turn on the automation that is already written.</strong> Reminders, quiet-hours delivery and the digest run from one endpoint that no schedule calls yet; a cron entry is a one-line change (chapter 14).</li>
+    <li><strong>Automate the paperwork bottleneck with AI.</strong> Document extraction, permit-packet assembly and permit/interconnection tracking remove the most repetitive office work; the stage forms already have typed columns for the answers (chapter 16).</li>
     <li><strong>Close the loop on speed-to-lead.</strong> Instant, automated first response and appointment booking on every new contact. This is the single largest driver of close rate in residential solar (chapter 19).</li>
   </ol>
 </section>

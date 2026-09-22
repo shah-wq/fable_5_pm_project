@@ -64,7 +64,7 @@
 
   <div class="module"><span class="num">M07</span><span class="name">Stage forms</span><span class="pill live">Live</span></div>
   <p class="meta">Migration 001400 · /projects/[id]/stages/[stage] · lib/stages/fields.ts</p>
-  <p>A data-entry form per stage, with typed columns for every field, so later automation needs no schema work. "Days" fields are computed from dates at read time, never stored. Every stage closes on a <strong>Drive Updated</strong> gate.</p>
+  <p>A data-entry form per stage, with typed columns for every field, so later automation needs no schema work. "Days" fields are computed from dates at read time, never stored. Every stage closes on its <strong>Attachments</strong> card: the stage's required files must be on the project before it can advance (this replaced the old "Drive Updated" tick; stages closed under the tick stay closed).</p>
   <table class="t-compact">
     <thead><tr><th class="w18">Stage</th><th>What it records</th></tr></thead>
     <tbody>
@@ -74,7 +74,8 @@
       <tr><td class="k">Procurement</td><td>Procurement manager, material status, requested/delivered dates, PM notes.</td></tr>
       <tr><td class="k">Install</td><td>Install manager, status, requested/scheduled/completed dates, install pictures.</td></tr>
       <tr><td class="k">Inspection &amp; PTO</td><td>Inspection status, failed-inspection notes, requested/completed dates; PTO status, applied/received dates; monitoring / system energization status and date.</td></tr>
-      <tr><td class="k">Complete</td><td>Total project days, completion status and date, completion notes, final Drive Updated.</td></tr>
+      <tr><td class="k">Complete</td><td>Total project days, completion status and date, completion notes, final documents attached.</td></tr>
+      <tr><td class="k">Attachments</td><td>Survey: site survey photos*, survey report · Design: plan set*, stamped plans · Permits: permit approval*, ICA approval*, HOA approval* (not when HOA is N/A), NTP · Procurement: delivery confirmation*, purchase order · Install: install sign-off · Inspection &amp; PTO: inspection report*, PTO letter*, monitoring activation · Complete: completion certificate / final documents. <span class="small">* required to advance</span></td></tr>
       <tr><td class="k">Payments</td><td>Down payment and Cash M1–M3 (not requested → requested → initiated → received); Finance M1/M2 labelled by partner (not submitted → submitted → approved / rejected), stored once per project.</td></tr>
     </tbody>
   </table>

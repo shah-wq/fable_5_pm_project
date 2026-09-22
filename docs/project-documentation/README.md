@@ -1,9 +1,15 @@
 # SolarFlow PM — project documentation
 
-`SolarFlow-PM-Project-Documentation.pdf` is the complete write-up of the platform:
-every module, the automations running today, the AI foundation, the work done,
-the open items, the roadmap to zero-touch automation and AI, best practice for
-solar operations, CRM and security, and KPIs.
+Two PDFs, built from this folder:
+
+- `SolarFlow-PM-Project-Documentation.pdf`: the complete write-up of the
+  platform. It covers every module, the automations running today, the AI
+  features, the work done, the open items, the roadmap, best practice for solar
+  operations, CRM and security, and KPIs. Sources are in `src/`.
+- `SolarFlow-AI-Automation-Blueprint.pdf`: the new features (stage attachments,
+  PandaDoc e-signature and change orders, Ask SolarFlow) and how to switch them
+  on, then 48 prioritised AI and automation recommendations, the journey touch by
+  touch, the roadmap, cost, risk and your checklist. Sources are in `blueprint/`.
 
 ## Rebuilding
 
@@ -13,6 +19,7 @@ time, so they cannot drift from the code.
 
 ```sh
 PLAYWRIGHT_CORE=/path/to/node_modules/playwright-core node docs/project-documentation/build.mjs
+DOC=blueprint PLAYWRIGHT_CORE=/path/to/node_modules/playwright-core node docs/project-documentation/build.mjs
 ```
 
 Needs Chromium (`CHROME=` to override the path) and Python 3 with `pypdf`. The

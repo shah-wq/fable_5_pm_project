@@ -9,7 +9,7 @@
     <div class="step b"><b>1 · Contact arrives</b>Create Contact, a dealer lead, or a web form. Duplicates caught on every channel; owner set to the creator.</div>
     <div class="step b"><b>2 · Appointment</b>Scheduled, rescheduled or no-show on Contact stages; every move logged.</div>
     <div class="step b"><b>3 · Quote &amp; finance</b>Deal with versioned proposals; financing approved.</div>
-    <div class="step g"><b>4 · Contract signed</b>Signing form, then system recorded, project created at Survey, contact held.</div>
+    <div class="step g"><b>4 · Contract signed</b>Signed on screen or through PandaDoc; system recorded, project created at Survey, contact held, signed PDF filed.</div>
   </div>
   <h2>Delivery</h2>
   <div class="flow">
@@ -19,7 +19,7 @@
     <div class="step"><b>8 · Procurement</b>Material ordered and delivered.</div>
     <div class="step"><b>9 · Install</b>Scheduled; 48 h and 24 h reminders; photos uploaded.</div>
     <div class="step"><b>10 · Inspection &amp; PTO</b>Inspection passed; utility PTO; "power on" push.</div>
-    <div class="step g"><b>11 · Complete</b>Total days, final Drive Updated, last rating.</div>
+    <div class="step g"><b>11 · Complete</b>Total days, final documents attached, last rating.</div>
   </div>
   <p>At every step: the homeowner sees the current stage in plain language with its typical duration; the PM sees cards ageing against thresholds; the dealer sees the project move in their portal; each stage change is written to history and the activity log; and the dashboard and reports reflect it immediately.</p>
 
@@ -50,6 +50,10 @@
       <tr><td class="k">A contact is created</td><td>Normalises and indexes every email and phone; checks all channels for duplicates; sets the contact owner to the creator; stamps who created it; creates the first deal only if deal fields were filled; composes the mailing line; starts the stage clock.</td></tr>
       <tr><td class="k">A contact changes stage</td><td>Restarts the days-in-stage clock (only on a real change); writes the move and its direction to the activity log.</td></tr>
       <tr><td class="k">A contact is signed</td><td>Creates a deal if there is none; writes the system onto it; moves the contact; converts the deal into a project at Survey with system, brands, quantities and contract value; links the deal's documents to the project; marks the deal Won; puts the dealer on the contact; locks the contact in Contract signed.</td></tr>
+      <tr><td class="k">A contract is signed in PandaDoc</td><td>Verifies the signature; runs signing as the sender; files the signed PDF; ignores retries.</td></tr>
+      <tr><td class="k">A change order is signed or approved</td><td>Adds its amount to the contract value once; links the signed PDF.</td></tr>
+      <tr><td class="k">A stage-form attachment is uploaded</td><td>Files it under the stage's category, hidden from the homeowner; the gate counts it at once.</td></tr>
+      <tr><td class="k">Someone asks Ask SolarFlow</td><td>Runs the lookups under their permissions and logs the question.</td></tr>
       <tr><td class="k">A deal is won (deal board)</td><td>Refuses without a signed contract; creates the project in the same transaction; carries contract, specification and documents; flips the person to customer.</td></tr>
       <tr><td class="k">A dealer lead is converted</td><td>Creates the client and project prefilled from the lead; links it back for the dealer; invites the homeowner.</td></tr>
       <tr><td class="k">A project is created</td><td>Seeds commission from the dealer's defaults; auto-invites the homeowner with a 7-day set-password link; fixes the originating dealer so reporting cannot drift.</td></tr>
@@ -95,7 +99,8 @@
   <span class="mk">@@C12@@</span>
   <div class="kicker">Chapter 12</div>
   <h1>AI integration — current state</h1>
-  <p class="lede">The product contains no calls to an AI model today. That was deliberate: phase one made the data right first, because AI working on wrong or scattered data is worse than no AI. The schema was designed from day one so that phase two needs no database redesign. Chapter 16 lists each AI capability to add; chapter 17 orders them into phases.</p>
+  <p class="lede">The first AI feature is live: <strong>Ask SolarFlow</strong> (M28). The rest below is foundation: the data was made right first, and the schema needs no redesign for what follows. Chapters 16–17 and the separate <em>AI &amp; Automation Blueprint</em> set out the next steps.</p>
+
 
   <h2>AI-ready foundations already in the database</h2>
   <table>

@@ -1,0 +1,63 @@
+<section class="chapter" data-no="8" data-title="Principles and the automation backbone">
+  <span class="mk">@@C8@@</span>
+  <div class="kicker">Chapter 8</div>
+  <h1>Principles and the automation backbone</h1>
+  <p class="lede">Cutting human work does not mean trusting a model with everything. It means building a system that does the routine work itself, knows when it is unsure, and puts those cases in front of a person with everything needed to decide in one click.</p>
+
+  <h2>Seven rules, and the idea behind them</h2>
+  <div class="grid2">
+    <div class="card"><h4>1 · Plain automation first, AI second</h4><p>If a rule can decide it (a date passed, a file arrived, a status changed), a rule decides it. AI is for reading documents, understanding messages and drafting, where rules cannot reach. Rules are cheaper, faster and never surprising.</p></div>
+    <div class="card"><h4>2 · The database is the guardrail</h4><p>Automations act through the same functions and permissions as a person. The stage gate, the hold, the won-deal lock and row-level security refuse an automation exactly as they would refuse a PM. Nothing gets a back door.</p></div>
+    <div class="card"><h4>3 · Confidence decides who acts</h4><p>Every AI result carries a confidence score. Above the line, the system acts. Below it, the result goes to the <em>exceptions</em> queue (the table already exists) as a suggestion a person accepts, edits or rejects. The line is set per task, and moves as accuracy is proven.</p></div>
+    <div class="card"><h4>4 · Evidence, not assertion</h4><p>A stage advances because a document proves the milestone (the PTO letter with its date) and the fact is recorded with a link to that document. Anyone can see why the system did what it did.</p></div>
+    <div class="card"><h4>5 · Every action is logged and reversible</h4><p>Automations write to the same activity log as people, under a named system actor, with the rule or model that acted and its confidence. A wrong move is undone like any other.</p></div>
+    <div class="card"><h4>6 · Idempotent and retry-safe</h4><p>Webhooks repeat, jobs rerun and networks fail. Every job can run twice without doing anything twice. The e-signature completion is the pattern to copy.</p></div>
+    <div class="card"><h4>7 · Measured before it is trusted</h4><p>Each AI task has a test set of real, labelled examples (fifty bills, fifty permits). A task runs on its own only once it passes on that set, and the set is re-run whenever the model or the prompt changes.</p></div>
+    <div class="card"><h4>Human on the loop, not in it</h4><p>People stop being the transport between systems (reading an email and typing it into a form) and become the reviewers of the few cases the system flags. The PM's day starts from the exceptions list, not from the inbox.</p></div>
+  </div>
+
+  <h2>Autonomy levels</h2>
+  <table class="t-compact">
+    <thead><tr><th class="w14">Level</th><th class="w25">Name</th><th>What the system does</th></tr></thead>
+    <tbody>
+      <tr><td class="k">L0</td><td>Manual</td><td>People do it; the system records it. (Much of the pipeline today.)</td></tr>
+      <tr><td class="k">L1</td><td>Assisted</td><td>The system reminds, checks and answers questions. (Stage gates, reminders, Ask SolarFlow.)</td></tr>
+      <tr><td class="k">L2</td><td>Drafts</td><td>The system prepares the work: fields filled from a document, a reply drafted. A person approves it.</td></tr>
+      <tr><td class="k">L3</td><td>Acts, flags doubt</td><td>The system acts on high-confidence cases and routes the rest to exceptions.</td></tr>
+      <tr><td class="k">L4</td><td>Zero-touch</td><td>The system handles the whole step. People see a summary and the rare exception.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>The backbone to build first</h2>
+  <p>Five shared pieces that every later recommendation reuses. They are not features anyone will see, but without them each automation would be built from scratch.</p>
+  <table class="rec">
+    <thead><tr><th>Piece</th><th>What it is</th><th>Why</th></tr></thead>
+    <tbody>
+      <tr><td><span class="rk"><span class="rid">B1</span>Scheduler &amp; job queue</span><span class="tags"><span class="pill live">High</span><span class="pill planned">S</span></span></td><td>Vercel Cron calling the existing <code>/api/push/reminders</code> every few minutes, plus a small job table (<code>jobs</code>: kind, payload, run_at, attempts, last_error) processed by the same cron. Jobs are idempotent and retried with backoff.</td><td>Install reminders, the quiet-hours flush, the PM digest and report schedules are already written and simply never run.</td></tr>
+      <tr><td><span class="rk"><span class="rid">B2</span>Event outbox &amp; webhook inbox</span><span class="tags"><span class="pill live">High</span><span class="pill planned">M</span></span></td><td>Database triggers write domain events (<code>project.stage_changed</code>, <code>document.uploaded</code>, <code>deal.stage_changed</code>) to an outbox table; the job queue fans them out to automations. Inbound webhooks (PandaDoc, lenders, monitoring, SMS replies) land in one verified inbox route.</td><td>Automations react to what happened instead of polling, and one event can drive several of them without coupling them together.</td></tr>
+      <tr><td><span class="rk"><span class="rid">B3</span>Exceptions queue screen</span><span class="tags"><span class="pill live">High</span><span class="pill planned">S</span></span></td><td>A screen over the existing <code>exceptions</code> table: what the system proposed, the evidence (the document, highlighted), its confidence, and Accept / Edit / Reject. Grouped by PM, with counts on the dashboard.</td><td>This is what lets automation act alone on the clear cases: the unclear ones have somewhere to go.</td></tr>
+      <tr><td><span class="rk"><span class="rid">B4</span>AI gateway</span><span class="tags"><span class="pill live">High</span><span class="pill planned">S</span></span></td><td>One server module (grown from <code>lib/assistant</code>) through which every model call passes: model choice per task, prompt caching, structured outputs validated against a schema, cost and latency logged per task, retries and fallbacks, and the per-task test sets.</td><td>One place to see spend, swap models and prove quality. No model call is scattered through the code.</td></tr>
+      <tr><td><span class="rk"><span class="rid">B5</span>Communications hub</span><span class="tags"><span class="pill live">High</span><span class="pill planned">M</span></span></td><td>SMS (e.g. Twilio) beside the existing email and push, with templates, consent and quiet hours in one place, and two-way SMS threaded into the project chat and the contact's activity log.</td><td>Most homeowner and lead contact happens by text. Speed-to-lead, reminders and the homeowner copilot all need it.</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section class="chapter" data-no="9" data-title="Documents and stage completion">
+  <span class="mk">@@C9@@</span>
+  <div class="kicker">Chapter 9</div>
+  <h1>Documents and stage completion</h1>
+  <p class="lede">Most of a PM's time goes on moving information from documents into forms. Now that every stage has its attachments (chapter 2), the documents are in one place for a machine to read.</p>
+
+  <table class="rec">
+    <thead><tr><th>Recommendation</th><th>How it works in SolarFlow</th><th>People after</th></tr></thead>
+    <tbody>
+      <tr><td><span class="rk"><span class="rid">D1</span>Classify every upload</span><span class="tags"><span class="pill live">High</span><span class="pill planned">S</span></span></td><td>On <code>document.uploaded</code>, a vision model reads the first pages and labels the file: permit approval, ICA, PTO letter, plan set, utility bill, inspection report, HOA letter, other. A mislabelled or generic upload (a homeowner's "photo") is refiled under the right stage category. A cheap model is enough here.</td><td>Nobody sorts files. Low-confidence labels go to exceptions.</td></tr>
+      <tr><td><span class="rk"><span class="rid">D2</span>Read the facts into the form</span><span class="tags"><span class="pill live">High</span><span class="pill planned">M</span></span></td><td>Per document type, a structured-output prompt extracts the fields the stage form already has as typed columns: permit number, issue and expiry dates, AHJ; ICA approval date; PTO date; inspection result and date; plan-set system size and module count. Values are written with <code>source = 'ai'</code>, the document linked, and a confidence score.</td><td>The PM reviews only fields below the confidence line, beside the highlighted document.</td></tr>
+      <tr><td><span class="rk"><span class="rid">D3</span>Evidence-based auto-advance</span><span class="tags"><span class="pill live">High</span><span class="pill planned">S</span></span></td><td>After D2 writes a fact, the job re-evaluates the stage (<code>evaluateStage</code>, the same gate people use). If nothing is missing and the evidence is high-confidence, the project advances, with a note naming the document that proved it. Configurable per stage, starting with Inspection &amp; PTO and Permits.</td><td>The PM stops clicking "advance". They see a feed of what moved and why.</td></tr>
+      <tr><td><span class="rk"><span class="rid">D4</span>Photo quality check</span><span class="tags"><span class="pill live">High</span><span class="pill planned">M</span></span></td><td>Survey and install photos are checked against a shot list (roof planes, main panel with the label legible, meter, attic, conduit run, inverter and labels, array complete). A missing or blurry shot is flagged while the crew is still on site, via SMS to the surveyor or installer.</td><td>No return visits for a missing photo. The PM sees only failures.</td></tr>
+      <tr><td><span class="rk"><span class="rid">D5</span>Missing-document chaser</span><span class="tags"><span class="pill partial">Medium</span><span class="pill planned">S</span></span></td><td>When a stage waits on a document only the homeowner, dealer or utility has (an HOA approval, a bill, the dealer code form), the system uses the existing <em>Ask the customer</em> feature, or emails the dealer, on a schedule: day 0, day 3, day 7, then a task for the PM.</td><td>The PM steps in only after the third reminder.</td></tr>
+      <tr><td><span class="rk"><span class="rid">D6</span>Expiry and validity watch</span><span class="tags"><span class="pill partial">Medium</span><span class="pill planned">S</span></span></td><td>Dates read by D2 (permit expiry, a lender approval's expiry, the NTP validity) are watched by B1. A warning goes to the PM 14 days before and a task 3 days before, with the project flagged on the board.</td><td>No expired permits found on install day.</td></tr>
+    </tbody>
+  </table>
+  <div class="callout tip"><span class="t">Why this comes first</span><p>D1–D3 turn every later integration into a source of documents. A permit portal that cannot be connected can still email a PDF, and once the PDF is read the stage completes itself. It is the widest-reaching change for the effort.</p></div>
+</section>

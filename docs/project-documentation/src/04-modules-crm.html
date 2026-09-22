@@ -1,4 +1,4 @@
-<section class="chapter" data-no="9" data-title="Modules — CRM &amp; sales (M21–M26)">
+<section class="chapter" data-no="9" data-title="Modules — CRM, signing &amp; assistant (M21–M28)">
   <span class="mk">@@C9@@</span>
   <div class="kicker">Chapter 9 · Module catalogue</div>
   <h1>CRM &amp; sales modules</h1>
@@ -83,4 +83,19 @@
   <div class="module"><span class="num">M26</span><span class="name">Subscribers</span><span class="pill partial">Partial</span></div>
   <p class="meta">/admin/subscribers · E-book subscribers</p>
   <p>The subscriber list, with the <strong>consent basis always visible</strong>, because that is the record produced if someone complains. Still to build: the sender, double opt-in confirmation and the preference page (chapter 14).</p>
+
+  <div class="module"><span class="num">M27</span><span class="name">E-signature &amp; change orders (PandaDoc)</span><span class="pill live">Live</span></div>
+  <p class="meta">Migrations 004400 · 004500 · lib/esign · /api/integrations/pandadoc/webhook</p>
+  <ul>
+    <li><strong>Contracts:</strong> the signing form offers <em>Send for e-signature</em>, by email or signed on screen with the homeowner present. The form is checked the way signing checks it before PandaDoc is called; nothing moves until the homeowner signs. When they sign, the same signing function runs with what was sent, as the rep who sent it: project created at Survey, contact held, signed PDF filed on the deal and the project.</li>
+    <li><strong>Change orders:</strong> raised on the project with a reason and an amount (numbered from the company's CO prefix and counter), sent through PandaDoc or approved by hand, voided while still a draft. Signed or approved, the amount is added to the contract value once, and the signed PDF is linked from the change order.</li>
+    <li><strong>Safety:</strong> webhooks need PandaDoc's HMAC signature; completion is idempotent; an outcome that cannot apply keeps its reason and a Finish button; one document out per subject. Contacts with a contract out show <em>Awaiting e-signature</em>.</li>
+  </ul>
+
+  <div class="module"><span class="num">M28</span><span class="name">Ask SolarFlow (AI assistant)</span><span class="pill live">Live</span></div>
+  <p class="meta">/api/assistant · lib/assistant · sidebar on every staff and dealer screen</p>
+  <ul>
+    <li>Plain-word questions ("give me the PM report", "which projects are stuck in Permits and why", "where are my projects") answered from live data, with links into the app.</li>
+    <li>Claude Opus 5 over eight read-only tools (projects, project details, dashboard, PM report, report builder, contacts, deals, feedback), offered per role and run under the asker's own permissions. Every question is logged.</li>
+  </ul>
 </section>
