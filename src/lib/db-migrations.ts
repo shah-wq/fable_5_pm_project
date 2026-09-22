@@ -66,8 +66,16 @@ const PROBE_SQL = `select
            (select count(*) from information_schema.columns
              where table_schema = 'public' and table_name = 'clients'
                and column_name = 'contact_stage')            as m_003800,
-           to_regprocedure('public.sign_contact(uuid,jsonb,uuid,text)')::text as m_003900,
-           to_regprocedure('public.delete_project(uuid,text)')::text as m_004000`;
+           (select count(*) from information_schema.columns
+             where table_schema = 'public' and table_name = 'deals'
+               and column_name = 'system_recorded_at')      as m_003900,
+           to_regprocedure('public.delete_project(uuid,text)')::text as m_004000,
+           -- By what it returns, not whether it exists: the first sign_contact
+           -- made no project and has the same name and arguments, and a probe
+           -- by name said "applied" to databases that still had it.
+           (select count(*) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+             where n.nspname = 'public' and p.proname = 'sign_contact'
+               and 'signed_project_id' = any(p.proargnames)) as m_004100`;
 
 export interface MigrationState {
   applied: Record<string, boolean>;
@@ -113,8 +121,9 @@ export async function migrationState(client: PoolClient): Promise<MigrationState
     '20260803003600_contact_intake.sql': Number(p.m_003600) === 1,
     '20260803003700_contact_create.sql': Boolean(p.m_003700),
     '20260803003800_contact_stages.sql': Number(p.m_003800) === 1,
-    '20260803003900_contract_signed_system.sql': Boolean(p.m_003900),
+    '20260803003900_contract_signed_system.sql': Number(p.m_003900) === 1,
     '20260803004000_project_holds_contact.sql': Boolean(p.m_004000),
+    '20260803004100_signing_creates_project.sql': Number(p.m_004100) === 1,
   };
   const behind = Object.entries(applied)
     .filter(([, present]) => !present)

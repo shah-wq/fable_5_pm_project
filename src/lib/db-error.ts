@@ -40,7 +40,7 @@ export function dbErrorResponse(error: unknown, action: string): NextResponse {
 
   const message = isSchemaDrift(error)
     ? `${action} failed because the database is missing part of a recent migration: ${detail} (${code}). ` +
-      `Run every db/dist/catch-up-*.sql in order in the SQL editor, then try again.`
+      `Open Admin → Database and click Apply, then try again.`
     : `${action} failed: ${detail} (${code}).`;
 
   return NextResponse.json({ error: message, dbCode: code }, { status: 500 });

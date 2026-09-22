@@ -1,7 +1,7 @@
 -- ============================================================================
 -- GENERATED FILE — do not edit. Rebuild with: node scripts/build-sql-bootstrap.mjs
 --
---   SolarFlow PM · catch-up 3 of 3 · newest migration: 20260803004000_project_holds_contact.sql
+--   SolarFlow PM · catch-up 3 of 3 · newest migration: 20260803004100_signing_creates_project.sql
 --
 -- Paste this whole file into a SQL console (e.g. the Neon SQL Editor) and run
 -- it. Safe to run more than once: every statement below skips work already
@@ -11,7 +11,7 @@
 -- Run the catch-up files in order, each as its own execution: catch-up-1.sql, catch-up-2.sql, catch-up-3.sql.
 -- Each break falls where one script adds a value to an enum and the next uses
 -- it, which PostgreSQL will not allow in a single transaction.
--- Includes: 20260803003400_crm_foundation.sql, 20260803003500_deals.sql, 20260803003600_contact_intake.sql, 20260803003700_contact_create.sql, 20260803003800_contact_stages.sql, 20260803003900_contract_signed_system.sql, 20260803004000_project_holds_contact.sql, migration bookkeeping
+-- Includes: 20260803003400_crm_foundation.sql, 20260803003500_deals.sql, 20260803003600_contact_intake.sql, 20260803003700_contact_create.sql, 20260803003800_contact_stages.sql, 20260803003900_contract_signed_system.sql, 20260803004000_project_holds_contact.sql, 20260803004100_signing_creates_project.sql, migration bookkeeping
 -- ============================================================================
 
 -- >>> 20260803003400_crm_foundation.sql
@@ -2281,15 +2281,13 @@ grant execute on function public.set_contact_stage(uuid, text, text) to authenti
 --
 -- So signing is a step rather than a drag. Moving somebody into Contract signed
 -- asks for the system there and then, records it on the deal, moves them, and
--- creates the project — so a signed contract becomes work for the install team
--- without anybody converting anything by hand. From that moment the contact
--- record shows the system. Before it, the contact record shows nothing about
--- systems at all, because there is nothing true to show.
+-- creates the project (004100). From that moment the contact record shows the
+-- system. Before it, the contact record shows nothing about systems at all,
+-- because there is nothing true to show.
 --
 -- The facts live on the deal, as they always have: a person with two
 -- properties signs two contracts. What this file adds is the marker that says
--- "this deal's system was recorded at signing", and the one function that
--- signs, so that there is exactly one way into the column.
+-- "this deal's system was recorded at signing".
 -- =============================================================================
 
 do $$
@@ -2334,13 +2332,221 @@ update public.deals d
    and d.system_size_kw is not null
    and d.system_recorded_at is null;
 
+-- The signing function itself is in 20260803004100_signing_creates_project.sql.
+-- It was first defined here, in a shape that made no project, and databases
+-- that took that shape report this file as applied — so the final version has
+-- a file of its own, which a database without it can see it is missing.
+
+
+
+-- >>> 20260803004000_project_holds_contact.sql
+
+-- =============================================================================
+-- The project holds the contact in place, until it is deleted
+-- =============================================================================
+-- 003900 makes signing record the system and create the project. This file
+-- adds what follows from there being a project: the contact stays in Contract
+-- signed. Moving somebody with a live installation back to Quoted, or out to
+-- Lost, would put the board and the job in disagreement about whether they are
+-- a customer — so the move is refused until the project is deleted, which is
+-- the one honest way to say "this sale did not happen after all".
+--
+-- Deleting a project is new here, and it is admin-only. It is not the same as
+-- cancelling one: a cancelled project is a job that stopped and stays on
+-- record; a deleted one is a sale that is being unwound. The deal's documents
+-- — the signed agreement, the bills — belong to the sale, and are kept.
+-- =============================================================================
+
+do $$
+begin
+  if not exists (select 1 from information_schema.columns
+                  where table_schema = 'public' and table_name = 'deals'
+                    and column_name = 'system_recorded_at') then
+    raise exception 'Run 20260803003900_contract_signed_system.sql first — it adds signing.'
+      using hint = 'Admin → Database → Apply runs every missing file in order.';
+  end if;
+end
+$$;
+
+-- -----------------------------------------------------------------------------
+-- The project a signed contact is held by
+-- -----------------------------------------------------------------------------
+/**
+ * The project made when this contact signed, if it still exists. Their newest
+ * signing wins where there is more than one. Null means nothing holds them.
+ *
+ * Only a signed deal counts — one whose system was recorded at signing. A
+ * returning customer whose project from five years ago came through the deal
+ * board is not held in place by it.
+ */
+create or replace function public.contact_project(p_client uuid)
+returns table (project_id uuid, project_code text)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select p.id, p.code
+    from public.deals d
+    join public.projects p on p.id = d.project_id
+   where d.client_id = p_client
+     and d.system_recorded_at is not null
+   order by d.system_recorded_at desc
+   limit 1;
+$$;
+
+revoke execute on function public.contact_project(uuid) from public, anon;
+grant execute on function public.contact_project(uuid) to authenticated;
+
+-- -----------------------------------------------------------------------------
+-- The hold
+-- -----------------------------------------------------------------------------
+/**
+ * A contact with a project cannot leave Contract signed.
+ *
+ * On the table rather than in the move function, because there are three ways
+ * to change a stage — the board, the Lead status box, and anything with SQL —
+ * and a rule that holds on two of them does not hold.
+ */
+create or replace function app.tg_client_stage_hold()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_code text;
+begin
+  if old.contact_stage = 'contract_signed'
+     and new.contact_stage is distinct from old.contact_stage then
+    select cp.project_code into v_code from public.contact_project(new.id) cp;
+    if v_code is not null then
+      raise exception 'this contact has a project (%) — delete the project before moving them out of Contract signed', v_code
+        using errcode = '55000',
+              hint = 'The project holds them in place. An admin can delete it from the project page.';
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists client_stage_hold on public.clients;
+create trigger client_stage_hold before update of contact_stage on public.clients
+  for each row execute function app.tg_client_stage_hold();
+
+-- -----------------------------------------------------------------------------
+-- Deleting a project
+-- -----------------------------------------------------------------------------
+/**
+ * Unwind a sale: the project goes, and the deal is open again.
+ *
+ * Admin-only, and the project's code has to be typed to confirm — this takes
+ * the project's stages, tasks, messages and forms with it, and there is no
+ * undo. What it keeps:
+ *
+ *   · the deal's documents. They were filed against the deal and only gained
+ *     the project relation at conversion; the signed agreement belongs to the
+ *     sale, not to the job. Documents filed against the project alone go with
+ *     it.
+ *   · the deal, reopened at Contract out with its system intact, and no longer
+ *     Won — a won deal with no project is the state the conversion exists to
+ *     prevent.
+ *   · the activity log, which is not tied to the project row.
+ *
+ * The contact stays in Contract signed, and can now be moved.
+ */
+create or replace function public.delete_project(p_project uuid, p_confirm text)
+returns uuid
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v public.projects%rowtype;
+  v_deals uuid[];
+begin
+  if not app.is_admin() then
+    raise exception 'only an admin may delete a project' using errcode = '42501';
+  end if;
+
+  select * into v from public.projects p where p.id = p_project for update;
+  if not found then
+    raise exception 'that project no longer exists' using errcode = 'P0002';
+  end if;
+  if p_confirm is distinct from v.code then
+    raise exception 'type the project code % to confirm', v.code using errcode = '22023';
+  end if;
+
+  update public.documents d set project_id = null
+   where d.project_id = p_project and d.deal_id is not null;
+
+  select coalesce(array_agg(d.id), '{}') into v_deals
+    from public.deals d where d.project_id = p_project;
+  update public.deals d
+     set project_id = null, stage = 'contract_out', won_at = null
+   where d.project_id = p_project;
+  -- The one reference that would otherwise refuse the delete: a dealer
+  -- submission that was converted to this project. The submission stays; it
+  -- just no longer points at a project that is not there.
+  update public.deals d set converted_project_id = null
+   where d.converted_project_id = p_project;
+
+  delete from public.projects p where p.id = p_project;
+
+  perform public.log_audit_event(
+    'project.deleted', 'projects', p_project::text, p_project,
+    jsonb_build_object('code', v.code, 'name', v.name, 'client_id', v.client_id,
+                       'reopened_deals', to_jsonb(v_deals)),
+    'system', v_deals[1], v.client_id);
+
+  return v.client_id;
+end;
+$$;
+
+revoke execute on function public.delete_project(uuid, text) from public, anon;
+grant execute on function public.delete_project(uuid, text) to authenticated;
+
+
+
+-- >>> 20260803004100_signing_creates_project.sql
+
+-- =============================================================================
+-- Signing creates the project
+-- =============================================================================
+-- Contract signed records the system (003900) and, from this file, creates the
+-- project in the same step — so a signed contract becomes work for the install
+-- team without anybody converting anything by hand.
+--
+-- Why a file of its own: sign_contact was first shipped inside 003900 in a
+-- shape that recorded the system but made no project. Databases that took that
+-- shape have 003900 recorded as applied, and a function that exists answers
+-- "yes" to "is it there?" whatever it returns — so Admin → Database said Up to
+-- date while signing failed. This file is probed by the function's result
+-- columns, not its name, so a database with the first shape is shown as
+-- missing it, and Apply fixes it.
+-- =============================================================================
+
+do $$
+begin
+  if not exists (select 1 from information_schema.columns
+                  where table_schema = 'public' and table_name = 'deals'
+                    and column_name = 'system_recorded_at') then
+    raise exception 'Run 20260803003900_contract_signed_system.sql first — it adds signing.'
+      using hint = 'Admin → Database → Apply runs every missing file in order.';
+  end if;
+  if to_regprocedure('public.convert_deal_to_project(uuid,public.project_stage)') is null then
+    raise exception 'Run 20260803003500_deals.sql first — it converts deals to projects.'
+      using hint = 'Admin → Database → Apply runs every missing file in order.';
+  end if;
+end
+$$;
+
 -- -----------------------------------------------------------------------------
 -- Signing
 -- -----------------------------------------------------------------------------
--- Dropped first: an earlier draft of this file defined a narrower result (no
--- project), and a function's result columns cannot change in place. Nothing
--- after this file redefines it, so re-running this file never puts an older
--- version back.
+-- Dropped first: the first version returned the deal alone, and a function's
+-- result columns cannot change in place. This is the only file that defines
+-- it, so re-running anything never puts that version back.
 drop function if exists public.sign_contact(uuid, jsonb, uuid, text);
 
 /**
@@ -2540,175 +2746,6 @@ grant execute on function public.sign_contact(uuid, jsonb, uuid, text) to authen
 
 
 
--- >>> 20260803004000_project_holds_contact.sql
-
--- =============================================================================
--- The project holds the contact in place, until it is deleted
--- =============================================================================
--- 003900 makes signing record the system and create the project. This file
--- adds what follows from there being a project: the contact stays in Contract
--- signed. Moving somebody with a live installation back to Quoted, or out to
--- Lost, would put the board and the job in disagreement about whether they are
--- a customer — so the move is refused until the project is deleted, which is
--- the one honest way to say "this sale did not happen after all".
---
--- Deleting a project is new here, and it is admin-only. It is not the same as
--- cancelling one: a cancelled project is a job that stopped and stays on
--- record; a deleted one is a sale that is being unwound. The deal's documents
--- — the signed agreement, the bills — belong to the sale, and are kept.
--- =============================================================================
-
-do $$
-begin
-  if not exists (select 1 from information_schema.columns
-                  where table_schema = 'public' and table_name = 'deals'
-                    and column_name = 'system_recorded_at') then
-    raise exception 'Run 20260803003900_contract_signed_system.sql first — it adds signing.'
-      using hint = 'Admin → Database → Apply runs every missing file in order.';
-  end if;
-end
-$$;
-
--- -----------------------------------------------------------------------------
--- The project a signed contact is held by
--- -----------------------------------------------------------------------------
-/**
- * The project made when this contact signed, if it still exists. Their newest
- * signing wins where there is more than one. Null means nothing holds them.
- *
- * Only a signed deal counts — one whose system was recorded at signing. A
- * returning customer whose project from five years ago came through the deal
- * board is not held in place by it.
- */
-create or replace function public.contact_project(p_client uuid)
-returns table (project_id uuid, project_code text)
-language sql
-stable
-security definer
-set search_path = ''
-as $$
-  select p.id, p.code
-    from public.deals d
-    join public.projects p on p.id = d.project_id
-   where d.client_id = p_client
-     and d.system_recorded_at is not null
-   order by d.system_recorded_at desc
-   limit 1;
-$$;
-
-revoke execute on function public.contact_project(uuid) from public, anon;
-grant execute on function public.contact_project(uuid) to authenticated;
-
--- -----------------------------------------------------------------------------
--- The hold
--- -----------------------------------------------------------------------------
-/**
- * A contact with a project cannot leave Contract signed.
- *
- * On the table rather than in the move function, because there are three ways
- * to change a stage — the board, the Lead status box, and anything with SQL —
- * and a rule that holds on two of them does not hold.
- */
-create or replace function app.tg_client_stage_hold()
-returns trigger
-language plpgsql
-security definer
-set search_path = ''
-as $$
-declare
-  v_code text;
-begin
-  if old.contact_stage = 'contract_signed'
-     and new.contact_stage is distinct from old.contact_stage then
-    select cp.project_code into v_code from public.contact_project(new.id) cp;
-    if v_code is not null then
-      raise exception 'this contact has a project (%) — delete the project before moving them out of Contract signed', v_code
-        using errcode = '55000',
-              hint = 'The project holds them in place. An admin can delete it from the project page.';
-    end if;
-  end if;
-  return new;
-end;
-$$;
-
-drop trigger if exists client_stage_hold on public.clients;
-create trigger client_stage_hold before update of contact_stage on public.clients
-  for each row execute function app.tg_client_stage_hold();
-
--- -----------------------------------------------------------------------------
--- Deleting a project
--- -----------------------------------------------------------------------------
-/**
- * Unwind a sale: the project goes, and the deal is open again.
- *
- * Admin-only, and the project's code has to be typed to confirm — this takes
- * the project's stages, tasks, messages and forms with it, and there is no
- * undo. What it keeps:
- *
- *   · the deal's documents. They were filed against the deal and only gained
- *     the project relation at conversion; the signed agreement belongs to the
- *     sale, not to the job. Documents filed against the project alone go with
- *     it.
- *   · the deal, reopened at Contract out with its system intact, and no longer
- *     Won — a won deal with no project is the state the conversion exists to
- *     prevent.
- *   · the activity log, which is not tied to the project row.
- *
- * The contact stays in Contract signed, and can now be moved.
- */
-create or replace function public.delete_project(p_project uuid, p_confirm text)
-returns uuid
-language plpgsql
-security definer
-set search_path = ''
-as $$
-declare
-  v public.projects%rowtype;
-  v_deals uuid[];
-begin
-  if not app.is_admin() then
-    raise exception 'only an admin may delete a project' using errcode = '42501';
-  end if;
-
-  select * into v from public.projects p where p.id = p_project for update;
-  if not found then
-    raise exception 'that project no longer exists' using errcode = 'P0002';
-  end if;
-  if p_confirm is distinct from v.code then
-    raise exception 'type the project code % to confirm', v.code using errcode = '22023';
-  end if;
-
-  update public.documents d set project_id = null
-   where d.project_id = p_project and d.deal_id is not null;
-
-  select coalesce(array_agg(d.id), '{}') into v_deals
-    from public.deals d where d.project_id = p_project;
-  update public.deals d
-     set project_id = null, stage = 'contract_out', won_at = null
-   where d.project_id = p_project;
-  -- The one reference that would otherwise refuse the delete: a dealer
-  -- submission that was converted to this project. The submission stays; it
-  -- just no longer points at a project that is not there.
-  update public.deals d set converted_project_id = null
-   where d.converted_project_id = p_project;
-
-  delete from public.projects p where p.id = p_project;
-
-  perform public.log_audit_event(
-    'project.deleted', 'projects', p_project::text, p_project,
-    jsonb_build_object('code', v.code, 'name', v.name, 'client_id', v.client_id,
-                       'reopened_deals', to_jsonb(v_deals)),
-    'system', v_deals[1], v.client_id);
-
-  return v.client_id;
-end;
-$$;
-
-revoke execute on function public.delete_project(uuid, text) from public, anon;
-grant execute on function public.delete_project(uuid, text) to authenticated;
-
-
-
 -- >>> migration bookkeeping (lets `npm run db:migrate` skip these later)
 create table if not exists public.schema_migrations (
   name       text primary key,
@@ -2755,5 +2792,6 @@ insert into public.schema_migrations (name) values
   ('20260803003700_contact_create.sql'),
   ('20260803003800_contact_stages.sql'),
   ('20260803003900_contract_signed_system.sql'),
-  ('20260803004000_project_holds_contact.sql')
+  ('20260803004000_project_holds_contact.sql'),
+  ('20260803004100_signing_creates_project.sql')
 on conflict (name) do nothing;

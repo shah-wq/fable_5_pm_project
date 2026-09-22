@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth/session';
 import { withUser } from '@/lib/db';
 import { dbErrorResponse } from '@/lib/db-error';
-import { optionalRows } from '@/lib/db-optional';
 import { coerceIntakeValue, isUuid } from '@/lib/crm/coerce';
 import { signingColumns } from '@/lib/crm/intake';
 
@@ -55,29 +54,23 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
   const note = typeof body?.note === 'string' ? body.note.slice(0, 500) : null;
 
   try {
-    const rows = await withUser(session, (client) =>
-      optionalRows<{
+    // A plain query, not optionalRows: that helper answers a missing column or
+    // function with an empty result, and an empty result here could only be
+    // reported as "not caught up" — which is what a database with the first
+    // sign_contact was told while Admin → Database called it up to date.
+    // Letting the error through means dbErrorResponse names what is missing.
+    const { rows } = await withUser(session, (client) =>
+      client.query<{
         signed_deal_id: string;
         deal_created: boolean;
         signed_project_id: string | null;
         signed_project_code: string | null;
       }>(
-        client,
-        'signing the contact (public.sign_contact)',
         `select signed_deal_id, deal_created, signed_project_id, signed_project_code
            from public.sign_contact($1::uuid, $2::jsonb, $3::uuid, $4)`,
         [id, JSON.stringify(patch), dealId, note]
       )
     );
-    if (rows.length === 0) {
-      return NextResponse.json(
-        {
-          error:
-            'Could not sign — the database has not caught up yet. Open Admin → Database and click Apply.',
-        },
-        { status: 400 }
-      );
-    }
     return NextResponse.json({
       dealId: rows[0].signed_deal_id,
       dealCreated: rows[0].deal_created,

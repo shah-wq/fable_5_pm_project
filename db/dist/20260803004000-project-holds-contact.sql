@@ -1,7 +1,7 @@
 -- ============================================================================
 -- GENERATED FILE — do not edit. Rebuild with: node scripts/build-sql-bootstrap.mjs
 --
---   SolarFlow PM · newest module · step 8 of 8 · 20260803004000_project_holds_contact.sql
+--   SolarFlow PM · newest module · step 8 of 9 · 20260803004000_project_holds_contact.sql
 --
 -- For a database that is already up to date apart from this module. Paste the
 -- whole file into a SQL console (e.g. the Neon SQL Editor) and run it once.
@@ -18,6 +18,7 @@
 --   6. 20260803003800-contact-stages.sql
 --   7. 20260803003900-contract-signed-system.sql
 --   8. 20260803004000-project-holds-contact.sql
+--   9. 20260803004100-signing-creates-project.sql
 -- Each break is where one script adds something the next one uses, which
 -- PostgreSQL will not allow inside a single pasted transaction.
 --
@@ -191,52 +192,3 @@ $$;
 revoke execute on function public.delete_project(uuid, text) from public, anon;
 grant execute on function public.delete_project(uuid, text) to authenticated;
 
-
--- >>> migration bookkeeping (lets `npm run db:migrate` skip these later)
-create table if not exists public.schema_migrations (
-  name       text primary key,
-  applied_at timestamptz not null default now()
-);
-insert into public.schema_migrations (name) values
-  ('20260803000000_platform.sql'),
-  ('20260803000100_init_schema_and_enums.sql'),
-  ('20260803000200_tables.sql'),
-  ('20260803000300_access_helpers.sql'),
-  ('20260803000400_hooks_and_views.sql'),
-  ('20260803000500_audit.sql'),
-  ('20260803000600_rls_policies.sql'),
-  ('20260803000700_storage.sql'),
-  ('20260803000800_add_ops_role.sql'),
-  ('20260803000900_auth_module.sql'),
-  ('20260803001000_auth_engine.sql'),
-  ('20260803001100_file_storage.sql'),
-  ('20260803001200_manual_version.sql'),
-  ('20260803001300_admin_panel.sql'),
-  ('20260803001400_stage_fields.sql'),
-  ('20260803001500_complete_hold_cancel.sql'),
-  ('20260803001600_complete_stage_backfill.sql'),
-  ('20260803001700_project_details.sql'),
-  ('20260803001800_equipment_quantities.sql'),
-  ('20260803001900_dealer_portal.sql'),
-  ('20260803002000_dealer_companies.sql'),
-  ('20260803002100_restore_project_defaults.sql'),
-  ('20260803002200_report_builder.sql'),
-  ('20260803002300_customer_portal.sql'),
-  ('20260803002400_customer_management.sql'),
-  ('20260803002500_mobile_app.sql'),
-  ('20260803002600_customer_passwords.sql'),
-  ('20260803002700_invite_customers_with_tokens.sql'),
-  ('20260803002800_dashboard.sql'),
-  ('20260803002900_project_chat.sql'),
-  ('20260803003000_sign_in.sql'),
-  ('20260803003100_typical_durations.sql'),
-  ('20260803003200_stage_feedback.sql'),
-  ('20260803003300_add_sales_role.sql'),
-  ('20260803003400_crm_foundation.sql'),
-  ('20260803003500_deals.sql'),
-  ('20260803003600_contact_intake.sql'),
-  ('20260803003700_contact_create.sql'),
-  ('20260803003800_contact_stages.sql'),
-  ('20260803003900_contract_signed_system.sql'),
-  ('20260803004000_project_holds_contact.sql')
-on conflict (name) do nothing;
