@@ -6,6 +6,7 @@ import { flushQuietHoursQueue, sendChatDigest } from '@/lib/chat/notify';
 import { sendFeedbackDigest, sendFeedbackEmails } from '@/lib/feedback/notify';
 import { optionalRows } from '@/lib/db-optional';
 import { sendAppointmentReminders } from '@/lib/push/events';
+import { deliverNotifications, runTimedRules } from '@/lib/notify/deliver';
 
 /**
  * Everything time-based, in one scheduled request. Two ways in:
@@ -26,6 +27,11 @@ import { sendAppointmentReminders } from '@/lib/push/events';
  * window, queued notifications are claimed in the database before sending, and
  * the digest only goes out in its configured hour.
  */
+/** Vercel Cron calls GET with `Authorization: Bearer CRON_SECRET`; same job. */
+export async function GET(request: Request) {
+  return POST(request);
+}
+
 export async function POST(request: Request) {
   const secret = process.env.CRON_SECRET;
   const authorised =
@@ -87,8 +93,22 @@ export async function POST(request: Request) {
         `select public.sweep_feedback_comments() as n`
       ).catch(() => []);
 
+      // 004700: the time-based notifications (ageing, expiring permits,
+      // tomorrow's installs, quiet contacts and deals), then delivery of
+      // everything raised since the last run — by the triggers or here.
+      const timed = await runTimedRules(client).catch((e) => {
+        console.error('[notify] timed rules failed:', e?.message ?? e);
+        return {} as Record<string, number>;
+      });
+      const delivered = await deliverNotifications(client).catch((e) => {
+        console.error('[notify] delivery failed:', e?.message ?? e);
+        return { delivered: 0, emailed: 0, pushed: 0 };
+      });
+
       return {
         ...reminders,
+        notificationsRaised: timed,
+        notificationsDelivered: delivered,
         chatQueueSent: queued.sent,
         digestsSent: digest.sent,
         digestDue: due,

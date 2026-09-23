@@ -90,7 +90,8 @@ const PROBE_SQL = `select
            to_regprocedure('public.dealer_directory()')::text as m_004500,
            (select count(*) from information_schema.columns
              where table_schema = 'public' and table_name = 'stage7_complete'
-               and column_name = 'referral_asked')                as m_004600`;
+               and column_name = 'referral_asked')                as m_004600,
+           to_regprocedure('public.claim_notifications(integer)')::text as m_004700`;
 
 export interface MigrationState {
   applied: Record<string, boolean>;
@@ -144,6 +145,7 @@ export async function migrationState(client: PoolClient): Promise<MigrationState
     '20260803004400_esignature.sql': Number(p.m_004400) === 1,
     '20260803004500_sales_see_dealer_names.sql': Boolean(p.m_004500),
     '20260803004600_stage_fields_solar.sql': Number(p.m_004600) === 1,
+    '20260803004700_notifications.sql': Boolean(p.m_004700),
   };
   const behind = Object.entries(applied)
     .filter(([, present]) => !present)

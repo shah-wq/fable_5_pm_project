@@ -20,6 +20,7 @@ const GROUPS: Array<{ label?: string; tabs: Array<{ href: string; label: string 
       { href: '/admin/sales_reps', label: 'Sales reps' },
       { href: '/admin/canned_replies', label: 'Canned replies' },
       { href: '/admin/settings', label: 'Settings' },
+      { href: '/admin/notifications', label: 'Notifications' },
       { href: '/admin/database', label: 'Database' },
       { href: '/admin/activity', label: 'Activity log' },
     ],

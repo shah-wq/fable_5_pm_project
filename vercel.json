@@ -1,5 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "crons": [{ "path": "/api/push/reminders", "schedule": "*/10 * * * *" }],
   "git": {
     "deploymentEnabled": {
       "claude/supabase-schema-rls-storage-q96o2l": false

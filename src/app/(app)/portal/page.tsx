@@ -9,6 +9,7 @@ import {
   systemLine,
 } from '@/lib/portal/home';
 import { loadPortalPage, NO_PROJECT_MESSAGE } from '@/lib/portal/page';
+import { loadFeed } from '@/lib/notify/feed';
 import { loadPendingRequest, loadReasonChips } from '@/lib/feedback/service';
 import { getSession } from '@/lib/auth/session';
 import { withUser } from '@/lib/db';
@@ -76,6 +77,10 @@ export default async function PortalHome({
   // the answer already known — a rating sheet that appears a second late is a
   // rating sheet that gets tapped past.
   const session = await getSession();
+  // 004700: the latest unread update, as one card that opens the full list.
+  const updates = session
+    ? await withUser(session, (c) => loadFeed(c, { limit: 1, unreadOnly: true })).catch(() => null)
+    : null;
   const rating =
     session && p
       ? await withUser(session, async (client) => {
@@ -219,6 +224,16 @@ export default async function PortalHome({
           </span>
           <span className="up-next-caret" aria-hidden>
             ›
+          </span>
+        </Link>
+      )}
+
+      {updates && updates.items.length > 0 && (
+        <Link className="updates-card rise" href="/portal/updates" style={{ '--delay': '400ms' } as React.CSSProperties}>
+          <span className="feed-title">{updates.items[0].title}</span>
+          {updates.items[0].body && <span className="feed-body">{updates.items[0].body}</span>}
+          <span className="updates-more">
+            {updates.unread > 1 ? `${updates.unread} new updates →` : 'All updates →'}
           </span>
         </Link>
       )}

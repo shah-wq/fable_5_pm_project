@@ -7,6 +7,7 @@ import { withUser } from '@/lib/db';
 import { optionalRows } from '@/lib/db-optional';
 import { isAppShell } from '@/lib/native/shell';
 import { Assistant } from './_components/Assistant';
+import { NotificationsBell } from './_components/NotificationsBell';
 import { SideNav, type NavItem } from './_components/SideNav';
 import { TabBar } from './portal/_components/TabBar';
 
@@ -171,6 +172,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <Logo />
         </Link>
         <SideNav items={NAV[session.role]} />
+        <NotificationsBell />
         <Assistant />
         <div className="sidebar-foot">
           <div className="who-block">
