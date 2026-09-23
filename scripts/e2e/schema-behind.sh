@@ -75,7 +75,8 @@ for CUT in 20260803002300_customer_portal.sql \
            20260803004100_signing_creates_project.sql \
            20260803004200_sales_see_deal_projects.sql \
            20260803004300_stage_upload_fix.sql \
-           20260803004400_esignature.sql; do
+           20260803004400_esignature.sql \
+           20260803004500_sales_see_dealer_names.sql; do
   cut_at "$CUT"
   node scripts/create-admin.mjs admin@in.test "Password1234!" "Ada Admin" >/dev/null
   PORT=$APPPORT nohup npx next start -p $APPPORT >"$W/next.log" 2>&1 &

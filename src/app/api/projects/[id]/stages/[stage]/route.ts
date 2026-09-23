@@ -30,6 +30,10 @@ function coerce(field: StageField, raw: unknown): { ok: true; value: unknown } |
       return typeof raw === 'boolean' ? { ok: true, value: raw } : { ok: false };
     case 'refselect':
       return UUID_RE.test(String(raw)) ? { ok: true, value: String(raw) } : { ok: false };
+    case 'number': {
+      const n = Number(raw);
+      return Number.isFinite(n) ? { ok: true, value: n } : { ok: false };
+    }
     case 'permits':
       return Array.isArray(raw)
         ? { ok: true, value: raw.map((v) => String(v).slice(0, 60)).filter(Boolean) }

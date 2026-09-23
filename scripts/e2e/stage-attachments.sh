@@ -129,4 +129,34 @@ print('REPORT-OK', rows)
 PY
 pass "the report's Attachments complete matches the stage gate, old ticks included"
 
+# --- 6. every form field has its column, and the new facts save ---------
+node --experimental-strip-types scripts/e2e/stage-field-columns.mjs 2>/dev/null > "$W/fields.json"
+python3 - "$W/fields.json" "$PGPORT" "$DB" <<'PY'
+import json, subprocess, sys
+fields = json.load(open(sys.argv[1]))
+missing = []
+for table, names in fields.items():
+    cols = subprocess.run(['psql', '-h', '127.0.0.1', '-p', sys.argv[2], '-U', 'postgres', '-d', sys.argv[3], '-qtA', '-c',
+        f"select column_name from information_schema.columns where table_schema='public' and table_name='{table}'"],
+        capture_output=True, text=True).stdout.split()
+    missing += [f'{table}.{n}' for n in names if n not in cols]
+assert not missing, f'form fields with no column: {missing}'
+print('COLUMNS-OK', sum(len(v) for v in fields.values()), 'fields')
+PY
+CODE=$(curl -s -o "$W/save.json" -w '%{http_code}' -X PATCH -b "$JAR" -H 'content-type: application/json' \
+  -d '{"values":{"roof_type":"tile","main_panel_rating_amps":"200","bus_bar_rating_amps":200,"main_breaker_amps":200,"panel_upgrade_needed":"no","trenching_distance_ft":"35.5","meter_number":"MTR-7781","survey_status":"scheduled","survey_scheduled_date":"2026-10-02"}}' \
+  "$BASE/api/projects/$BARE/stages/survey")
+[ "$CODE" = 200 ] || fail "saving the site facts answered $CODE: $(cat "$W/save.json")"
+ROW=$(q "select roof_type || '|' || main_panel_rating_amps || '|' || trenching_distance_ft || '|' || meter_number || '|' || survey_scheduled_date from public.stage1_survey where project_id='$BARE'")
+[ "$ROW" = "tile|200|35.5|MTR-7781|2026-10-02" ] || fail "the site facts did not save as typed ($ROW)"
+CODE=$(curl -s -o "$W/save.json" -w '%{http_code}' -X PATCH -b "$JAR" -H 'content-type: application/json' \
+  -d '{"values":{"main_panel_rating_amps":"two hundred"}}' "$BASE/api/projects/$BARE/stages/survey")
+[ "$CODE" = 400 ] || fail "a non-number was accepted into an amps field ($CODE)"
+curl -s -o "$W/form.html" -b "$JAR" "$BASE/projects/$BARE/stages/survey"
+text "$W/form.html" | grep -q "Site facts" || fail "the survey form has no Site facts card"
+text "$W/form.html" | grep -q "Main panel rating" || fail "the survey form does not ask for the panel rating"
+curl -s -o "$W/form.html" -b "$JAR" "$BASE/projects/$DONE/stages/permits"
+text "$W/form.html" | grep -q "Permit expires on" || fail "the permits form does not ask for the expiry"
+pass "every stage-form field has a column; the site facts save as typed, and a word in a number box is refused"
+
 echo "STAGE-ATTACHMENTS CHECKS PASSED"

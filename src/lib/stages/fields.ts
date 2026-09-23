@@ -22,6 +22,7 @@ export type StageFieldType =
   | 'text'
   | 'textarea'
   | 'toggle'
+  | 'number'
   | 'permits'
   | 'refselect'
   | 'upload';
@@ -34,6 +35,8 @@ export interface StageField {
   table?: 'stage' | 'finance' | 'project';
   options?: readonly string[];
   optionsKey?: 'designers' | 'staff' | 'financePartners';
+  /** Numbers only: shown after the box (kW, A, ft, $). */
+  unit?: string;
   /** true = always required; 'cond' = required per the governing status. */
   required?: boolean | 'cond';
   /** status value → date field to auto-stamp with today when selected. */
@@ -89,7 +92,43 @@ export const STATUS_LABELS: Record<string, string> = {
   not_started: 'Not started',
   energized: 'Energized',
   issue: 'Issue',
+  // Site and paperwork facts (004600)
+  comp_shingle: 'Composition shingle',
+  tile: 'Tile',
+  metal: 'Metal',
+  flat: 'Flat / low slope',
+  wood_shake: 'Wood shake',
+  other: 'Other',
+  good: 'Good',
+  fair: 'Fair',
+  poor: 'Poor',
+  replace_first: 'Replace before install',
+  yes: 'Yes',
+  no: 'No',
+  tbd: 'To be decided',
+  limited: 'Limited',
+  portal: 'Online portal',
+  email: 'Email',
+  in_person: 'In person',
+  solarapp: 'SolarAPP+',
+  vendor: 'At the vendor',
+  warehouse: 'In our warehouse',
+  site: 'On site',
+  enphase: 'Enphase',
+  solaredge: 'SolarEdge',
+  tesla: 'Tesla',
+  generac: 'Generac',
 };
+
+/** Shorthand for the optional fact fields added in 004600. */
+const sel = (name: string, label: string, options: readonly string[], extra: Partial<StageField> = {}): StageField =>
+  ({ name, label, type: 'select', options, ...extra });
+const num = (name: string, label: string, unit?: string, extra: Partial<StageField> = {}): StageField =>
+  ({ name, label, type: 'number', unit, ...extra });
+const txt = (name: string, label: string, extra: Partial<StageField> = {}): StageField =>
+  ({ name, label, type: 'text', ...extra });
+const dt = (name: string, label: string, extra: Partial<StageField> = {}): StageField =>
+  ({ name, label, type: 'date', ...extra });
 
 export const PAYMENT_STATUSES = ['not_requested', 'requested', 'initiated', 'received'] as const;
 export const PAYMENT_STATUSES_NA = [...PAYMENT_STATUSES, 'na'] as const;
@@ -265,8 +304,10 @@ export const STAGE_FORMS: Record<StageKey, StageCard[]> = {
           type: 'select',
           options: ['not_scheduled', 'scheduled', 'completed', 'rescheduled', 'cancelled'],
           required: true,
-          stamp: { completed: 'survey_completed_date' },
+          stamp: { scheduled: 'survey_scheduled_date', completed: 'survey_completed_date' },
         },
+        { name: 'surveyor_id', label: 'Surveyor', type: 'refselect', optionsKey: 'staff' },
+        dt('survey_scheduled_date', 'Site Survey Scheduled Date'),
         {
           name: 'survey_completed_date',
           label: 'Site Survey Completed Date',
@@ -279,6 +320,29 @@ export const STAGE_FORMS: Record<StageKey, StageCard[]> = {
           type: 'textarea',
           note: 'Adder description + price lines',
         },
+      ],
+    },
+    {
+      key: 'site',
+      title: 'Site facts',
+      fields: [
+        sel('roof_type', 'Roof type', ['comp_shingle', 'tile', 'metal', 'flat', 'wood_shake', 'other']),
+        num('roof_age_years', 'Roof age', 'years'),
+        sel('roof_condition', 'Roof condition', ['good', 'fair', 'poor', 'replace_first']),
+        num('stories', 'Stories'),
+        txt('roof_pitch', 'Roof pitch', { note: 'e.g. 5/12' }),
+        num('main_panel_rating_amps', 'Main panel rating', 'A'),
+        num('bus_bar_rating_amps', 'Bus bar rating', 'A'),
+        num('main_breaker_amps', 'Main breaker', 'A'),
+        sel('panel_upgrade_needed', 'Main panel upgrade needed?', ['yes', 'no', 'tbd'], {
+          note: 'The 120% rule: bus rating × 1.2 − main breaker is the room for solar',
+        }),
+        txt('meter_number', 'Meter number'),
+        txt('utility_account_number', 'Utility account number'),
+        sel('attic_access', 'Attic access', ['yes', 'no', 'limited']),
+        num('trenching_distance_ft', 'Trenching distance', 'ft'),
+        { name: 'shading_notes', label: 'Shading notes', type: 'textarea' },
+        { name: 'site_notes', label: 'Site notes', type: 'textarea', note: 'Access, pets, gate codes, hazards' },
       ],
     },
     attachmentsCard('survey'),
@@ -316,6 +380,21 @@ export const STAGE_FORMS: Record<StageKey, StageCard[]> = {
         },
         { name: 'shading_report_date', label: 'Shading report received date', type: 'date' },
         { name: 'pm_notes', label: 'PM Notes', type: 'textarea' },
+      ],
+    },
+    {
+      key: 'design_output',
+      title: 'Design output',
+      fields: [
+        num('final_system_size_kw', 'Final system size', 'kW DC'),
+        num('final_module_count', 'Final module count'),
+        num('production_estimate_kwh', 'Year-1 production estimate', 'kWh'),
+        num('offset_percent', 'Usage offset', '%'),
+        num('design_revision', 'Design revision'),
+        dt('customer_approval_date', 'Customer approved design on'),
+        txt('design_tool_url', 'Design tool link', { note: 'Aurora / OpenSolar project' }),
+        txt('engineering_firm', 'Engineering firm'),
+        sel('pe_stamp_required', 'PE stamp required?', ['yes', 'no', 'tbd']),
       ],
     },
     {
@@ -368,6 +447,10 @@ export const STAGE_FORMS: Record<StageKey, StageCard[]> = {
         },
         { name: 'permit_applied_date', label: 'Permit Applied Date', type: 'date', required: true },
         { name: 'permit_received_date', label: 'Permit Received Date', type: 'date', required: true },
+        txt('permit_number', 'Permit number'),
+        dt('permit_expiry_date', 'Permit expires on', { note: 'You are warned 14 days before' }),
+        num('permit_fee', 'Permit fee', '$'),
+        sel('permit_submission_method', 'Submitted via', ['portal', 'email', 'in_person', 'solarapp']),
         { name: 'permit_pm_notes', label: 'Permit PM Notes', type: 'textarea' },
         {
           name: 'permit_revision_notes',
@@ -393,6 +476,8 @@ export const STAGE_FORMS: Record<StageKey, StageCard[]> = {
         },
         { name: 'ica_applied_date', label: 'ICA Applied Date', type: 'date', required: true },
         { name: 'ica_received_date', label: 'ICA Received Date', type: 'date', required: true },
+        txt('ica_application_number', 'ICA application number'),
+        sel('meter_swap_required', 'Meter swap required?', ['yes', 'no', 'na']),
         { name: 'ica_pm_notes', label: 'ICA PM Notes', type: 'textarea' },
         { name: 'ica_revision_notes', label: 'ICA Revision Notes', type: 'textarea' },
       ],
@@ -425,6 +510,8 @@ export const STAGE_FORMS: Record<StageKey, StageCard[]> = {
           required: 'cond',
           note: 'Required unless status = N/A',
         },
+        txt('hoa_name', 'HOA name'),
+        txt('hoa_contact', 'HOA contact', { note: 'Name, email or phone' }),
         { name: 'hoa_revision_notes', label: 'HOA Revision Notes', type: 'textarea' },
       ],
     },
@@ -475,9 +562,16 @@ export const STAGE_FORMS: Record<StageKey, StageCard[]> = {
           type: 'select',
           options: ['not_requested', 'requested', 'ordered', 'in_transit', 'delivered', 'backordered'],
           required: true,
-          stamp: { requested: 'material_requested_date', delivered: 'material_delivered_date' },
+          stamp: { requested: 'material_requested_date', ordered: 'order_date', delivered: 'material_delivered_date' },
         },
         { name: 'material_requested_date', label: 'Material Requested Date', type: 'date', required: true },
+        txt('vendor_name', 'Vendor / distributor'),
+        txt('po_number', 'PO number'),
+        dt('order_date', 'Order date'),
+        dt('expected_delivery_date', 'Expected delivery'),
+        txt('tracking_number', 'Tracking number'),
+        sel('material_location', 'Material is', ['vendor', 'warehouse', 'site']),
+        num('material_cost', 'Material cost', '$'),
         { name: 'material_delivered_date', label: 'Material Delivered Date', type: 'date', required: true },
         {
           name: 'pm_notes',
@@ -518,7 +612,13 @@ export const STAGE_FORMS: Record<StageKey, StageCard[]> = {
         },
         { name: 'install_requested_date', label: 'Install Requested Date', type: 'date', required: true },
         { name: 'install_scheduled_date', label: 'Install Scheduled Date', type: 'date', required: true },
+        txt('crew_lead', 'Crew lead'),
+        num('crew_size', 'Crew size'),
+        num('install_duration_days', 'Install duration', 'days'),
+        dt('mpu_completed_date', 'Main panel upgrade completed'),
         { name: 'install_completed_date', label: 'Install Completed Date', type: 'date', required: true },
+        dt('homeowner_signoff_date', 'Homeowner sign-off date'),
+        { name: 'install_notes', label: 'Install notes', type: 'textarea', note: 'What the crew found, punch list' },
         {
           name: 'install_pictures',
           label: 'Install Pictures',
@@ -548,8 +648,16 @@ export const STAGE_FORMS: Record<StageKey, StageCard[]> = {
           type: 'select',
           options: ['not_requested', 'requested', 'scheduled', 'passed', 'failed', 'reinspection_scheduled'],
           required: true,
-          stamp: { requested: 'inspection_requested_date', passed: 'inspection_completed_date' },
+          stamp: {
+            requested: 'inspection_requested_date',
+            scheduled: 'inspection_scheduled_date',
+            passed: 'inspection_completed_date',
+            reinspection_scheduled: 'reinspection_date',
+          },
         },
+        dt('inspection_scheduled_date', 'Inspection Scheduled Date'),
+        txt('inspector_name', 'Inspector'),
+        dt('reinspection_date', 'Re-inspection date'),
         {
           name: 'inspection_failed_notes',
           label: 'Inspection Failed Notes',
@@ -578,6 +686,8 @@ export const STAGE_FORMS: Record<StageKey, StageCard[]> = {
           stamp: { applied: 'pto_applied_date', received: 'pto_received_date' },
         },
         { name: 'pto_applied_date', label: 'PTO Applied Date', type: 'date', required: true },
+        txt('pto_application_number', 'PTO / interconnection application number'),
+        dt('meter_set_date', 'Net meter set on'),
         { name: 'pto_received_date', label: 'PTO Received Date', type: 'date', required: true },
       ],
     },
@@ -600,6 +710,8 @@ export const STAGE_FORMS: Record<StageKey, StageCard[]> = {
           type: 'date',
           required: 'cond',
         },
+        sel('monitoring_platform', 'Monitoring platform', ['enphase', 'solaredge', 'tesla', 'generac', 'other']),
+        txt('monitoring_site_id', 'Monitoring site ID'),
       ],
     },
     financeM2Card,
@@ -633,6 +745,17 @@ export const STAGE_FORMS: Record<StageKey, StageCard[]> = {
           type: 'textarea',
           note: 'Closing summary, open items, anything the next person should know',
         },
+      ],
+    },
+    {
+      key: 'closeout',
+      title: 'Close-out',
+      fields: [
+        dt('warranty_registration_date', 'Warranties registered on'),
+        dt('final_payment_received_date', 'Final payment received on'),
+        dt('closeout_packet_sent_date', 'Close-out packet sent to homeowner on'),
+        dt('review_requested_date', 'Review requested on'),
+        sel('referral_asked', 'Referral asked?', ['yes', 'no']),
       ],
     },
     attachmentsCard('complete'),

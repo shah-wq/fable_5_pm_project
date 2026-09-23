@@ -317,6 +317,18 @@ export function StageForm({
             value={String(value ?? '')}
             onChange={(e) => set(field.name, e.target.value)}
           />
+        ) : field.type === 'number' ? (
+          <span className="num-field">
+            <input
+              type="number"
+              step="any"
+              inputMode="decimal"
+              disabled={!editable}
+              value={value === null || value === undefined ? '' : String(value)}
+              onChange={(e) => set(field.name, e.target.value === '' ? null : e.target.value)}
+            />
+            {field.unit && <span className="unit">{field.unit}</span>}
+          </span>
         ) : field.type === 'date' ? (
           // Through isoDate, not String(): a date box shows nothing at all
           // unless its value is exactly yyyy-mm-dd, so anything else here is a

@@ -5757,3 +5757,19 @@ a.btn {
     display: none;
   }
 }
+
+/* number fields on stage forms */
+.num-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.num-field input {
+  flex: 1;
+  min-width: 0;
+}
+.num-field .unit {
+  color: var(--ink-soft);
+  font-size: 13px;
+  white-space: nowrap;
+}

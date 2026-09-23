@@ -1,7 +1,7 @@
 -- ============================================================================
 -- GENERATED FILE — do not edit. Rebuild with: node scripts/build-sql-bootstrap.mjs
 --
---   SolarFlow PM · catch-up 1 of 3 · newest migration: 20260803004500_sales_see_dealer_names.sql
+--   SolarFlow PM · catch-up 1 of 3 · newest migration: 20260803004600_stage_fields_solar.sql
 --
 -- Paste this whole file into a SQL console (e.g. the Neon SQL Editor) and run
 -- it. Safe to run more than once: every statement below skips work already
