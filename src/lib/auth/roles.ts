@@ -58,6 +58,11 @@ export const ROUTE_ACCESS: Record<string, readonly UserRole[]> = {
   // Ask SolarFlow: every staff role and dealers. What each may see is decided
   // by the database, exactly as on the screens (src/lib/assistant/tools.ts).
   '/api/assistant': ['admin', 'ops', 'finance', 'sales', 'designer', 'dealer'],
+  // The exceptions queue and the automation's decisions are project-team work;
+  // what each may decide is the database's call (project staff), as on the forms.
+  '/exceptions': ['admin', 'ops'],
+  '/api/exceptions': ['admin', 'ops'],
+  '/api/ai': ['admin', 'ops'],
   // Everyone signed in has a feed; RLS makes it theirs.
   '/notifications': ['admin', 'ops', 'finance', 'sales', 'designer', 'dealer'],
   '/api/notifications': ['admin', 'ops', 'finance', 'sales', 'designer', 'dealer', 'customer'],

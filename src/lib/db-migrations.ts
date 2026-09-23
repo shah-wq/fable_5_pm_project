@@ -91,7 +91,8 @@ const PROBE_SQL = `select
            (select count(*) from information_schema.columns
              where table_schema = 'public' and table_name = 'stage7_complete'
                and column_name = 'referral_asked')                as m_004600,
-           to_regprocedure('public.claim_notifications(integer)')::text as m_004700`;
+           to_regprocedure('public.claim_notifications(integer)')::text as m_004700,
+           to_regprocedure('public.claim_ai_jobs(integer)')::text as m_004800`;
 
 export interface MigrationState {
   applied: Record<string, boolean>;
@@ -146,6 +147,7 @@ export async function migrationState(client: PoolClient): Promise<MigrationState
     '20260803004500_sales_see_dealer_names.sql': Boolean(p.m_004500),
     '20260803004600_stage_fields_solar.sql': Number(p.m_004600) === 1,
     '20260803004700_notifications.sql': Boolean(p.m_004700),
+    '20260803004800_ai_automation.sql': Boolean(p.m_004800),
   };
   const behind = Object.entries(applied)
     .filter(([, present]) => !present)

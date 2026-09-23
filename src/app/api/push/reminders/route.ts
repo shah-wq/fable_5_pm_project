@@ -7,6 +7,10 @@ import { sendFeedbackDigest, sendFeedbackEmails } from '@/lib/feedback/notify';
 import { optionalRows } from '@/lib/db-optional';
 import { sendAppointmentReminders } from '@/lib/push/events';
 import { deliverNotifications, runTimedRules } from '@/lib/notify/deliver';
+import { runAutomation } from '@/lib/ai/jobs';
+
+// The automation works a queue for up to ~40 s; give the function room.
+export const maxDuration = 60;
 
 /**
  * Everything time-based, in one scheduled request. Two ways in:
@@ -100,6 +104,12 @@ export async function POST(request: Request) {
         console.error('[notify] timed rules failed:', e?.message ?? e);
         return {} as Record<string, number>;
       });
+      // 004800: briefings, auto-advance and the AI job queue — before delivery,
+      // so a briefing written now goes out in this same run.
+      const automation = await runAutomation(client, identity, { budgetMs: 35_000 }).catch((e) => {
+        console.error('[ai] automation failed:', e?.message ?? e);
+        return null;
+      });
       const delivered = await deliverNotifications(client).catch((e) => {
         console.error('[notify] delivery failed:', e?.message ?? e);
         return { delivered: 0, emailed: 0, pushed: 0 };
@@ -109,6 +119,7 @@ export async function POST(request: Request) {
         ...reminders,
         notificationsRaised: timed,
         notificationsDelivered: delivered,
+        automation,
         chatQueueSent: queued.sent,
         digestsSent: digest.sent,
         digestDue: due,

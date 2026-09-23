@@ -1,4 +1,5 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
+import { kick } from '@/lib/ai/jobs';
 import { getSession } from '@/lib/auth/session';
 import {
   loadThread,
@@ -171,6 +172,10 @@ export async function POST(
       internal,
       fromStaff: staff,
     }).catch(() => undefined);
+
+    // A homeowner's message queued a reply draft (004800); write it now rather
+    // than on the next scheduled run, so it is waiting when the PM opens the thread.
+    if (!staff) after(() => kick());
 
     return NextResponse.json({ message: posted }, { status: 201 });
   } catch (e) {

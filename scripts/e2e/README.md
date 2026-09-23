@@ -14,6 +14,7 @@ is a regression suite you do not have.
     bash scripts/e2e/esign.sh            # PandaDoc contracts and change orders, against a mock
     bash scripts/e2e/assistant.sh        # Ask SolarFlow, against a stand-in for the Claude API
     bash scripts/e2e/notifications.sh    # the notification catalogue, triggers, timed rules, feeds
+    bash scripts/e2e/ai-automation.sh    # document reading, suggestions, auto-advance, reply drafts, briefings
 
 Run them one at a time: they each bind a port, and two at once will fight over
 PostgreSQL's socket directory.

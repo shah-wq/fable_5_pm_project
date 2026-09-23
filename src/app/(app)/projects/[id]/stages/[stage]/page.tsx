@@ -12,8 +12,10 @@ import {
 import { STAGE_FORMS, STAGE_TABLES } from '@/lib/stages/fields';
 import { evaluateStage } from '@/lib/stages/requirements';
 import { loadBundles } from '@/lib/stages/service';
+import { loadSuggestions } from '@/lib/ai/documents';
 import { Stepper } from '../../Stepper';
 import { AdvanceButton } from './AdvanceButton';
+import { AiSuggestions } from './AiSuggestions';
 import { StageForm } from './StageForm';
 
 export const dynamic = 'force-dynamic';
@@ -66,8 +68,13 @@ export default async function StagePage({
         loadBundles(c, [id]),
       ]);
 
+    // The document reader's proposals for this stage (004800). Sequential, after
+    // the batch above: it degrades through a savepoint on an older database.
+    const suggestions = await loadSuggestions(c, { projectId: id, stage }).catch(() => []);
+
     return {
       project: project.rows[0],
+      suggestions,
       stageRow: stageRow.rows[0] ?? {},
       financeRow: financeRow.rows[0] ?? {},
       docs: docs.rows,
@@ -136,6 +143,8 @@ export default async function StagePage({
             : null}
         </p>
       )}
+
+      {editable && <AiSuggestions items={data.suggestions} />}
 
       {/* projectCreatedAt is a timestamp and the card that counts days wants a
           calendar date. String(...).slice(0, 10) on a Date gives 'Tue Aug 25',

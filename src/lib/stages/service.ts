@@ -245,7 +245,8 @@ export type MoveResult =
   | { ok: false; code: 'not_found' | 'forbidden' | 'invalid'; message: string; missing?: string[] };
 
 export interface MoveOptions {
-  via: 'button' | 'drag';
+  /** 'automation' is the evidence-based auto-advance (src/lib/ai/advance.ts). */
+  via: 'button' | 'drag' | 'automation';
   reason?: string;
   /** Side-stage detail (hold / cancel). */
   notes?: string;

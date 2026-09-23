@@ -11,8 +11,10 @@ import {
   loadThread,
 } from '@/lib/chat/service';
 import { STAGES, isStageKey } from '@/lib/stages/definitions';
+import { loadDrafts } from '@/lib/ai/replies';
 import { Thread } from '@/app/_components/Thread';
 import { FlagButton } from './FlagButton';
+import { ReplyDrafts } from './ReplyDrafts';
 
 export const dynamic = 'force-dynamic';
 
@@ -58,7 +60,9 @@ export default async function ProjectChatPage({
     });
     const canned = internal ? [] : await loadCannedReplies(client);
     const summaries = await loadSummaries(client, [id]);
-    return { ready, context, thread, canned, summary: summaries.get(id) ?? null };
+    // The assistant's draft answers (004800) — customer channel only.
+    const drafts = internal ? [] : await loadDrafts(client, id).catch(() => []);
+    return { ready, context, thread, canned, drafts, summary: summaries.get(id) ?? null };
   });
 
   if (!data) notFound();
@@ -135,6 +139,10 @@ export default async function ProjectChatPage({
         <p className="notice">
           {`This message will be tagged “about: ${about.replace('_', ' ')}”.`}
         </p>
+      )}
+
+      {!internal && data.ready && context.hasPortalAccess && (
+        <ReplyDrafts items={data.drafts} recipientName={context.customerName} />
       )}
 
       <Thread

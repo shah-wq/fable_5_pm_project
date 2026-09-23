@@ -82,11 +82,12 @@ assert behind == ['20260803004100_signing_creates_project.sql',
                   '20260803004400_esignature.sql',
                   '20260803004500_sales_see_dealer_names.sql',
                   '20260803004600_stage_fields_solar.sql',
-                  '20260803004700_notifications.sql'], f'health says behind: {behind}'
+                  '20260803004700_notifications.sql',
+                  '20260803004800_ai_automation.sql'], f'health says behind: {behind}'
 print('BEHIND-OK', behind)
 PY
 curl -s -b "$JAR" "$BASE/admin/database" | sed -e 's/<!--[^>]*-->//g' -e 's/<[^>]*>//g' | tr -s ' \n' ' ' \
-  | grep -q "7 migrations are missing" || fail "Admin → Database does not say which migrations are missing"
+  | grep -q "8 migrations are missing" || fail "Admin → Database does not say which migrations are missing"
 pass "a database with the first sign_contact is reported behind on the file that fixes it, by name"
 
 # --- 2. signing says why it cannot ---------------------------------------
@@ -109,7 +110,8 @@ assert [a['file'] for a in j['applied']] == ['20260803004100_signing_creates_pro
                                            '20260803004400_esignature.sql',
                                            '20260803004500_sales_see_dealer_names.sql',
                                            '20260803004600_stage_fields_solar.sql',
-                                           '20260803004700_notifications.sql'], j
+                                           '20260803004700_notifications.sql',
+                                           '20260803004800_ai_automation.sql'], j
 assert all(a['ok'] for a in j['applied']), j
 assert j['behind'] == [], j
 print('APPLIED-OK')

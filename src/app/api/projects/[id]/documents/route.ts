@@ -1,6 +1,7 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { getSession } from '@/lib/auth/session';
 import { withUser } from '@/lib/db';
+import { kick } from '@/lib/ai/jobs';
 
 const MAX_BYTES = 25 * 1024 * 1024;
 
@@ -48,5 +49,9 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
     }
   }
 
+  // The document reader (004800) queued a job per file in the database; run
+  // the queue once the response is out, so the suggestions are usually on the
+  // form by the time the PM scrolls up. The scheduled job catches anything missed.
+  after(() => kick());
   return NextResponse.json({ documentIds }, { status: 201 });
 }
