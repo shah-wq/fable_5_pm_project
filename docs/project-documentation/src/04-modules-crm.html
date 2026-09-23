@@ -1,4 +1,4 @@
-<section class="chapter" data-no="9" data-title="Modules — CRM, signing &amp; assistant (M21–M28)">
+<section class="chapter" data-no="9" data-title="Modules — CRM, signing, assistant, notifications &amp; automation (M21–M30)">
   <span class="mk">@@C9@@</span>
   <div class="kicker">Chapter 9 · Module catalogue</div>
   <h1>CRM &amp; sales modules</h1>
@@ -97,5 +97,25 @@
   <ul>
     <li>Plain-word questions ("give me the PM report", "which projects are stuck in Permits and why", "where are my projects") answered from live data, with links into the app.</li>
     <li>Claude Opus 5 over eight read-only tools (projects, project details, dashboard, PM report, report builder, contacts, deals, feedback), offered per role and run under the asker's own permissions. Every question is logged.</li>
+  </ul>
+
+  <div class="module"><span class="num">M29</span><span class="name">Notifications</span><span class="pill live">Live</span></div>
+  <p class="meta">Migration 004700 · lib/notify · bell in the sidebar, /notifications, /portal/updates, Admin → Notifications · delivered by /api/push/reminders</p>
+  <ul>
+    <li><strong>One catalogue of 55 kinds</strong> across homeowner (29), project manager (16), admin (3), sales rep (3) and dealer (5): project started, stage advanced, survey scheduled, permit approved, equipment delivered, inspection passed, PTO granted, payment requested, project assigned, permit expiring, install tomorrow not ready, document signed or declined, lead assigned, contact or deal going quiet, your project moved, commission payable, and so on. Each has <em>in app</em>, <em>email</em> and <em>push</em> switches and an <em>On</em> switch; off means never raised.</li>
+    <li><strong>Raised by the database:</strong> triggers on projects, the seven stage forms, customer requests, documents, chat, e-sign, change orders, contacts, deals, ratings, commissions and exceptions. Time-based kinds (ageing past threshold, permits expiring within the warning window, tomorrow's installs missing a permit / materials / a signed change order, quiet contacts and deals) are raised by the scheduled job. Deduped on kind, recipient and key, so nothing is said twice.</li>
+    <li><strong>Delivered</strong> every ten minutes: the words are rendered once for feed, email and push; email unless the homeowner opted out; push to registered devices; homeowners' rows wait through quiet hours, staff's do not. A homeowner without a login is emailed.</li>
+    <li><strong>Seen:</strong> a bell with the unread count on every staff and dealer screen and a feed page; an Updates card and page in the homeowner's portal and app. Every row records when it was emailed, pushed and read.</li>
+  </ul>
+
+  <div class="module"><span class="num">M30</span><span class="name">AI automation — document reader, reply drafts, briefings, auto-advance</span><span class="pill live">Live · needs key</span></div>
+  <p class="meta">Migration 004800 · lib/ai · /exceptions, Admin → AI automation · runs from uploads, chat and /api/push/reminders</p>
+  <ul>
+    <li><strong>Document reader:</strong> every PDF or photo attached to a stage form is read by the model, which proposes values for that stage's fields with a confidence and the words that support each — permit number, approval and expiry dates, PO number and delivery date, final system size. Proposals wait as suggestions on the stage form and in the exceptions queue; <em>Accept</em> writes through the form's own allowlist, <em>Reject</em> writes nothing. With auto-apply on, values above the admin's threshold are written at once. A file that is not what it was filed as becomes a high-severity exception.</li>
+    <li><strong>Exceptions queue:</strong> a screen over the <code>exceptions</code> table for everything the automation would not decide alone, with the evidence and Accept / Reject on each suggestion; acknowledge, dismiss, resolve. Resolving closes undecided suggestions unapplied; deciding the last suggestion resolves its exception. A new exception raises the PM's "AI needs a decision" notification.</li>
+    <li><strong>Evidence-based auto-advance:</strong> no model. For each stage the admin ticks, a complete project moves on through the same move service as the green button — same gate, notification, chat line and audit entry — attributed to the automation's own service account; held while a suggestion is undecided.</li>
+    <li><strong>Reply drafts:</strong> a homeowner's message gets a draft built from the project's facts, above the PM's composer to send, edit or dismiss. Money, cancellations, complaints and dates not yet set always need a person. With auto-send on, a confident draft goes out as the PM, signed as automatic.</li>
+    <li><strong>Morning briefing:</strong> at the chosen hour, Ask SolarFlow writes each PM's day from the PM report under their own permissions, delivered as a notification and email.</li>
+    <li><strong>Plumbing:</strong> a job queue in the database (claimed, retried with delay, failed after three attempts), run right after an upload or message and by the scheduled job; every switch defaults to the cautious side; every read, decision and automatic action is logged with the tokens used.</li>
   </ul>
 </section>

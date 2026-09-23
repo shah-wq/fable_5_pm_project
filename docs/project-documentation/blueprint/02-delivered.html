@@ -25,7 +25,7 @@
     <li><strong>Hidden from the homeowner by default,</strong> like every other document. The PM can share a file from the project's Customer panel.</li>
     <li><strong>Reports agree with the gate.</strong> The report fields that used to read "Drive Updated (S1…S6)" now read "Attachments complete (S1…S6)", and "Final documents attached" for Complete. They are computed by the same rule the gate uses, old ticks included.</li>
   </ul>
-  <div class="callout tip"><span class="t">Why this matters for automation</span><p>With the files on the project, a document reader (chapter 9) can open the plan set or the PTO letter, pull out the facts, and close the stage without anyone opening a folder. A tick box never offered that.</p></div>
+  <div class="callout tip"><span class="t">Why this matters for automation</span><p>With the files on the project, a document reader (chapter 12) can open the plan set or the PTO letter, pull out the facts, and close the stage without anyone opening a folder. A tick box never offered that.</p></div>
 
   <h2>A fix that came with it</h2>
   <p>Testing showed that every stage-form upload had been failing: the upload function stored the file's kind as text in a column typed as a list of kinds. Migration <strong>004300</strong> fixes it, as a new file, because a database that already has the original would never see an edit to it.</p>
@@ -89,5 +89,5 @@
     <li>The activity log records the change order, its number, its amount and whether it came through PandaDoc or by hand.</li>
     <li>A homeowner who declines leaves it <em>Declined</em>, and it can be revised and sent again.</li>
   </ul>
-  <div class="callout"><span class="t">Where this goes next</span><p>Today a person raises the change order. Chapter 11 recommends raising it automatically when the final design differs from the signed system, so the homeowner gets it minutes after the designer finishes.</p></div>
+  <div class="callout"><span class="t">Where this goes next</span><p>Today a person raises the change order. Chapter 14 recommends raising it automatically when the final design differs from the signed system, so the homeowner gets it minutes after the designer finishes.</p></div>
 </section>

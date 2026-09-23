@@ -1,0 +1,98 @@
+<section class="chapter" data-no="8" data-title="Stage fields — what each stage now records">
+  <span class="mk">@@C8@@</span>
+  <div class="kicker">Chapter 8</div>
+  <h1>Stage fields</h1>
+  <p class="lede">Every stage form gained the facts a residential solar job actually turns on: the roof and the main panel at Survey, the final system at Design, permit numbers and expiry dates, purchase orders and tracking, the crew, the inspector, the monitoring site, and the close-out. Each is a typed column (migration 004600), so the document reader in chapter 10 has somewhere exact to put what it finds, and the reports can ask for it.</p>
+  <table class="t-compact">
+    <thead><tr><th class="w18">Stage</th><th>Added</th><th class="w30">Why it matters</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Survey</td><td>Surveyor · survey scheduled date · <strong>Site facts</strong>: roof type, roof age, roof condition, stories, roof pitch, main panel rating, bus bar rating, main breaker, main panel upgrade needed, meter number, utility account number, attic access, trenching distance, shading notes, site notes.</td><td>The 120% rule (bus rating × 1.2 − main breaker) decides the panel-upgrade adder; the roof condition decides whether to install at all; the utility account number is what the interconnection application asks for.</td></tr>
+      <tr><td class="k">Design</td><td><strong>Design output</strong>: final system size (kW DC), final module count, year-1 production estimate, usage offset, design revision, customer approval date, design tool link, engineering firm, PE stamp required.</td><td>The final design against the signed system is the change-order check; the production estimate is the number the homeowner was promised.</td></tr>
+      <tr><td class="k">Permits</td><td>Permit number · permit expiry date · permit fee · submission method (portal, email, in person, SolarAPP+) · ICA application number · meter swap required · HOA name and contact.</td><td>An expired permit found on install day is the classic wasted truck roll; the PM is now warned 14 days before (chapter 9).</td></tr>
+      <tr><td class="k">Procurement</td><td>Vendor / distributor · PO number · order date · expected delivery · tracking number · where the material is (vendor, warehouse, site) · material cost.</td><td>The day-before readiness check needs to know the equipment is actually on site.</td></tr>
+      <tr><td class="k">Install</td><td>Crew lead · crew size · install duration · main panel upgrade completed · homeowner sign-off date · install notes.</td><td>Sign-off and punch list, where the inspection request needs them.</td></tr>
+      <tr><td class="k">Inspection &amp; PTO</td><td>Inspection scheduled date · inspector · re-inspection date · PTO / interconnection application number · net meter set date · monitoring platform (Enphase, SolarEdge, Tesla, Generac, other) · monitoring site ID.</td><td>The homeowner is told when the inspector is coming; the monitoring site ID is what a production check will use.</td></tr>
+      <tr><td class="k">Complete</td><td><strong>Close-out</strong>: warranties registered · final payment received · close-out packet sent · review requested · referral asked.</td><td>The after-sales steps that most installers forget are now a checklist on the last form.</td></tr>
+    </tbody>
+  </table>
+  <p class="small">Status dropdowns stamp their dates as before (Scheduled fills the scheduled date, Ordered the order date, Re-inspection scheduled the re-inspection date). Numbers are typed as numbers and refused otherwise. Every new column is optional: nothing new blocks an advance, and every one of them is a report field.</p>
+</section>
+
+<section class="chapter" data-no="9" data-title="Notifications — one catalogue, every channel">
+  <span class="mk">@@C9@@</span>
+  <div class="kicker">Chapter 9</div>
+  <h1>Notifications</h1>
+  <p class="lede">Until this round each notification was its own piece of code, and most moments passed in silence: nobody told the PM a permit was about to expire, nobody told the dealer their project moved, and there was no list of what had been sent to whom. Migration 004700 makes notifications one system: a catalogue of 55 kinds, a feed per person, email and push, and an admin screen with a switch on every one.</p>
+
+  <h2>How it works</h2>
+  <div class="flow">
+    <div class="step b"><b>1 · Something happens</b>A trigger on the business table (projects, the seven stage forms, documents, chat, e-sign, change orders, contacts, deals, ratings, commissions, exceptions) raises the kind with a payload.</div>
+    <div class="step b"><b>2 · Or time passes</b>The scheduled job raises ageing, expiring permits, tomorrow's unready installs, quiet contacts and quiet deals.</div>
+    <div class="step"><b>3 · Once each</b>A kind and key is raised once per recipient, so a project moved back and forth, or a job run twice, sends nothing twice.</div>
+    <div class="step"><b>4 · Delivered</b>Every ten minutes: the words are rendered once (feed, email and push read the same), emailed unless the homeowner opted out, pushed to registered devices. Homeowners' rows wait through quiet hours; staff's do not.</div>
+    <div class="step g"><b>5 · Seen</b>A bell in the sidebar with the unread count; /notifications for staff and dealers; Updates in the homeowner's portal and app.</div>
+  </div>
+
+  <h2>The catalogue</h2>
+  <table class="t-compact">
+    <thead><tr><th class="w18">Audience</th><th>Kinds</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Homeowner (29)</td><td>Project started · stage advanced · survey scheduled / completed · design ready · permit submitted / approved · interconnection approved · HOA approved · equipment ordered / delivered · installation scheduled / completed · inspection scheduled / passed / needs corrections · PTO requested / granted · system switched on · project complete / paused / resumed · payment requested / received · something needed from them · contract signed · change order confirmed · new message.</td></tr>
+      <tr><td class="k">Project manager (16)</td><td>Project assigned · customer wrote · customer request · customer uploaded · project ageing · permit expiring · permit correction requested · inspection failed · install tomorrow not ready · document signed / declined / signed but not applied · change order approved · low rating · <strong>AI needs a decision</strong> · <strong>morning briefing</strong>.</td></tr>
+      <tr><td class="k">Admin (3)</td><td>New project · deal won · e-signature failed.</td></tr>
+      <tr><td class="k">Sales rep (3)</td><td>Lead assigned · contact going quiet · deal going quiet.</td></tr>
+      <tr><td class="k">Dealer (5)</td><td>Your project started / moved / completed / paused · commission payable.</td></tr>
+    </tbody>
+  </table>
+  <p class="small">A homeowner with no login is emailed; one who opted out of email and has no login is not told at all; one with the app is told in it. Each kind has three switches — in app, email, push — and an <em>On</em> switch that stops it being raised at all. The timing settings (days before a contact or deal counts as quiet, permit warning window, briefing hour) sit on the same screen, <strong>Admin → Notifications</strong>.</p>
+
+  <h2>The scheduled job</h2>
+  <p>One endpoint, <code>/api/push/reminders</code>, does everything time-based: install reminders, the quiet-hours flush, the chat and rating digests, the timed notification rules, notification delivery, and (chapter 10) the AI queue. <code>vercel.json</code> now runs it every ten minutes with <code>CRON_SECRET</code>; an admin can also press <em>Run now</em>. Every part of it is safe to run twice.</p>
+  <div class="callout amber"><span class="t">One thing to check</span><p>Vercel's Hobby plan allows a cron to run once a day. The ten-minute schedule needs the Pro plan; otherwise change the schedule in <code>vercel.json</code> to daily and use an outside scheduler (GitHub Actions, cron-job.org, or any server's cron) to call the endpoint with <code>Authorization: Bearer &lt;CRON_SECRET&gt;</code> every ten minutes.</p></div>
+</section>
+
+<section class="chapter" data-no="10" data-title="AI automation — reading, drafting, briefing, advancing">
+  <span class="mk">@@C10@@</span>
+  <div class="kicker">Chapter 10</div>
+  <h1>AI automation</h1>
+  <p class="lede">Ask SolarFlow answered questions. This round gives the same model work to do on its own, in the shape the blueprint asked for: small jobs the database records, a confidence on everything, an exceptions queue for doubt, and every switch starting on the cautious side. Migration 004800; <strong>Admin → AI automation</strong>; the <strong>Exceptions</strong> screen in the sidebar.</p>
+
+  <h2>What runs</h2>
+  <table>
+    <thead><tr><th class="w22">Job</th><th>What happens</th><th class="w25">The person's part</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Read a stage attachment <span class="pill live">D1 · D2</span></td><td>Every PDF or photo attached to a stage form is read by the model, which is told the stage and its fields and asked for the values it can see, each with a confidence and the words that support it. A permit letter yields the permit number, approval date, expiry and status; a packing slip the PO number and delivery date; a plan set the final system size and module count. Invalid values and unknown fields are dropped. A file that is not what it was filed as (a dog photo as an HOA approval) becomes a high-severity exception with nothing proposed.</td><td>Suggestions appear on the stage form ("Read from the attachments") and in the exceptions queue with the evidence beside each. <strong>Accept</strong> writes the value through the form's own allowlist; <strong>Reject</strong> writes nothing. With <em>auto-apply</em> on, values above the threshold are written at once and only the rest ask.</td></tr>
+      <tr><td class="k">Evidence-based auto-advance <span class="pill live">D3</span></td><td>No model involved. For each stage the admin has ticked, a project whose form is complete and whose required attachments are in moves to the next stage through <code>moveProject</code> — the same gate, the same homeowner notification, the same chat line and the same audit entry as the green button, attributed to the automation. Held back while any suggested value on the project is undecided.</td><td>Tick the stages on Admin → AI automation. Start with Inspection &amp; PTO and Permits.</td></tr>
+      <tr><td class="k">Draft the reply <span class="pill live">O2</span></td><td>When a homeowner writes, the model drafts the PM's answer from the project's own facts — stage, every date on the forms, what is outstanding, the reply promise — and says how sure it is and whether a person is needed. Money, cancellation, complaints and dates that are not set always need a person; the draft is then a short holding reply.</td><td>The draft sits above the composer with <em>Send to Hana Home</em>, an editable box, and <em>Dismiss</em>. With <em>auto-send</em> on, a confident draft that needs no person goes out as the PM, signed "sent automatically by the SolarFlow assistant".</td></tr>
+      <tr><td class="k">Morning briefing <span class="pill live">O3</span></td><td>At the chosen hour, Ask SolarFlow writes each project manager's briefing from the PM report, under that PM's own permissions: the two or three things to do today, what is ageing and why, what is blocked on the customer, messages waiting, the next seven days. Once per person per day.</td><td>It arrives in the feed and by email (Admin → Notifications decides the channels).</td></tr>
+    </tbody>
+  </table>
+
+  <h2>The exceptions queue <span class="pill live">B3</span></h2>
+  <p>A screen over the <code>exceptions</code> table, for admin and ops. Each card shows the severity, the project, what the reader found and its notes, a link to the document, and the pending suggestions as a table with Accept / Reject on each row and one button for all. <em>Acknowledge</em>, <em>Dismiss</em> and <em>Resolve</em> on every exception; resolving closes undecided suggestions without applying them. When the last suggestion from a document is decided — here or on the stage form — its exception resolves itself. A new exception raises the PM's "AI needs a decision" notification.</p>
+
+  <h2>The switches</h2>
+  <table class="t-compact">
+    <thead><tr><th class="w30">Setting</th><th class="w14">Default</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Read stage attachments</td><td>On</td><td>Queue a read for every PDF or photo attached to a stage form.</td></tr>
+      <tr><td class="k">Write confident values without asking</td><td><strong>Off</strong></td><td>Auto-apply above the threshold. Turn on once a week of suggestions has been accepted mostly unchanged.</td></tr>
+      <tr><td class="k">Confidence threshold</td><td>0.85</td><td>The line for auto-apply and auto-send. 0.5–1.</td></tr>
+      <tr><td class="k">Auto-advance stages</td><td>None</td><td>Which stages may move on by themselves when complete.</td></tr>
+      <tr><td class="k">Draft replies</td><td>On</td><td>Draft an answer to every homeowner message.</td></tr>
+      <tr><td class="k">Send confident replies automatically</td><td><strong>Off</strong></td><td>Autopilot for routine questions, signed as automatic.</td></tr>
+      <tr><td class="k">Morning briefing · hour</td><td>On · 7</td><td>Per PM, in the company's timezone.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Why it is safe</h2>
+  <div class="grid2">
+    <div class="card"><h4>The form's own allowlist</h4><p>An accepted or auto-applied value goes through exactly the code the stage form's Save uses: the field must exist on that stage, the value must fit its type and options. The model cannot write a column the form does not have.</p></div>
+    <div class="card"><h4>Documents are data, never instructions</h4><p>The reading job has no tools that act. It returns a schema — fields, confidences, evidence, issues — and the application decides what to do with it under the admin's switches.</p></div>
+    <div class="card"><h4>A real identity, a full record</h4><p>The automation acts as a named service account with no password, hidden from every list. Its moves appear in the stage history and the activity log as its own, not a PM's; every read, suggestion, decision and automatic reply is logged with tokens used.</p></div>
+    <div class="card"><h4>Idempotent and retry-safe</h4><p>A document is read once, a message answered once, a briefing written once a day, however often the job runs. Transient API errors retry with a delay; after three attempts a job fails for good and says why on the admin screen.</p></div>
+  </div>
+
+  <h2>Cost</h2>
+  <p>The jobs run at low effort on Claude Opus 5 by default (<code>AI_EFFORT</code> raises it). Reading a one-page letter costs a few cents; a plan set tens of cents; a reply draft two to five cents; a briefing ten to twenty cents per PM per day. The activity log records the real tokens for every job, so the actual figure is a report away.</p>
+</section>

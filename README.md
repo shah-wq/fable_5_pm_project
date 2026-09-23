@@ -82,7 +82,9 @@ npm run dev                             # sign in at /login
 
 Production: `npm run build && npm start` behind any Node-capable host, with
 the same env vars (`DATABASE_URL`, `SMTP_*`, `NEXT_PUBLIC_SITE_URL` = the
-deployed origin). `GET /api/health` reports missing configuration and
+deployed origin, `CRON_SECRET` for the scheduled job, `ANTHROPIC_API_KEY` for
+the assistant and the AI automation, `PANDADOC_*` for e-signature; see
+`.env.example` and `docs/deployment.md`). `GET /api/health` reports missing configuration and
 whether the schema is applied. See `docs/deployment.md` for deploying on
 Vercel — including the Neon integration's "integration resources failed to
 provision", which is a provisioning failure no commit can fix.

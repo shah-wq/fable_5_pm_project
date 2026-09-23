@@ -16,36 +16,38 @@
   <p class="lede">SolarFlow PM is one system for the whole life of a residential solar sale, from the first contact to a completed installation. Office staff, sales reps, dealers, designers, finance and the homeowner all work in it.</p>
 
   <div class="grid4" style="margin-bottom:8pt">
-    <div class="stat"><div class="n">28</div><div class="l">Modules</div></div>
+    <div class="stat"><div class="n">30</div><div class="l">Modules</div></div>
     <div class="stat"><div class="n">7</div><div class="l">User roles</div></div>
-    <div class="stat"><div class="n">53</div><div class="l">Screens</div></div>
-    <div class="stat"><div class="n">70</div><div class="l">API endpoints</div></div>
-    <div class="stat"><div class="n">89</div><div class="l">Database tables</div></div>
-    <div class="stat"><div class="n">191</div><div class="l">Security policies</div></div>
-    <div class="stat"><div class="n">46</div><div class="l">Schema migrations</div></div>
-    <div class="stat"><div class="n">90</div><div class="l">Commits shipped</div></div>
+    <div class="stat"><div class="n">58</div><div class="l">Screens</div></div>
+    <div class="stat"><div class="n">76</div><div class="l">API endpoints</div></div>
+    <div class="stat"><div class="n">94</div><div class="l">Database tables</div></div>
+    <div class="stat"><div class="n">204</div><div class="l">Security policies</div></div>
+    <div class="stat"><div class="n">49</div><div class="l">Schema migrations</div></div>
+    <div class="stat"><div class="n">93</div><div class="l">Commits shipped</div></div>
   </div>
 
   <h2>What it does today</h2>
   <ul>
     <li><strong>Sells.</strong> A CRM of every contact, with duplicate detection across every email and phone on file, and a Contact stages board from first contact to signed or lost.</li>
     <li><strong>Signs.</strong> Contract signed records the system sold and creates the project in one step, signed on screen or sent through PandaDoc; change orders are signed the same way and update the contract value.</li>
-    <li><strong>Delivers.</strong> A seven-stage pipeline (Survey to Complete, plus Hold and Cancelled) with a form per stage; a project cannot advance with paperwork missing.</li>
+    <li><strong>Delivers.</strong> A seven-stage pipeline (Survey to Complete, plus Hold and Cancelled) with a form per stage holding the solar facts each stage turns on; a project cannot advance with paperwork missing — and, where the admin allows, advances by itself when nothing is.</li>
+    <li><strong>Tells everyone.</strong> Fifty-five kinds of notification — permit approved, equipment delivered, install tomorrow not ready, your project moved — for homeowners, PMs, admins, reps and dealers, in the app, by email and by push, each with a switch.</li>
     <li><strong>Serves the homeowner.</strong> A plain-language portal and iOS/Android app: current stage and its typical duration, chat with their PM, uploads, push, and a rating after every stage.</li>
     <li><strong>Serves dealers, measures and answers.</strong> A dealer portal, a live dashboard, a report builder with Excel/CSV export, and Ask SolarFlow, an AI assistant answering from live data.</li>
+    <li><strong>Reads, drafts and briefs.</strong> Every stage attachment is read into the form with evidence for a person to accept; homeowners' messages get a drafted reply; each PM gets a morning briefing; and anything the automation is unsure of lands in one exceptions queue.</li>
   </ul>
 
   <h2>Where it stands</h2>
   <p>The delivery pipeline, portals, mobile app, chat, feedback, dashboard, reports and the core CRM are built and covered by automated tests. The platform runs on plain PostgreSQL (Neon) and Vercel. The application applies its own database migrations from <strong>Admin → Database</strong>, so no SQL console is needed.</p>
   <div class="callout warn">
     <span class="t">The honest position on AI</span>
-    <p>One AI feature is live: Ask SolarFlow, which answers but does not act. The foundation for more is in place (tables for AI quoting, booking, adders and vendor quotes, and an exceptions queue for low-confidence output). Chapters 12, 16–17 and the separate AI &amp; Automation Blueprint set out what to build on it.</p>
+    <p>Five AI capabilities are live: Ask SolarFlow answers; the document reader reads stage attachments into the forms; reply drafts answer homeowners; the morning briefing writes each PM's day; and evidence-based auto-advance moves complete projects on. Each defaults to proposing rather than acting, and needs <code>ANTHROPIC_API_KEY</code> and an admin's switch to do more. What it does not yet do: read the utility bill on the deal, watch permit portals, take actions on request, or send SMS. Chapters 12, 16–17 and the separate AI &amp; Automation Blueprint set out the rest.</p>
   </div>
 
   <h2>The three most valuable next steps</h2>
   <ol>
-    <li><strong>Turn on the automation that is already written.</strong> Reminders, quiet-hours delivery and the digest run from one endpoint that no schedule calls yet; a cron entry is a one-line change (chapter 14).</li>
-    <li><strong>Automate the paperwork bottleneck with AI.</strong> Document extraction, permit-packet assembly and permit/interconnection tracking remove the most repetitive office work; the stage forms already have typed columns for the answers (chapter 16).</li>
+    <li><strong>Switch it on.</strong> Set <code>CRON_SECRET</code> and the Anthropic key, apply migrations 004600–004800, and review the exceptions queue for a week; then turn on auto-apply, auto-advance for Inspection &amp; PTO and Permits, and auto-send for routine replies (chapters 12 and 14).</li>
+    <li><strong>Connect the outside world.</strong> Permit and interconnection portals, the utility bill on the deal, lenders and monitoring platforms: each becomes documents and statuses the reader and the notifications already know how to handle (chapter 16).</li>
     <li><strong>Close the loop on speed-to-lead.</strong> Instant, automated first response and appointment booking on every new contact. This is the single largest driver of close rate in residential solar (chapter 19).</li>
   </ol>
 </section>
@@ -63,7 +65,8 @@
       <tr><td class="k">Project delivery</td><td>M06 Pipeline board &amp; stage engine · M07 Stage forms · M08 Hold, Cancel &amp; Complete · M09 Projects &amp; project details · M10 Admin panel &amp; reference lists · M11 Analytics dashboard · M12 Report builder</td><td><span class="pill live">Live</span></td></tr>
       <tr><td class="k">Dealers &amp; partners</td><td>M13 Dealer portal · M14 Dealer companies &amp; commissions · M15 Lead review queue</td><td><span class="pill live">Live</span></td></tr>
       <tr><td class="k">Homeowner experience</td><td>M16 Customer portal · M17 Customer management · M18 Customer mobile app · M19 Project chat &amp; inbox · M20 Stage feedback &amp; follow-ups</td><td><span class="pill live">Live</span></td></tr>
-      <tr><td class="k">CRM &amp; sales</td><td>M21 CRM foundation · M22 Contacts &amp; Create Contact · M23 Contact stages · M24 Contract signing → project · M25 Deals · M26 Subscribers</td><td><span class="pill live">Live</span> <span class="pill partial">M26 partial</span></td></tr>
+      <tr><td class="k">CRM &amp; sales</td><td>M21 CRM foundation · M22 Contacts &amp; Create Contact · M23 Contact stages · M24 Contract signing → project · M25 Deals · M26 Subscribers · M27 E-signature &amp; change orders</td><td><span class="pill live">Live</span> <span class="pill partial">M26 partial</span></td></tr>
+      <tr><td class="k">Assistant, notifications &amp; automation</td><td>M28 Ask SolarFlow · M29 Notifications · M30 AI automation (document reader, exceptions queue, auto-advance, reply drafts, morning briefing)</td><td><span class="pill live">Live</span> <span class="pill partial">need the key</span></td></tr>
     </tbody>
   </table>
 
@@ -78,12 +81,12 @@
   <table class="t-compact">
     <thead><tr><th>Measure</th><th>Value</th><th>Measure</th><th>Value</th></tr></thead>
     <tbody>
-      <tr><td>Application code (TypeScript)</td><td>41,200 lines</td><td>Database code (SQL migrations)</td><td>12,300 lines</td></tr>
-      <tr><td>Screens</td><td>53</td><td>API endpoints</td><td>64</td></tr>
-      <tr><td>Database tables</td><td>88</td><td>Database functions</td><td>118</td></tr>
-      <tr><td>Row-level security policies</td><td>190</td><td>Database triggers (named)</td><td>19</td></tr>
-      <tr><td>End-to-end test suites</td><td>9 (incl. 1 in a real browser)</td><td>SQL verification suites</td><td>2 (RLS matrix + auth flows)</td></tr>
-      <tr><td>Unit tests</td><td>62</td><td>Commits, 3 Aug – 22 Sep 2026</td><td>85</td></tr>
+      <tr><td>Application code (TypeScript)</td><td>49,400 lines</td><td>Database code (SQL migrations)</td><td>14,500 lines</td></tr>
+      <tr><td>Screens</td><td>58</td><td>API endpoints</td><td>76</td></tr>
+      <tr><td>Database tables</td><td>94</td><td>Database functions</td><td>240</td></tr>
+      <tr><td>Row-level security policies</td><td>204</td><td>Database triggers (named)</td><td>105</td></tr>
+      <tr><td>End-to-end test suites</td><td>15 (4 with a real browser)</td><td>SQL verification suites</td><td>2 (RLS matrix + auth flows)</td></tr>
+      <tr><td>Unit tests</td><td>67</td><td>Commits, 3 Aug – 23 Sep 2026</td><td>93</td></tr>
     </tbody>
   </table>
 </section>
@@ -103,11 +106,12 @@
       <tr><td class="k">Access control</td><td>Row-level security on every table; per-request identity claims</td><td>Access rules live in one place and cannot be bypassed by a new screen or a forgotten filter.</td></tr>
       <tr><td class="k">Authentication</td><td>In-database engine: bcrypt (cost 12), opaque 256-bit session tokens, SHA-256 at rest</td><td>7-day revocable sessions; deactivating a user ends access on their next request.</td></tr>
       <tr><td class="k">Files</td><td>File bytes stored in Postgres, behind two security-definer functions</td><td>Right-sized for site photos and plan PDFs; metadata already shaped for S3 if volume grows.</td></tr>
-      <tr><td class="k">Email</td><td>SMTP via Nodemailer</td><td>Invites, password recovery, chat notifications, rating emails, digests.</td></tr>
+      <tr><td class="k">Email</td><td>SMTP via Nodemailer</td><td>Invites, password recovery, the notification catalogue, chat, rating emails, digests, briefings.</td></tr>
       <tr><td class="k">Push</td><td>Web Push (VAPID) + Capacitor push for native</td><td>Install reminders, stage updates, PM asks and chat, with quiet hours.</td></tr>
       <tr><td class="k">Spreadsheets</td><td>ExcelJS</td><td>Report-builder exports to .xlsx and .csv.</td></tr>
       <tr><td class="k">Mobile</td><td>Capacitor 8 (camera, push, preferences, share)</td><td>One codebase for iOS and Android, built in GitHub Actions.</td></tr>
-      <tr><td class="k">Hosting</td><td>Vercel (Node runtime, 60-second functions); GitHub for source and CI</td><td>Push-to-deploy from <code>main</code>; previews disabled for the working branch.</td></tr>
+      <tr><td class="k">Hosting</td><td>Vercel (Node runtime, 60-second functions, Vercel Cron every ten minutes); GitHub for source and CI</td><td>Push-to-deploy from <code>main</code>; previews disabled for the working branch.</td></tr>
+      <tr><td class="k">AI</td><td>Anthropic Claude API (Claude Opus 5, server-side fallbacks, prompt caching)</td><td>Ask SolarFlow and the automation jobs; every call under a person's or the service account's own permissions, logged with tokens.</td></tr>
     </tbody>
   </table>
 
@@ -120,7 +124,7 @@
   </div>
 
   <h2>Database migrations</h2>
-  <p>The schema is 43 ordered migration files (appendix A). Each is idempotent and guarded: it refuses, with the name of the file to run first, if a prerequisite is missing. The deployment carries its own migration files, and <strong>Admin → Database</strong> shows which are applied and applies the rest with one button, each file in its own transaction, recording what ran. Detection works by probing for what each file creates, including the shape of a function where the name alone is ambiguous.</p>
+  <p>The schema is 49 ordered migration files (appendix A). Each is idempotent and guarded: it refuses, with the name of the file to run first, if a prerequisite is missing. The deployment carries its own migration files, and <strong>Admin → Database</strong> shows which are applied and applies the rest with one button, each file in its own transaction, recording what ran. Detection works by probing for what each file creates, including the shape of a function where the name alone is ambiguous.</p>
   <div class="callout tip"><span class="t">Lesson built in</span><p>A migration that has shipped is never edited again; a correction always goes in a new file. The one time an applied file was rewritten, databases that already had it could not see the change, which is why the signing function now lives in its own file (004100) and is detected by what it returns.</p></div>
 </section>
 

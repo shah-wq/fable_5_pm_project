@@ -78,7 +78,7 @@
   <h2>Why it cannot leak</h2>
   <div class="grid2">
     <div class="card"><h4>Same permissions as the screens</h4><p>Every tool reads through the asker's own database session, so row-level security decides what comes back. A dealer asking about "all projects" gets their own book. Asking by another dealer's project code returns "no project you can see".</p></div>
-    <div class="card"><h4>Read-only</h4><p>No tool writes. Asked to move or change something, it says where in the app to do it. Chapter 15 describes how actions could be added safely.</p></div>
+    <div class="card"><h4>Read-only</h4><p>No tool writes. Asked to move or change something, it says where in the app to do it. Chapter 18 describes how actions could be added safely.</p></div>
     <div class="card"><h4>Offered only what the role has</h4><p>Sales is not offered the dashboard, and dealers get two tools. Money fields follow the report builder's rules, so a contract value reaches only admin, ops and finance.</p></div>
     <div class="card"><h4>Safe on the page</h4><p>Answers render as formatted text built element by element; no HTML from the model reaches the page. A link is live only if it points inside SolarFlow.</p></div>
   </div>
@@ -105,6 +105,6 @@
   <ul>
     <li>It reads, and does not act.</li>
     <li>A project list covers the 300 most recent; the report builder has no such limit.</li>
-    <li>It knows what the database knows: a permit status nobody entered cannot be found (chapters 9 and 12 fix that at the source). A long question can take up to 120 seconds on Vercel.</li>
+    <li>It knows what the database knows: a permit status nobody entered cannot be found (chapters 12 and 15 fix that at the source). A long question can take up to 120 seconds on Vercel.</li>
   </ul>
 </section>

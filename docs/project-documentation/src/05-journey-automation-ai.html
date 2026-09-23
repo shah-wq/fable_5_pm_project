@@ -13,15 +13,15 @@
   </div>
   <h2>Delivery</h2>
   <div class="flow">
-    <div class="step"><b>5 · Survey</b>Site survey; homeowner auto-invited; rating asked on completion.</div>
+    <div class="step"><b>5 · Survey</b>Site survey; homeowner auto-invited and told the date; site facts recorded; rating asked on completion.</div>
     <div class="step"><b>6 · Design</b>Plans, shading report, engineering stamps.</div>
-    <div class="step"><b>7 · Permits</b>Building permit, ICA, HOA, NTP in parallel tracks.</div>
-    <div class="step"><b>8 · Procurement</b>Material ordered and delivered.</div>
-    <div class="step"><b>9 · Install</b>Scheduled; 48 h and 24 h reminders; photos uploaded.</div>
+    <div class="step"><b>7 · Permits</b>Building permit, ICA, HOA, NTP in parallel tracks; approval letters read into the form; homeowner told at each approval; expiry watched.</div>
+    <div class="step"><b>8 · Procurement</b>Material ordered and delivered; the packing slip read into PO and dates.</div>
+    <div class="step"><b>9 · Install</b>Scheduled; day-before readiness check; 48 h and 24 h reminders; photos uploaded.</div>
     <div class="step"><b>10 · Inspection &amp; PTO</b>Inspection passed; utility PTO; "power on" push.</div>
     <div class="step g"><b>11 · Complete</b>Total days, final documents attached, last rating.</div>
   </div>
-  <p>At every step: the homeowner sees the current stage in plain language with its typical duration; the PM sees cards ageing against thresholds; the dealer sees the project move in their portal; each stage change is written to history and the activity log; and the dashboard and reports reflect it immediately.</p>
+  <p>At every step: the homeowner sees the current stage in plain language with its typical duration and is told of each milestone in the app and by email; the PM sees cards ageing against thresholds and is told when one crosses; the dealer sees the project move in their portal and feed; each stage change is written to history and the activity log; every attachment is read for the facts it holds; and the dashboard and reports reflect it immediately.</p>
 
   <h2>Who touches what</h2>
   <table class="t-compact">
@@ -30,8 +30,8 @@
       <tr><td class="k">Contact capture</td><td>Rep or dealer types it</td><td>Dedupes, normalises channels, assigns owner, logs.</td></tr>
       <tr><td class="k">Appointment</td><td>Rep books and moves the card</td><td>Stamps the time in stage, logs the move.</td></tr>
       <tr><td class="k">Signing</td><td>Rep fills the system form</td><td>Creates the deal if needed, the project, the document links; holds the contact.</td></tr>
-      <tr><td class="k">Each stage</td><td>PM fills the stage form</td><td>Validates, blocks incomplete advances, computes days, notifies homeowner, asks for a rating.</td></tr>
-      <tr><td class="k">Customer contact</td><td>PM answers chat and asks</td><td>Push or email, quiet hours, digest, unread badges.</td></tr>
+      <tr><td class="k">Each stage</td><td>PM attaches the paperwork and confirms what the reader found</td><td>Reads the documents into the form, validates, blocks incomplete advances (or advances by itself where allowed), computes days, notifies homeowner and dealer, asks for a rating.</td></tr>
+      <tr><td class="k">Customer contact</td><td>PM sends or edits the drafted reply, and asks</td><td>Drafts the answer from the project's facts, push or email, quiet hours, digest, unread badges.</td></tr>
       <tr><td class="k">Unhappy customer</td><td>PM closes the follow-up</td><td>Low score opens a task and flags the card until it is closed.</td></tr>
     </tbody>
   </table>
@@ -41,7 +41,7 @@
   <span class="mk">@@C11@@</span>
   <div class="kicker">Chapter 11</div>
   <h1>Automations running today</h1>
-  <p class="lede">Every automatic behaviour in the product, grouped by what triggers it. Those marked <span class="pill gap">Not scheduled</span> are written and tested but only run when started by hand until a schedule is added.</p>
+  <p class="lede">Every automatic behaviour in the product, grouped by what triggers it. Everything time-based runs from one scheduled endpoint that <code>vercel.json</code> calls every ten minutes (it needs <code>CRON_SECRET</code> set, and the Pro plan for that frequency — chapter 14).</p>
 
   <h2>Business workflows</h2>
   <table>
@@ -52,17 +52,23 @@
       <tr><td class="k">A contact is signed</td><td>Creates a deal if there is none; writes the system onto it; moves the contact; converts the deal into a project at Survey with system, brands, quantities and contract value; links the deal's documents to the project; marks the deal Won; puts the dealer on the contact; locks the contact in Contract signed.</td></tr>
       <tr><td class="k">A contract is signed in PandaDoc</td><td>Verifies the signature; runs signing as the sender; files the signed PDF; ignores retries.</td></tr>
       <tr><td class="k">A change order is signed or approved</td><td>Adds its amount to the contract value once; links the signed PDF.</td></tr>
-      <tr><td class="k">A stage-form attachment is uploaded</td><td>Files it under the stage's category, hidden from the homeowner; the gate counts it at once.</td></tr>
+      <tr><td class="k">A stage-form attachment is uploaded</td><td>Files it under the stage's category, hidden from the homeowner; the gate counts it at once; queues the document reader, which proposes values for the stage's fields with evidence (or writes the confident ones, if the admin allows) and raises an exception for anything to decide.</td></tr>
+      <tr><td class="k">A suggestion is accepted</td><td>Writes the value through the form's allowlist; when the last one from a document is decided, its exception resolves itself.</td></tr>
+      <tr><td class="k">A stage form is complete (allowed stages)</td><td>Advances the project by itself through the same gate as the button, attributed to the automation; waits while a suggestion is undecided.</td></tr>
       <tr><td class="k">Someone asks Ask SolarFlow</td><td>Runs the lookups under their permissions and logs the question.</td></tr>
+      <tr><td class="k">Any of 55 moments (M29)</td><td>Raises the matching notification for the homeowner, PM, admin, rep or dealer — once — and delivers it in the app, by email and by push per the admin's switches, holding a homeowner's through quiet hours.</td></tr>
       <tr><td class="k">A deal is won (deal board)</td><td>Refuses without a signed contract; creates the project in the same transaction; carries contract, specification and documents; flips the person to customer.</td></tr>
       <tr><td class="k">A dealer lead is converted</td><td>Creates the client and project prefilled from the lead; links it back for the dealer; invites the homeowner.</td></tr>
       <tr><td class="k">A project is created</td><td>Seeds commission from the dealer's defaults; auto-invites the homeowner with a 7-day set-password link; fixes the originating dealer so reporting cannot drift.</td></tr>
-      <tr><td class="k">A project moves stage</td><td>Validates the stage form and refuses with the exact missing items; records stage history; pushes "stage advanced" (and "power on" at energization) to the homeowner; refreshes every open board (instantly in the same browser, within 10 s elsewhere).</td></tr>
+      <tr><td class="k">A project moves stage</td><td>Validates the stage form and refuses with the exact missing items; records stage history; tells the homeowner and the dealer ("stage advanced", "power on" at energization); refreshes every open board (instantly in the same browser, within 10 s elsewhere).</td></tr>
+      <tr><td class="k">A project is assigned to a PM</td><td>Tells the PM, in the app, by email and by push.</td></tr>
       <tr><td class="k">A project goes on hold</td><td>Requires a reason; stores the origin stage for an exact resume; notifies the homeowner; removes it from active counts.</td></tr>
       <tr><td class="k">A stage completes</td><td>Asks the homeowner for a one-tap rating; after 24 hours without an answer, emails five clickable faces; on a low score, opens a follow-up task, flags the pipeline card and alerts the PM.</td></tr>
-      <tr><td class="k">An install date is set</td><td>Pushes the appointment to the homeowner; queues 48 h and 24 h reminders. <span class="pill gap">Not scheduled</span></td></tr>
-      <tr><td class="k">A chat message is sent</td><td>Pushes to the app or emails; holds it through quiet hours (9pm–8am) and delivers in the morning <span class="pill gap">Not scheduled</span>; sends the PM a twice-daily digest of unanswered messages <span class="pill gap">Not scheduled</span>; never notifies anyone of their own message.</td></tr>
+      <tr><td class="k">An install date is set</td><td>Pushes the appointment to the homeowner; queues 48 h and 24 h reminders; the day before, checks the permit is approved, the material delivered and no change order unsigned, and tells the PM if not.</td></tr>
+      <tr><td class="k">A chat message is sent</td><td>Pushes to the app or emails; holds it through quiet hours (9pm–8am) and delivers in the morning; sends the PM a twice-daily digest of unanswered messages; never notifies anyone of their own message. A homeowner's message also queues a drafted reply for the PM (sent automatically only if the admin allows and the model is confident it needs no person).</td></tr>
       <tr><td class="k">A PM asks the customer</td><td>Pushes an "action needed" notification; the answer lands back on the project.</td></tr>
+      <tr><td class="k">A permit approaches expiry · a project ages past threshold · a contact or deal goes quiet</td><td>Tells the PM (or the rep) once — 14 days before expiry, once per stage, once a week for a quiet contact or deal; the days are settings.</td></tr>
+      <tr><td class="k">It is the briefing hour</td><td>Writes each PM their morning briefing from the PM report and delivers it.</td></tr>
       <tr><td class="k">Activity is logged</td><td>Updates the person's last-activity date; links the entry to project, deal and client.</td></tr>
       <tr><td class="k">A battery quantity is entered</td><td>Answers "System includes battery?" by itself, identically on screen and in reports.</td></tr>
     </tbody>
@@ -89,20 +95,39 @@
   <table class="t-compact">
     <thead><tr><th class="w30">Job</th><th>Status</th></tr></thead>
     <tbody>
-      <tr><td class="k"><code>/api/push/reminders</code>: install reminders, quiet-hours flush, PM digest</td><td><span class="pill gap">Not scheduled</span> Built, idempotent and protected by <code>CRON_SECRET</code>. Runs from Admin → Settings by hand; needs a cron entry (chapter 14).</td></tr>
+      <tr><td class="k"><code>/api/push/reminders</code>: install reminders, quiet-hours flush, chat and rating digests, timed notification rules, notification delivery, morning briefings, auto-advance, the AI job queue</td><td><span class="pill live">Scheduled</span> Every ten minutes from <code>vercel.json</code> with <code>CRON_SECRET</code>; also <em>Run now</em> from Admin → Settings and Admin → AI automation. Idempotent throughout. Needs the secret set, and Vercel Pro for the frequency (chapter 14).</td></tr>
       <tr><td class="k">Saved report schedules</td><td><span class="pill gap">No runner</span> Schedules are stored; nothing executes them yet.</td></tr>
     </tbody>
   </table>
 </section>
 
-<section class="chapter" data-no="12" data-title="AI integration — current state">
+<section class="chapter" data-no="12" data-title="AI integration — what runs today">
   <span class="mk">@@C12@@</span>
   <div class="kicker">Chapter 12</div>
-  <h1>AI integration — current state</h1>
-  <p class="lede">The first AI feature is live: <strong>Ask SolarFlow</strong> (M28). The rest below is foundation: the data was made right first, and the schema needs no redesign for what follows. Chapters 16–17 and the separate <em>AI &amp; Automation Blueprint</em> set out the next steps.</p>
+  <h1>AI integration — what runs today</h1>
+  <p class="lede">Two rounds in, the AI does five things: it answers (Ask SolarFlow), it reads documents into the stage forms, it drafts the PM's replies to homeowners, it writes each PM a morning briefing, and — with no model at all — it moves complete projects on. Everything it does carries a confidence, waits for a person when unsure, and is logged. The separate <em>AI &amp; Automation Blueprint</em> describes each in detail (chapters 6–7 and 10) and what comes next.</p>
 
+  <table>
+    <thead><tr><th class="w22">Capability</th><th>What it does</th><th class="w22">Autonomy today</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Ask SolarFlow (M28)</td><td>Answers questions from live data under the asker's permissions, through eight read-only tools.</td><td>L1 · answers only</td></tr>
+      <tr><td class="k">Document reader (M30)</td><td>Reads every stage attachment and proposes typed values for the stage's fields with evidence; flags files that are not what they were filed as.</td><td>L2 by default (a person accepts); L3 with auto-apply above the threshold</td></tr>
+      <tr><td class="k">Exceptions queue (M30)</td><td>One screen for everything the automation would not decide alone: accept, reject, resolve.</td><td>The person's half of L3</td></tr>
+      <tr><td class="k">Evidence-based auto-advance (M30)</td><td>Moves a complete project on through the same gate as the button, per stage the admin allows.</td><td>L3 · off until ticked</td></tr>
+      <tr><td class="k">Reply drafts (M30)</td><td>Drafts the PM's answer to a homeowner from the project's facts; knows when a person is needed.</td><td>L2 by default; L3 with auto-send</td></tr>
+      <tr><td class="k">Morning briefing (M30)</td><td>Each PM's day, written from the PM report at the chosen hour.</td><td>L3</td></tr>
+    </tbody>
+  </table>
 
-  <h2>AI-ready foundations already in the database</h2>
+  <h2>The rules it runs under</h2>
+  <div class="grid2">
+    <div class="card"><h4>Writes only through the form's allowlist</h4><p>An accepted or auto-applied value takes exactly the path the stage form's Save takes: known field, valid type, allowed option. A stage move takes the move service's path. There is no back door for the model.</p></div>
+    <div class="card"><h4>Documents and messages are data</h4><p>The reading and drafting jobs have no tools that act; they return a schema — values, confidences, evidence, issues — and the application decides under the admin's switches.</p></div>
+    <div class="card"><h4>A named service account</h4><p>The automation is a real profile with no password, hidden from every list. Its moves show as its own in the stage history and the activity log, with the tokens each job used.</p></div>
+    <div class="card"><h4>Cautious defaults</h4><p>Reading on, auto-apply off, auto-advance for no stage, drafts on, auto-send off, briefings on. The threshold is 0.85. Turn each up once a week of proposals has been accepted mostly unchanged.</p></div>
+  </div>
+
+<h2>Foundations in the database, and what uses them</h2>
   <table>
     <thead><tr><th class="w25">Table</th><th>Built for</th><th class="w14">Today</th></tr></thead>
     <tbody>
@@ -112,7 +137,7 @@
       <tr><td class="k">vendor_quotes · bom_items</td><td>Vendor pricing and bills of materials, for automated quote requests; source can be <code>ai</code>.</td><td>Manual</td></tr>
       <tr><td class="k">designs · design_assets · site_surveys</td><td>Structured design and survey data an AI designer or reviewer can read and write.</td><td>Manual</td></tr>
       <tr><td class="k">stage_feedback</td><td>Ratings and comments; source can be <code>ai</code> for AI self-critique of its own stage work.</td><td>Customer</td></tr>
-      <tr><td class="k">exceptions</td><td>The work queue of things a person must look at: rule conflicts, <strong>low-confidence AI output</strong>, anything the automation will not decide alone.</td><td>Ready</td></tr>
+      <tr><td class="k">exceptions · ai_jobs · ai_suggestions · ai_reply_drafts</td><td>The work queue of things a person must look at (now with its own screen), the automation's job queue, the document reader's proposals, and the drafted replies.</td><td>In use</td></tr>
       <tr><td class="k">permits · permit_events</td><td>Permit tracking with an event history, for automated status monitoring.</td><td>Manual</td></tr>
     </tbody>
   </table>
@@ -121,7 +146,7 @@
   <div class="grid2">
     <div class="card"><h4>Typed, structured stage data</h4><p>Every stage field is a real column with a known type, so an AI's answer can be written into a column and validated, not pasted into a notes box.</p></div>
     <div class="card"><h4>Rules the AI cannot break</h4><p>Stage validation, the hold, the won-deal lock and row-level security are all in the database. An AI agent acting through the same API gets exactly the same refusals as a person.</p></div>
-    <div class="card"><h4>A place for doubt</h4><p>The exceptions queue gives AI somewhere to put work it is not sure of, which is what lets it act alone on everything else.</p></div>
+    <div class="card"><h4>A place for doubt</h4><p>The exceptions queue gives the AI somewhere to put work it is not sure of, which is what lets it act alone on everything else. It has a screen now, and the document reader fills it.</p></div>
     <div class="card"><h4>A full audit trail</h4><p>Every action is logged with actor and kind, so AI actions can be attributed, reviewed and reversed like anyone else's.</p></div>
   </div>
 </section>

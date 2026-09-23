@@ -63,18 +63,18 @@
   </ul>
 
   <div class="module"><span class="num">M07</span><span class="name">Stage forms</span><span class="pill live">Live</span></div>
-  <p class="meta">Migration 001400 · /projects/[id]/stages/[stage] · lib/stages/fields.ts</p>
-  <p>A data-entry form per stage, with typed columns for every field, so later automation needs no schema work. "Days" fields are computed from dates at read time, never stored. Every stage closes on its <strong>Attachments</strong> card: the stage's required files must be on the project before it can advance (this replaced the old "Drive Updated" tick; stages closed under the tick stay closed).</p>
+  <p class="meta">Migrations 001400, 004600 · /projects/[id]/stages/[stage] · lib/stages/fields.ts</p>
+  <p>A data-entry form per stage, with typed columns for every field, so automation needs no schema work — and now the document reader (M30) has an exact column for everything it finds. "Days" fields are computed from dates at read time, never stored. Every stage closes on its <strong>Attachments</strong> card: the stage's required files must be on the project before it can advance (this replaced the old "Drive Updated" tick; stages closed under the tick stay closed). Migration 004600 added the solar facts each stage turns on; all of them optional, all of them report fields.</p>
   <table class="t-compact">
     <thead><tr><th class="w18">Stage</th><th>What it records</th></tr></thead>
     <tbody>
-      <tr><td class="k">Survey</td><td>Site survey status, completed date, days, adders details.</td></tr>
-      <tr><td class="k">Design</td><td>Designer, design status, requested/received dates, LightReach shading &amp; monthly production-loss report and date, PM notes; <em>Stamps</em>: status, requested/received dates.</td></tr>
-      <tr><td class="k">Permits</td><td>Five tracks, each with status, applied/received dates, notes and revision notes: <strong>Building permit</strong> (required permits: building / electrical / structural), <strong>ICA</strong> (interconnection agreement), <strong>HOA</strong>, <strong>HDM NTP</strong> (notice to proceed: submitted/approved) and the Cash M2 milestone.</td></tr>
-      <tr><td class="k">Procurement</td><td>Procurement manager, material status, requested/delivered dates, PM notes.</td></tr>
-      <tr><td class="k">Install</td><td>Install manager, status, requested/scheduled/completed dates, install pictures.</td></tr>
-      <tr><td class="k">Inspection &amp; PTO</td><td>Inspection status, failed-inspection notes, requested/completed dates; PTO status, applied/received dates; monitoring / system energization status and date.</td></tr>
-      <tr><td class="k">Complete</td><td>Total project days, completion status and date, completion notes, final documents attached.</td></tr>
+      <tr><td class="k">Survey</td><td>Site survey status, surveyor, scheduled and completed dates, days, adders details. <em>Site facts</em>: roof type, age and condition, stories, pitch, main panel / bus bar / main breaker ratings and whether a panel upgrade is needed (the 120% rule), meter and utility account numbers, attic access, trenching distance, shading and site notes.</td></tr>
+      <tr><td class="k">Design</td><td>Designer, design status, requested/received dates, LightReach shading &amp; monthly production-loss report and date, PM notes; <em>Design output</em>: final system size, module count, year-1 production estimate, usage offset, revision, customer approval date, design tool link, engineering firm, PE stamp required; <em>Stamps</em>: status, requested/received dates.</td></tr>
+      <tr><td class="k">Permits</td><td>Five tracks, each with status, applied/received dates, notes and revision notes: <strong>Building permit</strong> (required permits: building / electrical / structural; permit number, expiry date, fee, submission method), <strong>ICA</strong> (interconnection agreement; application number, meter swap required), <strong>HOA</strong> (name, contact), <strong>HDM NTP</strong> (notice to proceed: submitted/approved) and the Cash M2 milestone.</td></tr>
+      <tr><td class="k">Procurement</td><td>Procurement manager, material status, requested/ordered/delivered dates, vendor, PO number, expected delivery, tracking number, where the material is, material cost, PM notes.</td></tr>
+      <tr><td class="k">Install</td><td>Install manager, status, requested/scheduled/completed dates, crew lead and size, install duration, main panel upgrade completed, homeowner sign-off date, install notes, install pictures.</td></tr>
+      <tr><td class="k">Inspection &amp; PTO</td><td>Inspection status, scheduled date, inspector, re-inspection date, failed-inspection notes, requested/completed dates; PTO status, applied/received dates, application number, net meter set date; monitoring / system energization status and date, monitoring platform and site ID.</td></tr>
+      <tr><td class="k">Complete</td><td>Total project days, completion status and date, completion notes; <em>Close-out</em>: warranties registered, final payment received, close-out packet sent, review requested, referral asked; final documents attached.</td></tr>
       <tr><td class="k">Attachments</td><td>Survey: site survey photos*, survey report · Design: plan set*, stamped plans · Permits: permit approval*, ICA approval*, HOA approval* (not when HOA is N/A), NTP · Procurement: delivery confirmation*, purchase order · Install: install sign-off · Inspection &amp; PTO: inspection report*, PTO letter*, monitoring activation · Complete: completion certificate / final documents. <span class="small">* required to advance</span></td></tr>
       <tr><td class="k">Payments</td><td>Down payment and Cash M1–M3 (not requested → requested → initiated → received); Finance M1/M2 labelled by partner (not submitted → submitted → approved / rejected), stored once per project.</td></tr>
     </tbody>
@@ -96,7 +96,7 @@
       <tr><td class="k">People &amp; teams</td><td>Users &amp; roles (invite, resend, cancel, set password, force change, deactivate, guarded delete), surveyors, designers, install crews, vendors, dealers, contacts, sales reps.</td></tr>
       <tr><td class="k">CRM lists</td><td>Sources, loss reasons, roof types, competitors, dealer tiers.</td></tr>
       <tr><td class="k">Equipment &amp; financing</td><td>System types, module types, inverter types, battery types, financing companies, cash or financing, finance partners, dealer visibility.</td></tr>
-      <tr><td class="k">Operations</td><td>Canned replies (chat), company settings, activity log, Database (migrations).</td></tr>
+      <tr><td class="k">Operations</td><td>Canned replies (chat), company settings, Notifications (the catalogue and its switches), AI automation (the switches and the queue), activity log, Database (migrations).</td></tr>
     </tbody>
   </table>
   <p>Lists are deactivated, not deleted, so history is never broken.</p>

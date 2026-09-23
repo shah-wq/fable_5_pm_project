@@ -5,7 +5,7 @@
   <div class="toc"><!--TOC--></div>
   <div class="callout amber" style="margin-top:14pt">
     <span class="t">How to read this document</span>
-    <p>Chapter 1 is the summary. Chapters 2–7 describe what was built in this round, how each part works, and how to switch it on. Chapters 8–15 are the blueprint: the rules that let automation act safely, then the recommendations stage by stage, each rated for impact <span class="pill live">High</span> <span class="pill partial">Medium</span> and effort <span class="pill planned">S · M · L</span>. Chapters 16–19 put them together: the journey with its human touches before and after, the phased roadmap, cost and risk, and the checklist of things only you can do.</p>
+    <p>Chapter 1 is the summary. Chapters 2–7 describe the first round of new features (attachments, e-signature, change orders, Ask SolarFlow) and how to switch them on; chapters 8–10 the second round (stage fields, notifications, the AI automation). Chapters 11–18 are the blueprint: the rules that let automation act safely, then the recommendations stage by stage, each rated for impact <span class="pill live">High</span> <span class="pill partial">Medium</span> and effort <span class="pill planned">S · M · L</span>. Chapters 19–22 put them together: the journey with its human touches before and after, the phased roadmap, cost and risk, and the checklist of things only you can do.</p>
     <p>It sits alongside the main <em>Complete Project Documentation</em>, which has been updated for everything described here.</p>
   </div>
 </section>
@@ -14,7 +14,7 @@
   <span class="mk">@@C1@@</span>
   <div class="kicker">Chapter 1</div>
   <h1>Summary</h1>
-  <p class="lede">Four things were built in this round, each tested end to end. Behind them sits the plan this document exists for: a set of automations and AI integrations that take the routine work out of every stage, so that people handle exceptions and customers rather than paperwork.</p>
+  <p class="lede">Seven things have been built across two rounds, each tested end to end: stage attachments, PandaDoc e-signature, change orders and Ask SolarFlow first; then the solar facts on every stage form, a notification system for every role, and the first AI automation — a document reader, reply drafts, morning briefings and evidence-based auto-advance, with an exceptions queue for whatever the system is unsure of. Behind them sits the plan this document exists for: automations that take the routine work out of every stage, so that people handle exceptions and customers rather than paperwork.</p>
 
   <h2>Delivered</h2>
   <div class="grid2">
@@ -22,6 +22,9 @@
     <div class="card"><h4>PandaDoc e-signature <span class="pill live">Live · needs keys</span></h4><p>From the signing form, the contract goes to the homeowner by email, or is signed on screen with them present. When they sign, the project is created exactly as if the rep had pressed Sign, and the signed PDF is filed on it. Webhooks are verified, completion is idempotent, and every failure leaves a reason with a Finish button.</p></div>
     <div class="card"><h4>Change orders <span class="pill live">Live</span></h4><p>A panel on every project: raise a change order with its reason and amount, send it for signature through PandaDoc, or approve it by hand. Once it is signed or approved, the amount is added to the contract value, once, and the signed PDF is linked from the change order.</p></div>
     <div class="card"><h4>Ask SolarFlow <span class="pill live">Live · needs key</span></h4><p>An AI assistant in the sidebar of every staff and dealer screen. Ask "give me the PM report" or "which projects are stuck in Permits, and why?" and it answers from live data. It runs on Claude Opus 5, reads through eight tools and never sees more than the asker could, because every lookup runs under that person's own database permissions.</p></div>
+    <div class="card"><h4>Stage fields <span class="pill live">Live</span></h4><p>Every stage form now records the facts a solar job turns on: roof and main panel at Survey, the final system at Design, permit numbers and expiry, PO and tracking, crew, inspector, monitoring site, close-out. Typed columns, all optional, all report fields — and the exact place the document reader writes to (chapter 8).</p></div>
+    <div class="card"><h4>Notifications <span class="pill live">Live</span></h4><p>One catalogue of 55 kinds for homeowners, PMs, admins, reps and dealers — permit approved, equipment delivered, install tomorrow not ready, your project moved — raised by the database once each, delivered in the app, by email and by push, held through quiet hours for homeowners, with a switch on every one under Admin → Notifications. The scheduled job is now in <code>vercel.json</code> (chapter 9).</p></div>
+    <div class="card"><h4>AI automation <span class="pill live">Live · needs key</span></h4><p>Every stage attachment is read into suggestions with evidence for a person to accept (or written at once above a threshold, if allowed); homeowners' messages get a drafted reply; each PM gets a morning briefing; complete projects move on by themselves for the stages the admin ticks; and an <strong>Exceptions</strong> screen holds everything the system would not decide alone (chapter 10).</p></div>
   </div>
   <p class="small">Along the way, a real bug surfaced and was fixed: a sales rep's dealer list on the signing form was always empty, because the dealers table is closed to sales. A dealer directory now provides names and nothing else (migration 004500).</p>
 
@@ -29,7 +32,9 @@
   <table class="t-compact">
     <thead><tr><th class="w30">Step</th><th>Where</th></tr></thead>
     <tbody>
-      <tr><td class="k">Apply the database changes</td><td>Admin → Database → Apply: migrations 004300, 004400 and 004500.</td></tr>
+      <tr><td class="k">Apply the database changes</td><td>Admin → Database → Apply: migrations 004300 to 004800.</td></tr>
+      <tr><td class="k">The scheduled job</td><td>Vercel → Environment Variables: <code>CRON_SECRET</code> (Sensitive). The cron entry is already in <code>vercel.json</code>; it needs the Pro plan to run every ten minutes (chapter 9).</td></tr>
+      <tr><td class="k">Review, then turn up</td><td>Admin → AI automation: after a week of accepting suggestions and drafts in the Exceptions screen, switch on auto-apply, auto-advance for Inspection &amp; PTO and Permits, and auto-send (chapter 10).</td></tr>
       <tr><td class="k">PandaDoc API key and webhook key</td><td>Vercel → Environment Variables: <code>PANDADOC_API_KEY</code>, <code>PANDADOC_WEBHOOK_KEY</code> (both Sensitive). Chapter 5.</td></tr>
       <tr><td class="k">Contract and change-order templates</td><td>Built in PandaDoc; their IDs go in Admin → Settings → E-signature. Chapter 5.</td></tr>
       <tr><td class="k">Claude API key</td><td>Vercel: <code>ANTHROPIC_API_KEY</code> (Sensitive). Chapter 6.</td></tr>
@@ -39,21 +44,21 @@
   <h2>The blueprint in one page</h2>
   <p>The recommendations follow one idea: <strong>every stage should finish itself when the evidence arrives</strong>. A document or a status update is read, checked against the stage's rules, and the project moves on, with a person asked only when the evidence is missing, unclear or contradicts itself. SolarFlow is well placed for this. The stage rules, the permissions and the audit trail already live in the database, so an automation acting through them gets the same refusals a person would.</p>
   <div class="grid3">
-    <div class="stat"><div class="n">48</div><div class="l">Recommendations</div></div>
-    <div class="stat"><div class="n">32 → 9</div><div class="l">Manual steps per project (ch. 16)</div></div>
+    <div class="stat"><div class="n">48</div><div class="l">Recommendations · 9 built</div></div>
+    <div class="stat"><div class="n">32 → 9</div><div class="l">Manual steps per project (ch. 19)</div></div>
     <div class="stat"><div class="n">5</div><div class="l">Phases over ~9 months</div></div>
   </div>
   <h3>The ten with the most value, in order</h3>
   <ol>
-    <li><strong>Switch on the scheduler.</strong> Reminders, the quiet-hours digest and report schedules are already written; they only need a cron (ch. 8).</li>
-    <li><strong>Document AI on every upload.</strong> Classify each file, read its facts into the stage form (permit numbers, approval dates, PTO date, utility usage), and flag anything unreadable (ch. 9).</li>
-    <li><strong>Evidence-based auto-advance.</strong> When the required fields and attachments are in and a document proves the milestone, advance the project without a click (ch. 9).</li>
-    <li><strong>Speed-to-lead in under 60 seconds.</strong> Instant SMS and email with a booking link, round-robin assignment, and reminders with no-show recovery (ch. 10).</li>
-    <li><strong>Utility-bill reader to proposal.</strong> A bill photo becomes usage, rate and utility on the deal, then a preliminary design and price (ch. 10).</li>
-    <li><strong>Auto-send the contract.</strong> On <em>Financing approved</em>, send the PandaDoc contract built from the proposal, with reminders until signed (ch. 10).</li>
-    <li><strong>Permit and interconnection watcher.</strong> Poll portals and inboxes for status changes, write them to the permit track, and chase what has gone quiet (ch. 12).</li>
-    <li><strong>Design-to-contract check.</strong> Compare the final design with the signed system and raise the change order automatically when they differ (ch. 11).</li>
-    <li><strong>Ask SolarFlow, v2.</strong> Let the assistant do things as well as answer (move a stage, ask the customer, raise a task), always with a confirm button (ch. 15).</li>
-    <li><strong>Homeowner copilot.</strong> Draft or send replies to routine "where is my project?" questions from the project's own data, with the PM on the loop (ch. 15).</li>
+    <li><strong>Switch on the scheduler.</strong> <span class="pill live">Done</span> The cron is in <code>vercel.json</code>; set <code>CRON_SECRET</code> (ch. 9, 11).</li>
+    <li><strong>Document AI on every upload.</strong> <span class="pill live">Built</span> Every stage attachment is read into the form's fields with evidence; mismatched files are flagged (ch. 10). Next: the utility bill on the deal, and refiling mislabelled uploads (ch. 12).</li>
+    <li><strong>Evidence-based auto-advance.</strong> <span class="pill live">Built</span> Per stage, off until ticked (ch. 10). Next: require the proving document's values to have been read, not just the form to be complete (ch. 12).</li>
+    <li><strong>Speed-to-lead in under 60 seconds.</strong> Instant SMS and email with a booking link, round-robin assignment, and reminders with no-show recovery (ch. 13).</li>
+    <li><strong>Utility-bill reader to proposal.</strong> A bill photo becomes usage, rate and utility on the deal, then a preliminary design and price (ch. 13).</li>
+    <li><strong>Auto-send the contract.</strong> On <em>Financing approved</em>, send the PandaDoc contract built from the proposal, with reminders until signed (ch. 13).</li>
+    <li><strong>Permit and interconnection watcher.</strong> Poll portals and inboxes for status changes, write them to the permit track, and chase what has gone quiet (ch. 15).</li>
+    <li><strong>Design-to-contract check.</strong> Compare the final design with the signed system and raise the change order automatically when they differ (ch. 14).</li>
+    <li><strong>Ask SolarFlow, v2.</strong> Let the assistant do things as well as answer (move a stage, ask the customer, raise a task), always with a confirm button (ch. 18).</li>
+    <li><strong>Homeowner copilot.</strong> <span class="pill live">Built</span> Drafts every reply; sends confident routine ones itself when allowed, signed as automatic (ch. 10, 18).</li>
   </ol>
 </section>

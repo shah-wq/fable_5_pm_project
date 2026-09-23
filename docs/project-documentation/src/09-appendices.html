@@ -35,12 +35,14 @@
       <tr><td class="k">e2e/contact-stages.sh</td><td>The eight stages, any-to-any moves, signing, the project hold, admin deletion.</td></tr>
       <tr><td class="k">e2e/deals.sh</td><td>Deal rules, proposals, Won creates the project, the live board, sales visibility.</td></tr>
       <tr><td class="k">e2e/apply-migrations.sh</td><td>Admin → Database applies missing files, admin-only, idempotent, reports refusals.</td></tr>
-      <tr><td class="k">e2e/schema-behind.sh</td><td>Every screen loads with the database stopped at each of 16 earlier states.</td></tr>
+      <tr><td class="k">e2e/schema-behind.sh</td><td>Every screen loads with the database stopped at each of 17 earlier states.</td></tr>
       <tr><td class="k">e2e/signing-upgrade.sh</td><td>A database with the first signing function is detected and fixed by Apply.</td></tr>
       <tr><td class="k">e2e/stage-attachments.sh</td><td>Every stage form offers its attachments; advancing is refused by name until they are there; old Drive Updated ticks still count; the report field agrees.</td></tr>
       <tr><td class="k">e2e/esign.sh</td><td>Against a PandaDoc stand-in: templates required, validation before sending, forged webhooks refused, signing as the sender, idempotent completion, change orders by webhook-less Check status, manual approval and void, PandaDoc's own errors, and a browser pass.</td></tr>
       <tr><td class="k">e2e/assistant.sh</td><td>Against a Claude API stand-in: the request (model, thinking, fallbacks, caching), tools per role, a dealer seeing only their book, PM report, project details, report runs, refusals and errors, logging, and a browser pass of the panel.</td></tr>
       <tr><td class="k">e2e/contract-signed-ui.sh</td><td>In a real browser: the signing popup, the hold, deletion, and live Deals/Pipeline updates.</td></tr>
+      <tr><td class="k">e2e/notifications.sh</td><td>A new project tells the homeowner (login or email), the dealer, the PM and the admins; stage-form status changes raise the right kinds once each; holds and resumes carry their reason; the scheduled job raises ageing, expiring-permit, install-readiness and quiet-contact notifications and emails everything once; quiet hours hold a homeowner's and never a PM's; each role's feed is its own; an admin can switch a kind off; the pages render.</td></tr>
+      <tr><td class="k">e2e/ai-automation.sh</td><td>Against the Claude API stand-in: a permit letter read into pending suggestions with evidence, invalid and unknown fields dropped, one exception per document, the form untouched; Accept writes through the allowlist and Reject does not; resolving closes the rest; auto-apply writes above the threshold and tells the homeowner; a mismatched file is a high exception; auto-advance moves a complete project through the gate and waits on undecided suggestions; drafts from the project's facts, sent edited or dismissed, auto-sent when allowed and never for a refund question; the briefing once per PM at the chosen hour; the switches and the admin API; the screens.</td></tr>
     </tbody>
   </table>
 
@@ -53,9 +55,9 @@
       <tr><td class="k">NEXT_PUBLIC_SITE_URL</td><td>The public address used in emailed links.</td></tr>
       <tr><td class="k">SMTP_HOST · SMTP_PORT · SMTP_USER · SMTP_PASS · SMTP_SECURE · EMAIL_FROM</td><td>Outgoing email.</td></tr>
       <tr><td class="k">VAPID_PUBLIC_KEY · VAPID_PRIVATE_KEY · VAPID_SUBJECT</td><td>Web push (generate with <code>npm run make:vapid</code>).</td></tr>
-      <tr><td class="k">CRON_SECRET</td><td>Authorises the scheduled reminders endpoint.</td></tr>
+      <tr><td class="k">CRON_SECRET</td><td>Authorises the scheduled endpoint (<code>/api/push/reminders</code>: reminders, notification delivery, timed rules, briefings, auto-advance, the AI queue). <code>vercel.json</code> calls it every ten minutes with this as a bearer token.</td></tr>
       <tr><td class="k">PANDADOC_API_KEY · PANDADOC_WEBHOOK_KEY</td><td>E-signature: the PandaDoc API key, and the shared key that signs its webhooks (both Sensitive).</td></tr>
-      <tr><td class="k">ANTHROPIC_API_KEY · ASSISTANT_MODEL · ASSISTANT_EFFORT</td><td>Ask SolarFlow: the Claude API key (Sensitive); optional model (default claude-opus-5) and effort (default medium).</td></tr>
+      <tr><td class="k">ANTHROPIC_API_KEY · ASSISTANT_MODEL · ASSISTANT_EFFORT · AI_EFFORT</td><td>Ask SolarFlow and the AI automation: the Claude API key (Sensitive); optional model (default claude-opus-5), effort for the chat (default medium) and for the automation jobs (default low).</td></tr>
       <tr><td class="k">PRIVACY_REQUEST_EMAIL</td><td>Where account-deletion requests are sent.</td></tr>
       <tr><td class="k">EMAIL_DEV_LOG</td><td>Development only: log emails instead of sending.</td></tr>
     </tbody>
@@ -87,15 +89,20 @@
       <tr><td class="k">Contact stage</td><td>Where a person stands in the sale (created → signed / lost). Belongs to the contact.</td></tr>
       <tr><td class="k">Deal stage</td><td>The opportunity's own stages (New → Contract out → Won / Lost).</td></tr>
       <tr><td class="k">Attachments</td><td>The files that close each stage (survey photos, plan set, permit approvals…); a project advances only when the required ones are on it. Replaced the old "Drive Updated" tick.</td></tr>
+      <tr><td class="k">Auto-advance</td><td>A complete project moving to its next stage by itself, through the same gate as the button, for the stages an admin allows.</td></tr>
+      <tr><td class="k">Auto-apply · auto-send</td><td>The admin's switches that let a confident suggestion be written, or a confident reply be sent, without a person; both off by default.</td></tr>
+      <tr><td class="k">Briefing</td><td>The morning summary Ask SolarFlow writes each project manager at the chosen hour.</td></tr>
       <tr><td class="k">Envelope</td><td>One document sent for e-signature through PandaDoc, with its status (preparing, sent, viewed, completed, declined, voided, failed).</td></tr>
       <tr><td class="k">Change order</td><td>A signed change to the contract: reason, amount and signature; once signed or approved, the amount is part of the contract value.</td></tr>
       <tr><td class="k">Energization</td><td>The system switched on and producing; monitoring active.</td></tr>
+      <tr><td class="k">Exceptions queue</td><td>The screen (and table) of everything the automation would not decide alone; where suggestions are accepted or rejected.</td></tr>
       <tr><td class="k">HDM NTP</td><td>Notice to proceed from the finance partner before installation.</td></tr>
       <tr><td class="k">HOA</td><td>Homeowners' association approval, where the property has one.</td></tr>
       <tr><td class="k">ICA</td><td>Interconnection agreement with the utility.</td></tr>
       <tr><td class="k">kW / kWh</td><td>System size (kilowatts, DC) / energy produced or used (kilowatt-hours).</td></tr>
       <tr><td class="k">Lifecycle</td><td>Lead, prospect, customer, past customer: derived from the person's projects.</td></tr>
       <tr><td class="k">Migration</td><td>An ordered SQL file that changes the database schema.</td></tr>
+      <tr><td class="k">Notification kind</td><td>One entry of the catalogue (permit approved, project assigned…) with its audience and its in-app / email / push switches.</td></tr>
       <tr><td class="k">Offset</td><td>The share of annual usage the system is expected to produce.</td></tr>
       <tr><td class="k">PM / Ops</td><td>Project manager: the role that runs the pipeline.</td></tr>
       <tr><td class="k">PPA / lease</td><td>Third-party ownership: the homeowner pays for power or rent, not the system.</td></tr>
@@ -103,9 +110,10 @@
       <tr><td class="k">Rapid shutdown</td><td>The electrical code requirement to de-energize rooftop conductors quickly for firefighter safety.</td></tr>
       <tr><td class="k">RLS</td><td>Row-level security: database rules that decide which rows each user may read or change.</td></tr>
       <tr><td class="k">Stamps</td><td>A licensed engineer's approval on the plan set.</td></tr>
+      <tr><td class="k">Suggestion</td><td>A value the document reader proposes for a stage field, with its confidence and the words in the document that support it.</td></tr>
       <tr><td class="k">The hold</td><td>The rule that keeps a signed contact in Contract signed while their project exists.</td></tr>
     </tbody>
   </table>
   <hr class="soft">
-  <p class="small">This document was generated from the repository at commit 725548b on 22 September 2026. Its source is <code>docs/project-documentation/</code>; rebuild it with <code>node docs/project-documentation/build.mjs</code> as the platform changes.</p>
+  <p class="small">This document was generated from the repository on 23 September 2026 (the commit is on the cover). Its source is <code>docs/project-documentation/</code>; rebuild it with <code>node docs/project-documentation/build.mjs</code> as the platform changes.</p>
 </section>

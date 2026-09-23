@@ -175,3 +175,58 @@ asking about "all projects" gets their own, and a sales rep is not offered the
 dashboard. It cannot change anything. Every question is written to the activity
 log (`assistant.asked`) with who asked, what was looked up and the token usage.
 The answers themselves are not stored.
+
+## The scheduled job (reminders, notifications, the AI queue)
+
+Everything time-based runs from one endpoint, `/api/push/reminders`: the 48 h
+and 24 h install reminders, the quiet-hours flush, the chat and rating digests,
+the timed notification rules (ageing, expiring permits, tomorrow's unready
+installs, quiet contacts and deals), the morning briefings, evidence-based
+auto-advance, the AI job queue, and delivery of every notification raised since
+the last run. Each part is safe to run twice.
+
+1. **Secret.** Vercel → Settings → Environment Variables → `CRON_SECRET`, a
+   long random string, marked **Sensitive**. Redeploy. Vercel Cron sends it as
+   `Authorization: Bearer <secret>`; without it the endpoint answers 403 to
+   the cron and only an admin's **Run now** (Admin → Settings, Admin → AI
+   automation) runs the job.
+2. **Schedule.** `vercel.json` already carries
+   `{"path": "/api/push/reminders", "schedule": "*/10 * * * *"}`. Vercel's
+   Hobby plan allows one run a day and refuses to deploy a faster schedule; the
+   ten-minute cadence needs the Pro plan. On Hobby, change the schedule to
+   `0 13 * * *` (daily) and have any outside scheduler — a GitHub Actions
+   workflow on `schedule`, cron-job.org, a server's crontab — call
+   `GET https://<your domain>/api/push/reminders` every ten minutes with the
+   same `Authorization` header.
+3. **Check.** The response is JSON: `notificationsRaised`,
+   `notificationsDelivered`, `automation` (briefings queued, projects advanced,
+   jobs done / failed / skipped) and the older reminder counts. Vercel → Cron
+   Jobs shows each run.
+
+## Notifications (Admin → Notifications)
+
+Migration 004700 adds the catalogue. Nothing to configure beyond email and
+push: `SMTP_*` and `EMAIL_FROM` for email, `VAPID_*` for push
+(`npm run make:vapid`). Every kind has an *On* switch and *in app* / *email* /
+*push* switches; the timing settings (days before a contact or deal counts as
+quiet, the permit warning window, the briefing hour) are on the same screen.
+Quiet hours follow the company timezone set under Admin → Settings.
+
+## AI automation (Admin → AI automation)
+
+Migration 004800, and the same `ANTHROPIC_API_KEY` as the assistant. With the
+key set, every PDF or photo attached to a stage form is read and its values
+proposed on the form and in the **Exceptions** screen; every homeowner message
+gets a drafted reply above the PM's composer; every PM gets a morning briefing
+at the chosen hour. All of that proposes; a person decides.
+
+Three switches make it act, all off by default: **write confident values
+without asking** (auto-apply above the confidence threshold, default 0.85),
+**auto-advance** per stage, and **send confident replies automatically**. Turn
+them on after a week of reviewing the queue. `AI_EFFORT` (default `low`)
+raises the model's effort for the jobs; the assistant's own `ASSISTANT_EFFORT`
+is separate.
+
+The automation acts as a service account created by the migration
+(`automation@solarflow.local`, no password, hidden from every list); its moves
+and writes appear under that name in the stage history and the activity log.

@@ -1,6 +1,6 @@
-<section class="chapter" data-no="8" data-title="Principles and the automation backbone">
-  <span class="mk">@@C8@@</span>
-  <div class="kicker">Chapter 8</div>
+<section class="chapter" data-no="11" data-title="Principles and the automation backbone">
+  <span class="mk">@@C11@@</span>
+  <div class="kicker">Chapter 11</div>
   <h1>Principles and the automation backbone</h1>
   <p class="lede">Cutting human work does not mean trusting a model with everything. It means building a system that does the routine work itself, knows when it is unsure, and puts those cases in front of a person with everything needed to decide in one click.</p>
 
@@ -33,18 +33,18 @@
   <table class="rec">
     <thead><tr><th>Piece</th><th>What it is</th><th>Why</th></tr></thead>
     <tbody>
-      <tr><td><span class="rk"><span class="rid">B1</span>Scheduler &amp; job queue</span><span class="tags"><span class="pill live">High</span><span class="pill planned">S</span></span></td><td>Vercel Cron calling the existing <code>/api/push/reminders</code> every few minutes, plus a small job table (<code>jobs</code>: kind, payload, run_at, attempts, last_error) processed by the same cron. Jobs are idempotent and retried with backoff.</td><td>Install reminders, the quiet-hours flush, the PM digest and report schedules are already written and simply never run.</td></tr>
+      <tr><td><span class="rk"><span class="rid">B1</span>Scheduler &amp; job queue</span><span class="tags"><span class="pill live">Built</span></span></td><td>Vercel Cron calls <code>/api/push/reminders</code> every ten minutes (<code>vercel.json</code>, <code>CRON_SECRET</code>), and <code>ai_jobs</code> is the job table (kind, entity, payload, attempts, run_after, error), claimed in the database, retried with a delay, failed after three attempts. Every job is idempotent.</td><td>Install reminders, the quiet-hours flush, the PM digest and report schedules are already written and simply never run.</td></tr>
       <tr><td><span class="rk"><span class="rid">B2</span>Event outbox &amp; webhook inbox</span><span class="tags"><span class="pill live">High</span><span class="pill planned">M</span></span></td><td>Database triggers write domain events (<code>project.stage_changed</code>, <code>document.uploaded</code>, <code>deal.stage_changed</code>) to an outbox table; the job queue fans them out to automations. Inbound webhooks (PandaDoc, lenders, monitoring, SMS replies) land in one verified inbox route.</td><td>Automations react to what happened instead of polling, and one event can drive several of them without coupling them together.</td></tr>
-      <tr><td><span class="rk"><span class="rid">B3</span>Exceptions queue screen</span><span class="tags"><span class="pill live">High</span><span class="pill planned">S</span></span></td><td>A screen over the existing <code>exceptions</code> table: what the system proposed, the evidence (the document, highlighted), its confidence, and Accept / Edit / Reject. Grouped by PM, with counts on the dashboard.</td><td>This is what lets automation act alone on the clear cases: the unclear ones have somewhere to go.</td></tr>
-      <tr><td><span class="rk"><span class="rid">B4</span>AI gateway</span><span class="tags"><span class="pill live">High</span><span class="pill planned">S</span></span></td><td>One server module (grown from <code>lib/assistant</code>) through which every model call passes: model choice per task, prompt caching, structured outputs validated against a schema, cost and latency logged per task, retries and fallbacks, and the per-task test sets.</td><td>One place to see spend, swap models and prove quality. No model call is scattered through the code.</td></tr>
+      <tr><td><span class="rk"><span class="rid">B3</span>Exceptions queue screen</span><span class="tags"><span class="pill live">Built</span></span></td><td>The <strong>Exceptions</strong> screen (chapter 10): what the reader proposed, the evidence, the confidence, Accept / Reject on each row and for all, the document linked, acknowledge / dismiss / resolve. Next: grouping by PM and a count on the dashboard.</td><td>This is what lets automation act alone on the clear cases: the unclear ones have somewhere to go.</td></tr>
+      <tr><td><span class="rk"><span class="rid">B4</span>AI gateway</span><span class="tags"><span class="pill partial">Partly built</span></span></td><td><code>lib/ai/model.ts</code> is the one module the automation jobs call: model and effort per deployment, prompt caching, fallbacks, retries, JSON answers validated against the form's own types, tokens logged per job. Still to come: model choice per task, and the per-task test sets.</td><td>One place to see spend, swap models and prove quality. No model call is scattered through the code.</td></tr>
       <tr><td><span class="rk"><span class="rid">B5</span>Communications hub</span><span class="tags"><span class="pill live">High</span><span class="pill planned">M</span></span></td><td>SMS (e.g. Twilio) beside the existing email and push, with templates, consent and quiet hours in one place, and two-way SMS threaded into the project chat and the contact's activity log.</td><td>Most homeowner and lead contact happens by text. Speed-to-lead, reminders and the homeowner copilot all need it.</td></tr>
     </tbody>
   </table>
 </section>
 
-<section class="chapter" data-no="9" data-title="Documents and stage completion">
-  <span class="mk">@@C9@@</span>
-  <div class="kicker">Chapter 9</div>
+<section class="chapter" data-no="12" data-title="Documents and stage completion">
+  <span class="mk">@@C12@@</span>
+  <div class="kicker">Chapter 12</div>
   <h1>Documents and stage completion</h1>
   <p class="lede">Most of a PM's time goes on moving information from documents into forms. Now that every stage has its attachments (chapter 2), the documents are in one place for a machine to read.</p>
 

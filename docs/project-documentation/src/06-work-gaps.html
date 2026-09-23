@@ -2,7 +2,7 @@
   <span class="mk">@@C13@@</span>
   <div class="kicker">Chapter 13</div>
   <h1>Work completed to date</h1>
-  <p class="lede">90 commits between 3 August and 22 September 2026, grouped here by what they delivered. Each module shipped with its database migration, its screens and, from the CRM onwards, an automated test suite.</p>
+  <p class="lede">93 commits between 3 August and 23 September 2026, grouped here by what they delivered. Each module shipped with its database migration, its screens and, from the CRM onwards, an automated test suite.</p>
 
   <table>
     <thead><tr><th class="w18">Dates</th><th class="w25">Delivered</th><th>Detail</th></tr></thead>
@@ -18,12 +18,13 @@
       <tr><td class="k">18 Sep</td><td>Stages &amp; deployment</td><td>The eight business contact stages, full width, any-to-any; pill-button tabs; contact owner defaults to the creator; Lost in red; deployment fixes (per-branch Neon provisioning, TLS behaviour documented).</td></tr>
       <tr><td class="k">22 Sep</td><td>Signing &amp; deals</td><td>Contract signed opens the system form; signing creates the project and holds the contact; admin project delete; signing fix for databases with the first version; Deals board full width, then the project stages, live with Pipeline; sales reps see their deals' projects.</td></tr>
       <tr><td class="k">22 Sep</td><td>Attachments, e-signature, assistant</td><td>Stage attachments replace Drive Updated (and a fix for stage-form uploads); PandaDoc e-signature for contracts and change orders with a change-order panel; sales reps can choose a dealer; Ask SolarFlow, the AI assistant.</td></tr>
+      <tr><td class="k">23 Sep</td><td>Stage fields, notifications, AI automation</td><td>The solar facts every stage turns on, as typed columns and report fields (004600); the notification system — a catalogue of 55 kinds, feeds for every role, email and push, quiet hours, timed rules, an admin screen with a switch on each, and the scheduled job wired into <code>vercel.json</code> (004700); the AI automation — document reader with suggestions and evidence, the exceptions queue screen, evidence-based auto-advance, reply drafts with optional auto-send, the morning briefing, and Admin → AI automation (004800).</td></tr>
     </tbody>
   </table>
 
   <h2>Quality work that shipped alongside</h2>
   <ul>
-    <li><strong>Test suites:</strong> RLS matrix and auth flows (SQL); end-to-end suites for the CRM foundation, people, deals, contact intake, contact stages, migration apply, every "database behind" state, the signing upgrade path, stage attachments, e-signature against a PandaDoc stand-in, the assistant against a Claude API stand-in, and real-browser passes for signing, the hold, deletion, live boards, sending a contract and the assistant panel; 67 unit tests.</li>
+    <li><strong>Test suites:</strong> RLS matrix and auth flows (SQL); end-to-end suites for the CRM foundation, people, deals, contact intake, contact stages, migration apply, every "database behind" state, the signing upgrade path, stage attachments, e-signature against a PandaDoc stand-in, the assistant against a Claude API stand-in, the notification catalogue end to end, the AI automation against the same stand-in (reading, accepting, auto-apply, mismatches, auto-advance, drafts, auto-send, briefings, switches), and real-browser passes for signing, the hold, deletion, live boards, sending a contract and the assistant panel; 67 unit tests.</li>
     <li><strong>Diagnosability:</strong> health endpoint, drift-aware screens, errors in PostgreSQL's own words, a branch fingerprint to confirm which database a deployment talks to.</li>
     <li><strong>Documentation:</strong> README, auth design, RLS matrix, mobile store submission guide, deployment guide, and this document.</li>
   </ul>
@@ -39,11 +40,12 @@
   <table>
     <thead><tr><th class="w25">Item</th><th>What to do</th><th class="w12">Effort</th></tr></thead>
     <tbody>
-      <tr><td class="k">Scheduled jobs are not scheduled</td><td>Add a cron entry for <code>/api/push/reminders</code> and set <code>CRON_SECRET</code>. Note: on Vercel's Hobby plan a cron can run at most once a day; the reminders and quiet-hours flush want hourly, so use Vercel Pro, a GitHub Actions schedule, or an external scheduler calling the endpoint with the secret.</td><td>Hours</td></tr>
+      <tr><td class="k">Set <code>CRON_SECRET</code> and confirm the cron</td><td><code>vercel.json</code> now schedules <code>/api/push/reminders</code> every ten minutes; it runs only once <code>CRON_SECRET</code> is set in Vercel (Sensitive). On the Hobby plan a cron may run once a day at most and the deployment refuses a faster schedule — use Vercel Pro, or change the schedule to daily and have GitHub Actions or an outside scheduler call the endpoint every ten minutes with <code>Authorization: Bearer &lt;secret&gt;</code>.</td><td>Minutes</td></tr>
       <tr><td class="k">Neon ↔ Vercel integration</td><td>The integration's per-deployment branch step has failed deployments. Protect the branch holding the live data (set it as default), disconnect the integration, set <code>DATABASE_URL</code> (pooled, marked Sensitive) by hand, and rotate the database password that was exposed. See <code>docs/deployment.md</code>.</td><td>Hours</td></tr>
       <tr><td class="k">Confirm the live database branch</td><td>The data was found on a Vercel-created preview branch, not <code>main</code>. Confirm with the query in the deployment guide, and make that branch the production default before anything else changes.</td><td>Minutes</td></tr>
       <tr><td class="k">Backups</td><td>The Neon free plan keeps 6 hours of history. Move to a paid plan for days-long point-in-time restore, and add a scheduled off-site dump.</td><td>Hours</td></tr>
-      <tr><td class="k">Environment variables</td><td>Confirm in Vercel: <code>SMTP_*</code> and <code>EMAIL_FROM</code> (all email), <code>VAPID_*</code> (push), <code>NEXT_PUBLIC_SITE_URL</code> (links in emails), <code>CRON_SECRET</code>. Without SMTP, invites, recovery and rating emails fail with a clear error.</td><td>Minutes</td></tr>
+      <tr><td class="k">Environment variables</td><td>Confirm in Vercel: <code>SMTP_*</code> and <code>EMAIL_FROM</code> (every email, now including 55 notification kinds and the briefing), <code>VAPID_*</code> (push), <code>NEXT_PUBLIC_SITE_URL</code> (links in emails), <code>CRON_SECRET</code>, <code>ANTHROPIC_API_KEY</code> (assistant and automation), <code>PANDADOC_*</code>. Without SMTP, every email fails with a clear error and the notification row records it.</td><td>Minutes</td></tr>
+      <tr><td class="k">Apply migrations 004600–004800</td><td>Admin → Database → Apply. Until then the stage forms lack the new fields, nothing is notified and the automation is off; every screen says so rather than failing.</td><td>Minutes</td></tr>
     </tbody>
   </table>
 
@@ -59,8 +61,10 @@
       <tr><td class="k">Returning customers</td><td>A completed project still holds its contact in Contract signed; a second sale needs the rule relaxed for complete/cancelled projects.</td><td><span class="pill planned">Decision</span></td></tr>
       <tr><td class="k">Earlier signed contacts</td><td>Contacts signed before automatic project creation have no project; convert them from the Deals table.</td><td><span class="pill partial">One-off</span></td></tr>
       <tr><td class="k">SMS</td><td>The activity log knows the "sms" kind but nothing sends or receives SMS.</td><td><span class="pill gap">Gap</span></td></tr>
-      <tr><td class="k">E-signature</td><td>Built (M27). Needs the PandaDoc API key, the two templates and the webhook set up (chapter 14 of the blueprint document).</td><td><span class="pill partial">Set up</span></td></tr>
-      <tr><td class="k">Ask SolarFlow</td><td>Built (M28). Needs <code>ANTHROPIC_API_KEY</code>; answers only — it cannot yet take actions.</td><td><span class="pill partial">Set up</span></td></tr>
+      <tr><td class="k">E-signature</td><td>Built (M27). Needs the PandaDoc API key, the two templates and the webhook set up (chapter 5 of the blueprint document).</td><td><span class="pill partial">Set up</span></td></tr>
+      <tr><td class="k">Ask SolarFlow</td><td>Built (M28). Needs <code>ANTHROPIC_API_KEY</code>; answers only — it cannot yet take actions on request (the blueprint's O1).</td><td><span class="pill partial">Set up</span></td></tr>
+      <tr><td class="k">AI automation</td><td>Built (M30). Needs the same key. Auto-apply, auto-advance and auto-send are off until an admin turns them on after reviewing a week of suggestions and drafts in the exceptions queue.</td><td><span class="pill partial">Set up · tune</span></td></tr>
+      <tr><td class="k">Document reader coverage</td><td>Reads PDFs and JPEG/PNG/WebP photos up to the API's limits; HEIC photos from iPhones are skipped (the job says so) until a conversion step is added.</td><td><span class="pill gap">Gap</span></td></tr>
       <tr><td class="k">External integrations</td><td>No connections yet to utilities, permitting portals, lenders, design tools, distributors or monitoring platforms.</td><td><span class="pill gap">Gap</span></td></tr>
       <tr><td class="k">Staff two-factor sign-in</td><td>Passwords with lockout only; admins and ops should have a second factor.</td><td><span class="pill gap">Gap</span></td></tr>
       <tr><td class="k">Continuous integration</td><td>The test suites run by hand; add a GitHub Actions workflow with a Postgres service to run them on every push. The browser suite needs <code>playwright-core</code> added as a dev dependency.</td><td><span class="pill gap">Gap</span></td></tr>

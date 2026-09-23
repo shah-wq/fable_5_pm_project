@@ -25,14 +25,14 @@
     <thead><tr><th class="w22">Automation</th><th>Trigger → action</th><th class="w25">Removes</th></tr></thead>
     <tbody>
       <tr><td class="k">Survey auto-scheduling</td><td>Project created → offer the homeowner open surveyor slots (<code>availability_slots</code>); confirmation books it and fills the survey date.</td><td>Scheduling calls</td></tr>
-      <tr><td class="k">Evidence-based auto-advance</td><td>When every required field and photo of a stage is present and valid, the project advances on its own through the existing validation.</td><td>Pressing Advance</td></tr>
+      <tr><td class="k">Evidence-based auto-advance <span class="pill live">Built</span></td><td>When every required field and attachment of a stage is present and valid, the project advances on its own through the existing validation, per stage the admin allows (Admin → AI automation). Next: prove the milestone from the document as well as the form.</td><td>Pressing Advance</td></tr>
       <tr><td class="k">Design hand-off</td><td>Survey complete → design request sent to the designer queue or design partner; the partner's delivery webhook fills Designs Received and files the plan set.</td><td>Chasing designs</td></tr>
       <tr><td class="k">Permit &amp; interconnection tracking</td><td>Portal notification emails and APIs (e.g. SolarAPP+ where the jurisdiction uses it, PowerClerk-style utility portals) → statuses and dates written to the permit tracks, with <code>permit_events</code> history.</td><td>Logging in to portals daily</td></tr>
       <tr><td class="k">Purchase orders</td><td>Permits approved → purchase order to the distributor from the bill of materials; shipment tracking → Material delivered.</td><td>Ordering, tracking</td></tr>
       <tr><td class="k">Install scheduling</td><td>Material delivered → the job is placed on the crew calendar by capacity, travel and weather; homeowner confirms in the app; day-of ETA message.</td><td>Crew scheduling</td></tr>
       <tr><td class="k">Inspection scheduling</td><td>Install complete → inspection request to the jurisdiction; a failure opens a correction task from the failure notes.</td><td>Follow-up admin</td></tr>
       <tr><td class="k">Monitoring &amp; energization</td><td>Monitoring platform API (e.g. Enphase, SolarEdge, Tesla) reports first production → energization date filled, "power on" sent, production checked at 7 and 30 days.</td><td>Manual activation checks</td></tr>
-      <tr><td class="k">Delay alerts</td><td>A stage passes its ageing threshold → the PM and manager are alerted and the homeowner gets a proactive "this is taking longer" note.</td><td>Surprise escalations</td></tr>
+      <tr><td class="k">Delay alerts <span class="pill partial">Built for the PM</span></td><td>A stage passes its ageing threshold → the PM is notified once per stage (M29); a permit nearing expiry and an unready install likewise. Next: the homeowner's proactive "this is taking longer" note.</td><td>Surprise escalations</td></tr>
     </tbody>
   </table>
 
@@ -70,7 +70,7 @@
       <tr><td class="k">Utility-bill reader</td><td>Photo or PDF of the bill → utility, rate plan, monthly and annual kWh, average bill: written to the deal's typed usage fields.</td><td>Acts; low confidence → exceptions</td></tr>
       <tr><td class="k">Instant preliminary design</td><td>Address + usage → roof segments, module count, system size, estimated production and offset → a draft proposal version.</td><td>Drafts; rep approves</td></tr>
       <tr><td class="k">Quote &amp; adders</td><td>Survey facts + price book + adder rules → line items (e.g. main panel upgrade) with <code>source = 'ai'</code>.</td><td>Drafts; approval over threshold</td></tr>
-      <tr><td class="k">Homeowner copilot</td><td>Answers status questions 24/7 in chat from the plain-language status and typical durations; drafts PM replies for anything else; always discloses it is automated.</td><td>Acts on routine; drafts the rest</td></tr>
+      <tr><td class="k">Homeowner copilot <span class="pill live">Built</span></td><td>Drafts the PM's reply from the project's facts; with auto-send on, answers routine questions itself, signed as automatic; money, cancellations and complaints always go to a person (M30).</td><td>Drafts; acts on routine when allowed</td></tr>
       <tr><td class="k">Conversation summaries</td><td>Calls, chats and emails → a short summary and next action in the activity log.</td><td>Acts</td></tr>
       <tr><td class="k">Cancellation-risk signal</td><td>Ratings, chat sentiment, delays and response times → a risk score that triggers proactive outreach before a cancellation.</td><td>Alerts</td></tr>
     </tbody>
@@ -81,7 +81,7 @@
     <thead><tr><th class="w22">Capability</th><th>What the AI does → where it lands</th><th class="w18">Autonomy target</th></tr></thead>
     <tbody>
       <tr><td class="k">Survey photo QA</td><td>Checks every required shot (roof planes, attic, main panel, meter, service drop) is present and legible; spots panel-upgrade or roof-condition issues → adders and a survey pass/fail.</td><td>Acts; failures to PM</td></tr>
-      <tr><td class="k">Document classification</td><td>Every upload is recognised and filed in the right category (bill front/back, panel, meter, agreement, plan set, permit).</td><td>Acts</td></tr>
+      <tr><td class="k">Document reading <span class="pill live">Built</span></td><td>Every stage attachment is read into the stage's fields with evidence and a confidence, and a file that is not what it was filed as is flagged (M30). Next: refile mislabelled uploads automatically, and read the utility bill on the deal.</td><td>Proposes; acts above the threshold when allowed</td></tr>
       <tr><td class="k">Plan-set pre-check</td><td>Reads the plan set against the jurisdiction's requirements and common code items (e.g. NEC 690/705, rapid shutdown, fire setbacks, labelling) before submission → a list of likely rejections.</td><td>Advises; engineer decides</td></tr>
       <tr><td class="k">Permit packet assembly</td><td>Collects plans, spec sheets, forms and signatures required by the jurisdiction and utility into a submission-ready packet.</td><td>Drafts; PM submits → later acts</td></tr>
       <tr><td class="k">Portal &amp; inbox monitor</td><td>Reads permit, interconnection and utility emails and portals → updates statuses, dates and revision notes; drafts responses to revision requests.</td><td>Acts; revisions to PM</td></tr>
@@ -95,7 +95,8 @@
   <table>
     <thead><tr><th class="w22">Capability</th><th>What the AI does → where it lands</th><th class="w18">Autonomy target</th></tr></thead>
     <tbody>
-      <tr><td class="k">Ask the data</td><td>"Installs by dealer last quarter" → a report definition for the existing builder. Safe by design: the builder takes JSON over whitelisted fields, never SQL.</td><td>Acts</td></tr>
+      <tr><td class="k">Ask the data <span class="pill live">Built</span></td><td>Ask SolarFlow's <code>run_report</code> tool: "installs by dealer last quarter" becomes a report definition for the existing builder. Safe by design: JSON over whitelisted fields, never SQL.</td><td>Acts</td></tr>
+      <tr><td class="k">Morning briefing <span class="pill live">Built</span></td><td>Each PM's day written from the PM report at the chosen hour, under their own permissions (M30).</td><td>Acts</td></tr>
       <tr><td class="k">Commission &amp; payment checks</td><td>Flags commissions, milestones and invoices that do not match contract terms.</td><td>Alerts</td></tr>
       <tr><td class="k">Duplicate &amp; data-quality review</td><td>Suggests merges and corrections with a confidence score; high-confidence cases merge automatically.</td><td>Acts above threshold</td></tr>
       <tr><td class="k">Self-review</td><td>The AI rates its own stage work into <code>stage_feedback</code> with <code>source = 'ai'</code>, so quality can be tracked over time.</td><td>Acts</td></tr>
@@ -133,10 +134,10 @@
   <table>
     <thead><tr><th class="w18">Phase</th><th class="w14">When</th><th>Scope</th></tr></thead>
     <tbody>
-      <tr><td class="k">0 · Switch on</td><td>Weeks 0–2</td><td>Schedule the reminders job; fix the database hosting (integration, default branch, backups, rotated password); confirm email and push configuration; add CI for the test suites; fit the Pipeline board to the screen.</td></tr>
+      <tr><td class="k">0 · Switch on</td><td>Weeks 0–2</td><td>Set <code>CRON_SECRET</code> (the job is scheduled); apply 004600–004800; fix the database hosting (integration, default branch, backups, rotated password); confirm email and push configuration; review a week of AI suggestions and drafts, then turn on auto-apply, auto-advance for Inspection &amp; PTO and Permits, and auto-send; add CI for the test suites; fit the Pipeline board to the screen.</td></tr>
       <tr><td class="k">1 · Connect</td><td>Months 1–2</td><td>SMS provider; self-booking calendar; speed-to-lead sequence; e-signature (built — switch on); lender status sync; monitoring platform API; report schedule runner; staff two-factor sign-in.</td></tr>
-      <tr><td class="k">2 · AI drafts (L2)</td><td>Months 2–4</td><td>Utility-bill reader; document classification; conversation summaries; homeowner copilot drafting replies; survey and install photo QA flags; preliminary design drafts.</td></tr>
-      <tr><td class="k">3 · AI acts (L3)</td><td>Months 4–8</td><td>Copilot answers routine status questions itself; permit/interconnection monitoring writes statuses; survey auto-scheduling; evidence-based auto-advance; adders and quotes below a price limit; cancellation-risk outreach.</td></tr>
+      <tr><td class="k">2 · AI drafts (L2)</td><td>Months 2–4</td><td>Utility-bill reader on the deal; refiling mislabelled uploads; conversation summaries; survey and install photo QA flags; preliminary design drafts. (Document reading and reply drafting are built.)</td></tr>
+      <tr><td class="k">3 · AI acts (L3)</td><td>Months 4–8</td><td>Permit/interconnection monitoring writes statuses; survey auto-scheduling; adders and quotes below a price limit; cancellation-risk outreach; Ask SolarFlow acting with a confirm. (Auto-advance and auto-send are built; switching them on is a decision, not a project.)</td></tr>
       <tr><td class="k">4 · Near zero-touch (L4)</td><td>Months 8–12</td><td>AI appointment setter; permit packet submission where portals allow; purchase orders; install scheduling optimisation; forecasting; auto-merge of high-confidence duplicates.</td></tr>
     </tbody>
   </table>
